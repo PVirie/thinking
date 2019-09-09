@@ -6,13 +6,17 @@ class Intellectual_being:
         self.device = torch.device(config["device"])
         self.location_size = config["location_size"]
         self.intention_size = config["intention_size"]
+        self.num_levels = config["num_levels"]
         self.canvas_size = config["canvas_size"]
         self.attention_size = config["attention_size"]
 
         self.L = torch.empty(self.location_size, device=self.device, dtype=torch.float)
         self.I = torch.empty(self.intention_size, device=self.device, dtype=torch.float)
-        self.V = torch.empty(self.attention_size, device=self.device, dtype=torch.float)
-        self.K = torch.empty(self.attention_size, device=self.device, dtype=torch.float)
+        self.V = []
+        self.K = []
+        for l in range(self.num_levels):
+            self.V.append(torch.empty(self.attention_size, device=self.device, dtype=torch.float))
+            self.K.append(torch.empty(self.attention_size, device=self.device, dtype=torch.float))
 
         self.a = torch.empty(self.canvas_size, device=self.device, dtype=torch.float)
         self.v = torch.empty(self.canvas_size, device=self.device, dtype=torch.float)
@@ -53,9 +57,9 @@ class Intellectual_being:
         #     self.value_size + self.constraint_size,
         #     device=self.device, dtype=torch.float)
 
-    def set_goal(self, V, K):
-        self.V.copy_(V)
-        self.K.copy_(K)
+    def set_goal(self, V, K, level):
+        self.V[level].copy_(V)
+        self.K[level].copy_(K)
 
     def feed_external(self, v, k):
         self.v.copy_(v)
@@ -70,13 +74,15 @@ if __name__ == '__main__':
         "device": "cpu",
         "location_size": 32,
         "intention_size": 16,
+        "num_levels": 2,
         "canvas_size": 512,
         "attention_size": 32
     }
     model = Intellectual_being(test_config)
     model.set_goal(
         torch.rand(test_config["attention_size"], device=torch.device("cpu")),
-        torch.rand(test_config["attention_size"], device=torch.device("cpu")))
+        torch.rand(test_config["attention_size"], device=torch.device("cpu")),
+        1)
     model.feed_external(
         torch.rand(test_config["canvas_size"], device=torch.device("cpu")),
         torch.rand(test_config["canvas_size"], device=torch.device("cpu")))
