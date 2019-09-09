@@ -1,0 +1,9 @@
+# general options
+device: cuda:0
+
+
+# model options
+location_size: 32
+intention_size: 16  
+canvas_size: 512
+attention_size: 32
