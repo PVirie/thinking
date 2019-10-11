@@ -5,8 +5,6 @@ import shutil
 import yaml
 import utilities as util
 
-import model
-import world
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 config_path = os.path.join(dir_path, "..", "configurations")
@@ -23,3 +21,4 @@ def get_config(config):
 
 if __name__ == '__main__':
     config = get_config("prototype.yaml")
+    print(config)

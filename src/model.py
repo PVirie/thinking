@@ -1,88 +1,73 @@
-import torch
+import embed
 
 
-class Intellectual_being:
+class Working_memory:
+    def __init__(self):
+        pass
+
+    def __setitem__(self, h, vk):
+        print(h, vk)
+        pass
+
+    def __getitem__(self, h):
+        pass
+
+
+class Mind:
     def __init__(self, config):
-        self.device = torch.device(config["device"])
-        self.location_size = config["location_size"]
-        self.intention_size = config["intention_size"]
-        self.num_levels = config["num_levels"]
-        self.canvas_size = config["canvas_size"]
-        self.attention_size = config["attention_size"]
 
-        self.L = torch.empty(self.location_size, device=self.device, dtype=torch.float)
-        self.I = torch.empty(self.intention_size, device=self.device, dtype=torch.float)
-        self.V = []
-        self.K = []
-        for l in range(self.num_levels):
-            self.V.append(torch.empty(self.attention_size, device=self.device, dtype=torch.float))
-            self.K.append(torch.empty(self.attention_size, device=self.device, dtype=torch.float))
+        self.VKs = Working_memory()
+        self.embedding = embed.Cortex()
+        self.actions = [self.project_reward_ext, self.project_reward_VK, self.project_reward_L]
 
-        self.a = torch.empty(self.canvas_size, device=self.device, dtype=torch.float)
-        self.v = torch.empty(self.canvas_size, device=self.device, dtype=torch.float)
-        self.k = torch.empty(self.canvas_size, device=self.device, dtype=torch.float)
+        self.tick_count = 0
 
-        self.avk_L = torch.empty(
-            self.attention_size + self.attention_size,
-            self.location_size,
-            device=self.device, dtype=torch.float)
+    def get_thoughts(self):
+        return self.embedding.project(self.VKs)
 
-        self.IL_dvk = torch.empty(
-            self.intention_size + self.location_size,
-            self.attention_size + self.attention_size,
-            device=self.device, dtype=torch.float)
-        self.IL_da = torch.empty(
-            self.intention_size + self.location_size,
-            self.canvas_size,
-            device=self.device, dtype=torch.float)
-        # No need for binary classification, just do it.
-        # self.IL_x = torch.empty(
-        #     self.intention_size + self.location_size,
-        #     1,
-        #     device=self.device, dtype=torch.float)
-        self.IL_dl = torch.empty(
-            self.intention_size + self.location_size,
-            self.location_size,
-            device=self.device, dtype=torch.float)
+    def tick(self):
+        I, r = self.choose_action()
+        self.perform_action(I)
+        self.tick_count = self.tick_count + 1
 
-        # Deterministics, no need to learn
-        # self.LVK_I = torch.empty(
-        #     self.location_size + self.value_size + self.constraint_size,
-        #     self.intention_size,
-        #     device=self.device, dtype=torch.float)
+    def choose_action(self):
 
-        # Deterministics, no need to learn
-        # self.LVK_VK = torch.empty(
-        #     self.location_size + self.value_size + self.constraint_size,
-        #     self.value_size + self.constraint_size,
-        #     device=self.device, dtype=torch.float)
+        Irs = [f() for f in self.actions]
 
-    def set_goal(self, V, K, level):
-        self.V[level].copy_(V)
-        self.K[level].copy_(K)
+        I_b = None
+        r_b = 0
+        for I, r in Irs:
+            if r > r_b:
+                I_b = I
+                r_b = r
 
-    def feed_external(self, v, k):
-        self.v.copy_(v)
-        self.k.copy_(k)
+        return I_b, r_b
 
-    def update(self, world):
+    def perform_action(self, I):
+        if I["type"] == "ext":
+            self.VKs[0] = self.embedding.feed()
+        else:
+            g = I["match"]
+            h = I["level"]
+            self.VKs[h] = I["vk"]
+
+            self.build_hierarchy(g, h)
+
+    def project_reward_ext(self):
+        return {"type": "ext"}, 0
+
+    def project_reward_VK(self):
+        return {"type": "VK", "match": 1.0, "level": self.tick_count, "vk": "Test_vk"}, 1
+
+    def project_reward_L(self):
+        return {"type": "L", "match": 1.0, "level": 2, "vk": "Test_vk"}, 0
+
+    def build_hierarchy(self, g, h):
         pass
 
 
 if __name__ == '__main__':
     test_config = {
-        "device": "cpu",
-        "location_size": 32,
-        "intention_size": 16,
-        "num_levels": 2,
-        "canvas_size": 512,
-        "attention_size": 32
     }
-    model = Intellectual_being(test_config)
-    model.set_goal(
-        torch.rand(test_config["attention_size"], device=torch.device("cpu")),
-        torch.rand(test_config["attention_size"], device=torch.device("cpu")),
-        1)
-    model.feed_external(
-        torch.rand(test_config["canvas_size"], device=torch.device("cpu")),
-        torch.rand(test_config["canvas_size"], device=torch.device("cpu")))
+    mind = Mind(test_config)
+    mind.tick()
