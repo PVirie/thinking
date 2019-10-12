@@ -1,4 +1,4 @@
-# endeavour
+# Thinking model
 An implementation of thinking model version XXIV (codename: duality).
 
 
