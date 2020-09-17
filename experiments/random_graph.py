@@ -96,7 +96,7 @@ if __name__ == '__main__':
     stats = []
     for i in range(10000):
         size = 20
-        g = random_graph(size, 0.2)
+        g = random_graph(size, 0.1)
         o, i = node_degrees(g)
         d = o + i
         prop.extend(d)
