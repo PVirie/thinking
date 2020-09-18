@@ -20,7 +20,8 @@ def build_layer_basic(graph):
 
 
 def build_layer_strategy_A(graph):
-
+	print("building another layer with strategy A.")
+	
     out_going, in_coming = node_degrees(graph)
     degrees = out_going + in_coming
     pivots = np.arange(graph.shape[0])[degrees > np.mean(degrees)/2]
@@ -40,24 +41,22 @@ def build_layer_strategy_A(graph):
     step = 1000
     step_size = inf/1000
     trace = []
-    max_trace = graph.shape[0]//4
     for i in range(step):
     	path = random_path(graph, random.randint(graph.shape[0]), graph.shape[0])
     	pv_index = None
     	for v in path:
+    		estimand[trace , v] = estimand[trace , v] - step_size    		
     		# check if one of the pivots
     		v_index = encoder[v]
     		if v_index >= 0:
-
     			# link pivot graph
     			if pv_index is not None:
     				pivot_graph[pv_index , v_index] = 1 # this is for 0, 1 graph only
     			pv_index = v_index
+    			# also if we found a pivot, clear trace
+	    		trace.clear()
 
-    		estimand[trace , n] = estimand[trace , n] - step_size
-    		trace.append(n)
-    		if len(trace) > max_trace:
-    			trace.pop(0)
+    		trace.append(v)
 
     est_pivots = estimand[pivots, :] + np.transpose(estimand)[pivots, :] 
 	encoder = np.argmin(est_pivots, axis=0)

@@ -60,7 +60,7 @@ def random_path(graph, s, max_steps):
         candidates = indices[np.logical_and((graph[c, :] > 0), unvisited)]
         if candidates.shape[0] == 0:
             return path
-        candidate_weights = graph[c, candidates] 
+        candidate_weights = 1.0 / graph[c, candidates] # simple PDF 
         c = np.random.choice(candidates, 1, p=candidate_weights/np.sum(candidate_weights))[0]
     return path
 
