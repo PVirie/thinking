@@ -3,48 +3,67 @@ Hypothesis: cognitive maps allow the discovery of competitive min-cost paths.
 '''
 import numpy as np
 from random_graph import *
+import random
 
 
-def propagate(graph):
-    for j in range(2):
-        print(">", graph)
-        temp = []
-        for i in range(graph.shape[0]):
-            r = np.copy(graph[i, :])
-            r[i] = 0
-            h = np.copy(graph[i, :])
-            h[i] = 1
-            temp.append(np.amin((np.reshape(r, [-1, 1]) + graph)[h > 0, :], axis=0))
-        graph = np.stack(temp, axis=0)
-    print(">", graph)
+def build_estimate_and_seed_graph(graph, seed):
+    pass
 
 
 def build_layer_basic(graph):
     encoder = np.arange(graph.shape[0])
     decoder = np.arange(graph.shape[0])
     graph = graph
-    top = build_layer_strategy_A(graph)
-    pivots = top.decode(top.get_all_vertices())
+    top, estimate = build_layer_strategy_A(graph)
 
-    estimate = graph
-    # p = self.indices[np.argmin(self.estimate[self.map[s], :])]
-
-    return Layer(encoder, decoder, graph, estimate, top)
+    return Layer(encoder, decoder, graph, estimate, top), None
 
 
 def build_layer_strategy_A(graph):
 
     out_going, in_coming = node_degrees(graph)
     degrees = out_going + in_coming
+    pivots = np.arange(graph.shape[0])[degrees > np.mean(degrees)/2]
+    decoder = pivots
 
-    encoder = np.arange(graph.shape[0])
-    decoder = np.arange(graph.shape[0])
-    graph = graph
-    top = Layer(graph)
-    pivots = top.decode(top.get_all_vertices())
-    estimate = graph
+    # initialize pivot graph
+    pivot_graph = np.zeros([pivots.shape[0], pivots.shape[0]], dtype=np.float32)
 
-    return Layer(encoder, decoder, graph, estimate, top)
+    # initialize encoder
+    encoder = np.ones(graph.shape[0]) * -1
+    encoder[pivots] = np.arange(pivots.shape[0]) # encoder is not complete 
+
+    # initialize estimand
+    inf = graph.shape[0] * 2
+    estimand = np.ones_like(graph) * inf
+
+    step = 1000
+    step_size = inf/1000
+    trace = []
+    max_trace = graph.shape[0]//4
+    for i in range(step):
+    	path = random_path(graph, random.randint(graph.shape[0]), graph.shape[0])
+    	pv_index = None
+    	for v in path:
+    		# check if one of the pivots
+    		v_index = encoder[v]
+    		if v_index >= 0:
+
+    			# link pivot graph
+    			if pv_index is not None:
+    				pivot_graph[pv_index , v_index] = 1 # this is for 0, 1 graph only
+    			pv_index = v_index
+
+    		estimand[trace , n] = estimand[trace , n] - step_size
+    		trace.append(n)
+    		if len(trace) > max_trace:
+    			trace.pop(0)
+
+    est_pivots = estimand[pivots, :] + np.transpose(estimand)[pivots, :] 
+	encoder = np.argmin(est_pivots, axis=0)
+
+    top, estimate = build_layer_strategy_A(pivot_graph)
+    return Layer(encoder, decoder, pivot_graph, estimate, top), estimand
 
 class Layer:
 
@@ -104,7 +123,7 @@ class Cognitive_map:
         pass
 
     def __build_hierarchy(self, graph):
-        self.base_hierarchy = build_layer_basic(graph)
+        self.base_hierarchy, _ = build_layer_basic(graph)
 
     def find_path(self, s, t):
         path = self.base_hierarchy.find_path(s, t)
@@ -114,5 +133,5 @@ class Cognitive_map:
 if __name__ == '__main__':
     # cognitive_map = Cognitive_map()
 
-    g = random_graph(4, 0.3)
-    propagate(g)
+    # g = random_graph(20, 0.3)
+    print(np.where(np.arange(10) == 9))
