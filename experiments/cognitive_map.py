@@ -14,10 +14,9 @@ def build_estimate_and_seed_graph(graph, seed):
 def build_layer_basic(graph):
     encoder = np.arange(graph.shape[0], dtype=np.int32)
     decoder = np.arange(graph.shape[0], dtype=np.int32)
-    graph = graph
     top, estimate = build_layer_strategy_A(graph)
 
-    return Layer(encoder, encoder, decoder, graph, estimate, top), None
+    return Layer(encoder, encoder, decoder, Graph(graph, estimate), top), None
 
 
 def build_layer_strategy_A(graph):
@@ -35,7 +34,7 @@ def build_layer_strategy_A(graph):
 
         step = 1000
         for i in range(step):
-            path = random_path(graph, random.randint(0, graph.shape[0]-1), graph.shape[0]-1)
+            path = random_path(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
             last_v = None
             trace = []
             trace_cost = []
@@ -43,7 +42,7 @@ def build_layer_strategy_A(graph):
                 if len(trace) > 0:
                     new_cost = graph[last_v, v]
                     trace_cost = [trace_cost[k] + new_cost for k in range(len(trace_cost))]
-                    estimand[trace , v] = np.minimum(estimand[trace, v], np.array(trace_cost))
+                    estimand[trace, v] = np.minimum(estimand[trace, v], np.array(trace_cost))
 
                 trace.append(v)
                 trace_cost.append(0)
@@ -68,7 +67,7 @@ def build_layer_strategy_A(graph):
 
     step = 1000
     for i in range(step):
-        path = random_path(graph, random.randint(0, graph.shape[0]-1), graph.shape[0]-1)
+        path = random_path(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
         pv_index = None
         last_v = None
         trace = []
@@ -77,13 +76,13 @@ def build_layer_strategy_A(graph):
             if len(trace) > 0:
                 new_cost = graph[last_v, v]
                 trace_cost = [trace_cost[k] + new_cost for k in range(len(trace_cost))]
-                estimand[trace , v] = np.minimum(estimand[trace, v], np.array(trace_cost))           
+                estimand[trace, v] = np.minimum(estimand[trace, v], np.array(trace_cost))
             # check if one of the pivots
             if v in encoder:
                 v_index = encoder[v]
                 # link pivot graph
                 if pv_index is not None:
-                    pivot_graph[pv_index, v_index] = 1 # this is for 0, 1 graph only
+                    pivot_graph[pv_index, v_index] = 1  # this is for 0, 1 graph only
                 pv_index = v_index
                 # also if we found a pivot, clear trace
                 trace.clear()
@@ -97,18 +96,34 @@ def build_layer_strategy_A(graph):
     backward_encoder = np.argmin(estimand[pivots, :], axis=0)
 
     top, estimate = build_layer_strategy_A(pivot_graph)
-    return Layer(forward_encoder, backward_encoder, decoder, pivot_graph, estimate, top), estimand
+    return Layer(forward_encoder, backward_encoder, decoder, Graph(pivot_graph, estimate), top), estimand
+
+
+class Graph:
+    def __init__(self, adj_matrix, estimate):
+        self.adj_matrix = adj_matrix
+        self.estimate = estimate
+        self.indices = np.arange(self.adj_matrix.shape[0], dtype=np.int32)
+
+    def find_path(self, c, t):
+
+        unvisited = np.ones([self.adj_matrix.shape[0]], dtype=np.bool)
+        while True:
+            if c == t:
+                break
+            unvisited[c] = False
+            neighbors = np.logical_and((self.adj_matrix[c, :] > 0), unvisited)
+            c = self.indices[neighbors][np.argmin(self.adj_matrix[c, neighbors] + self.estimate[neighbors, t])]
+            yield c
 
 class Layer:
 
-    def __init__(self, forward_encoder, backward_encoder, decoder, graph, estimate, top):
+    def __init__(self, forward_encoder, backward_encoder, decoder, graph, top):
         self.forward_encoder = forward_encoder
         self.backward_encoder = backward_encoder
         self.decoder = decoder
         self.graph = graph
-        self.estimate = estimate
         self.top = top
-        self.indices = np.arange(self.graph.shape[0], dtype=np.int32)
 
     def looking_forward_encode(self, s):
         return self.forward_encoder[s]
@@ -118,20 +133,6 @@ class Layer:
 
     def decode(self, s):
         return self.decoder[s]
-
-    def get_all_vertices(self):
-        return self.indices
-
-    def __find_path(self, c, t):
-
-        unvisited = np.ones([self.graph.shape[0]], dtype=np.bool)
-        while True:
-            if c == t:
-                break
-            unvisited[c] = False
-            neighbors = np.logical_and((self.graph[c, :] > 0), unvisited)
-            c = self.indices[neighbors][np.argmin(self.graph[c, neighbors] + self.estimate[neighbors, t])]
-            yield c
 
     def find_path(self, c, t):
         if self.top is not None:
@@ -150,7 +151,7 @@ class Layer:
             else:
                 g = t
 
-            path = self.__find_path(c, g)
+            path = self.graph.find_path(c, g)
             for c_ in path:
                 yield c_
             c = g
@@ -170,12 +171,12 @@ class Cognitive_map:
 
 
 if __name__ == '__main__':
-    
-    g = random_graph(128, 0.2)
+
+    g = random_graph(128, 0.05)
     cognitive_map = Cognitive_map()
     cognitive_map.build_hierarchy(g)
 
-    goals = random.sample(range(g.shape[0]), g.shape[0]//4)
+    goals = random.sample(range(g.shape[0]), g.shape[0] // 4)
 
     stamp = time.time()
     for t in goals:
