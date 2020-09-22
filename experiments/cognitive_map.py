@@ -7,6 +7,22 @@ import random
 import time
 
 
+def random_walk(graph, s, max_steps):
+    unvisited = np.ones([graph.shape[0]], dtype=np.bool)
+    indices = np.arange(graph.shape[0])
+    path = []
+    c = s
+    for i in range(max_steps):
+        path.append(c)
+        unvisited[c] = False
+        candidates = indices[np.logical_and((graph[c, :] > 0), unvisited)]
+        if candidates.shape[0] == 0:
+            return path
+        candidate_weights = 1.0 / graph[c, candidates]  # simple PDF
+        c = np.random.choice(candidates, 1, p=candidate_weights / np.sum(candidate_weights))[0]
+    return path
+
+
 def build_estimate_and_seed_graph(graph, seed):
     pass
 
@@ -32,9 +48,9 @@ def build_layer_strategy_A(graph):
         estimand = np.ones_like(graph) * inf
         np.fill_diagonal(estimand, 0)
 
-        step = 1000
+        step = 2000
         for i in range(step):
-            path = random_path(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
             last_v = None
             trace = []
             trace_cost = []
@@ -65,9 +81,9 @@ def build_layer_strategy_A(graph):
     estimand = np.ones_like(graph) * inf
     np.fill_diagonal(estimand, 0)
 
-    step = 1000
+    step = 2000
     for i in range(step):
-        path = random_path(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+        path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
         pv_index = None
         last_v = None
         trace = []
@@ -187,3 +203,8 @@ if __name__ == '__main__':
     for t in goals:
         print(list(reversed(shortest_path(g, 0, t))))
     print("optimal planner:", time.time() - stamp)
+
+    stamp = time.time()
+    for t in goals:
+        print(list(reversed(random_path(g, 0, t))))
+    print("random planner:", time.time() - stamp)

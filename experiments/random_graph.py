@@ -39,7 +39,6 @@ def shortest_path(graph, s, d):
         if c == d:
             if dist[d] < inf:
                 path = []
-                c = d
                 while True:
                     path.append(c)
                     if c == s:
@@ -49,20 +48,32 @@ def shortest_path(graph, s, d):
                 return []
 
 
-def random_path(graph, s, max_steps):
+def random_path(graph, s, d):
     unvisited = np.ones([graph.shape[0]], dtype=np.bool)
+    potential = np.zeros([graph.shape[0]], dtype=np.bool)
+
     indices = np.arange(graph.shape[0])
-    path = []
+    trace = np.arange(graph.shape[0], dtype=np.int32)
+
     c = s
-    for i in range(max_steps):
-        path.append(c)
+    while True:
         unvisited[c] = False
-        candidates = indices[np.logical_and((graph[c, :] > 0), unvisited)]
+        uv_neighbor = np.logical_and((graph[c, :] > 0), unvisited)
+        trace[uv_neighbor] = c
+        potential[uv_neighbor] = True
+        candidates = indices[np.logical_and(potential, unvisited)]
+
         if candidates.shape[0] == 0:
-            return path
-        candidate_weights = 1.0 / graph[c, candidates] # simple PDF 
-        c = np.random.choice(candidates, 1, p=candidate_weights/np.sum(candidate_weights))[0]
-    return path
+            return []
+        else:
+            c = np.random.choice(candidates, 1)[0]
+            if c == d:
+                path = []
+                while True:
+                    path.append(c)
+                    if c == s:
+                        return path
+                    c = trace[c]
 
 
 def histogram(stats, prop):
