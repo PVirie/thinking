@@ -85,3 +85,17 @@ Cost algebra: A* can be used on any search structure with cost that satisfies th
   year={2005}
 }
 
+
+To help define heuristics for search, one could use embedding. But embedding compromises network structure. We find a way without the need to compromise, that's to use the classic neighbor table. Embedding is good because memory space is O(V) while our table is O(V*n) where n is the size of neighbor. But the optimal planner requires we maintain the n = V. We use hierarchy to help planning, comprimise the result but saves space and searching time instead.
+
+@article{goyal2018graph,
+  title={Graph embedding techniques, applications, and performance: A survey},
+  author={Goyal, Palash and Ferrara, Emilio},
+  journal={Knowledge-Based Systems},
+  volume={151},
+  pages={78--94},
+  year={2018},
+  publisher={Elsevier}
+}
+
+
