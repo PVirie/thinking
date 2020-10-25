@@ -183,28 +183,37 @@ class Cognitive_map:
 
     def find_path(self, s, t):
         path = self.base_hierarchy.find_path(s, t)
-        print(list(path))
+        return list(path)
 
 
 if __name__ == '__main__':
 
-    g = random_graph(128, 0.05)
+    g = random_graph(128, 0.1)
     cognitive_map = Cognitive_map()
     cognitive_map.build_hierarchy(g)
 
     goals = random.sample(range(g.shape[0]), g.shape[0] // 4)
 
+    total_length = 0
     stamp = time.time()
     for t in goals:
-        cognitive_map.find_path(0, t)
-    print("hierarchy planner:", time.time() - stamp)
+        p = cognitive_map.find_path(0, t)
+        total_length = total_length + len(p)
+        print(p)
+    print("hierarchy planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
+    total_length = 0
     stamp = time.time()
     for t in goals:
-        print(list(reversed(shortest_path(g, 0, t))))
-    print("optimal planner:", time.time() - stamp)
+        p = list(reversed(shortest_path(g, 0, t)))
+        total_length = total_length + len(p)
+        print(p)
+    print("optimal planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
+    total_length = 0
     stamp = time.time()
     for t in goals:
-        print(list(reversed(random_path(g, 0, t))))
-    print("random planner:", time.time() - stamp)
+        p = list(reversed(random_path(g, 0, t)))
+        total_length = total_length + len(p)
+        print(p)
+    print("random planner:", time.time() - stamp, " average length:", total_length / len(goals))
