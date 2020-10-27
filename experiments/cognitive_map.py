@@ -35,7 +35,7 @@ def build_layer_basic(graph):
     return Layer(encoder, encoder, decoder, Graph(graph, estimate), top), None
 
 
-def build_layer_strategy_A(graph):
+def build_layer_strategy_A(graph, explore_steps=2000):
 
     out_going, in_coming = node_degrees(graph)
     degrees = out_going + in_coming
@@ -48,8 +48,7 @@ def build_layer_strategy_A(graph):
         estimand = np.ones_like(graph) * inf
         np.fill_diagonal(estimand, 0)
 
-        step = 2000
-        for i in range(step):
+        for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
             last_v = None
             trace = []
@@ -81,8 +80,7 @@ def build_layer_strategy_A(graph):
     estimand = np.ones_like(graph) * inf
     np.fill_diagonal(estimand, 0)
 
-    step = 2000
-    for i in range(step):
+    for i in range(explore_steps):
         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
         pv_index = None
         last_v = None
@@ -188,7 +186,7 @@ class Cognitive_map:
 
 if __name__ == '__main__':
 
-    g = random_graph(128, 0.1)
+    g = random_graph(256, 0.2)
     cognitive_map = Cognitive_map()
     cognitive_map.build_hierarchy(g)
 
