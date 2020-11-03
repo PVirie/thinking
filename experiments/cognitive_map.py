@@ -18,8 +18,9 @@ def random_walk(graph, s, max_steps):
         candidates = indices[np.logical_and((graph[c, :] > 0), unvisited)]
         if candidates.shape[0] == 0:
             return path
-        candidate_weights = 1.0 / graph[c, candidates]  # simple PDF
-        c = np.random.choice(candidates, 1, p=candidate_weights / np.sum(candidate_weights))[0]
+        candidate_weights = np.exp(-graph[c, candidates])  # graph contains costs
+        candidate_weights = candidate_weights / np.sum(candidate_weights)
+        c = np.random.choice(candidates, 1, p=candidate_weights)[0]
     return path
 
 
@@ -186,7 +187,7 @@ class Cognitive_map:
 
 if __name__ == '__main__':
 
-    g = random_graph(256, 0.2)
+    g = random_graph(256, 0.1)
     cognitive_map = Cognitive_map()
     cognitive_map.build_hierarchy(g)
 
