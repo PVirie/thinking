@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
     prop = []
     stats = []
-    for i in range(10000):
+    for _ in range(10000):
         size = 20
         g = random_graph(size, 0.1)
         o, i = node_degrees(g)
