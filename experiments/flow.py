@@ -16,8 +16,8 @@ class RBM:
 
     def __init__(self, num_dimensions):
         self.dim = num_dimensions
-        self.W = np.random.rand(self.dim, self.dim)
-        self.seed = np.random.rand(self.dim, 64)
+        self.W = np.random.normal(0, 0.001, [self.dim, self.dim])
+        self.seed = self.__backward(np.random.rand(self.dim, 64))
 
     def __str__(self):
         return str(self.W)
@@ -38,12 +38,12 @@ class RBM:
 
     def persistance_mc(self, sampling_steps=20):
         for i in range(sampling_steps):
-            self.seed = self.sample_visible(self.sample_hidden(self.seed))
+            self.seed = self.__backward(self.sample_hidden(self.seed))
 
-    def incrementally_learn(self, v, lr=0.001):
-        positive = np.matmul(self.sample_hidden(v), np.transpose(v))
+    def incrementally_learn(self, v, lr=0.01):
+        positive = np.matmul(self.__forward(v), np.transpose(v)) / v.shape[1]
         self.persistance_mc()
-        negative = np.matmul(self.sample_hidden(self.seed), np.transpose(self.seed))
+        negative = np.matmul(self.__forward(self.seed), np.transpose(self.seed)) / self.seed.shape[1]
         self.W = self.W + lr * (positive - negative)
 
     def coordinate_ascend(self, v):
@@ -51,21 +51,22 @@ class RBM:
 
     def compute_prop(self, v):
         '''
-        v has shape: [batch, dimension]
+        v has shape: [dimension, batch]
         '''
         all_h = generate_binary_representation(np.arange(math.pow(2, self.dim)).astype(np.int32) + 1, self.dim)
-        partition = np.sum(np.matmul(all_h, np.matmul(self.W, np.transpose(all_h))))
-        return np.sum(np.matmul(all_h, np.matmul(self.W, np.transpose(v))), axis=0) / partition
+        partition = np.sum(np.exp(np.matmul(all_h, np.matmul(self.W, np.transpose(all_h)))))
+        return np.sum(np.exp(np.matmul(all_h, np.matmul(self.W, v))), axis=0) / partition
 
 
-def build_energy_model(g, explore_steps=2000):
+def build_energy_model(g, explore_steps=10000):
     size = g.shape[0]
     dimension = math.ceil(math.log(size, 2))
     bin_rep = generate_binary_representation(np.arange(size) + 1, dimension)
     model = RBM(dimension)
     for i in range(explore_steps):
         path = random_path(g, random.randint(0, g.shape[0] - 1), random.randint(0, g.shape[0] - 1))
-        model.incrementally_learn(np.transpose(bin_rep[path]))
+        if len(path) > 0:
+            model.incrementally_learn(np.transpose(bin_rep[path]))
     return model
 
 
@@ -95,4 +96,4 @@ if __name__ == '__main__':
     # using energy model
     M = build_energy_model(g)
     bin_rep = generate_binary_representation(np.arange(g.shape[0]) + 1, 7)
-    print(M.compute_prop(bin_rep))
+    print(M.compute_prop(np.transpose(bin_rep)))
