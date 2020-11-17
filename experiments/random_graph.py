@@ -10,6 +10,7 @@ import random
 def random_graph(size, p):
     raw = np.random.rand(size, size)
     graph = (raw < p).astype(np.int32)
+    graph[np.arange(size), np.arange(size)] = 0
     return graph
 
 

@@ -6,11 +6,18 @@ from random_graph import *
 import random
 import time
 import math
+import energy
 import matplotlib.pyplot as plt
 
 
 def generate_binary_representation(d, max_digits=8):
     return (((d[:, None] & (1 << np.arange(max_digits)))) > 0).astype(np.float32)
+
+
+def generate_onehot_representation(d, max_digits=8):
+    b = np.zeros((d.size, max_digits))
+    b[np.arange(d.size), d] = 1
+    return b
 
 
 class RBM:
@@ -59,10 +66,10 @@ class RBM:
         return np.sum(np.exp(np.matmul(all_h, np.matmul(self.W, v))), axis=0) / partition
 
 
-def build_energy_model(g, explore_steps=10000):
+def build_generative_model(g, explore_steps=10000):
     size = g.shape[0]
-    dimension = math.ceil(math.log(size, 2))
-    bin_rep = generate_binary_representation(np.arange(size) + 1, dimension)
+    dimension = size
+    bin_rep = generate_onehot_representation(np.arange(size), dimension)
     model = RBM(dimension)
     for i in range(explore_steps):
         path = random_path(g, random.randint(0, g.shape[0] - 1), random.randint(0, g.shape[0] - 1))
@@ -80,31 +87,57 @@ def count_in_betweeness_centrality(g, explore_steps=2000):
     return stat / np.sum(stat)
 
 
+def build_energy_model(g, explore_steps=10000):
+    size = g.shape[0]
+    dimension = size
+    bin_rep = generate_onehot_representation(np.arange(size), dimension)
+    model = energy.Energy_model(dimension)
+    for i in range(explore_steps):
+        path = random_path(g, random.randint(0, g.shape[0] - 1), random.randint(0, g.shape[0] - 1))
+        if len(path) > 1:
+            model.incrementally_learn(np.transpose(bin_rep[path[1:]]), np.transpose(bin_rep[path[:-1]]))
+    return model
+
+
+def normalize(seq):
+    m = np.mean(seq)
+    s = np.std(seq)
+    return (seq - m) / s
+
+
 if __name__ == '__main__':
     # bin_rep = generate_binary_representation(np.arange(size) + 1, 8)
     # print(bin_rep)
 
-    g = random_graph(128, 0.1)
-    x = np.arange(128)
+    g = random_graph(32, 0.3)
+    x = np.arange(g.shape[0])
 
     # directly compute
     print("compute ground truth")
     data = count_in_betweeness_centrality(g)
-    plt.plot(x, data, 'b')
+    plt.plot(x, normalize(data), 'b')
 
     # using node degree
     print("compute node degree")
     out_going, in_coming = node_degrees(g)
-    degrees = out_going + in_coming
+    degrees = np.minimum(out_going, in_coming)
     data = degrees / np.sum(degrees)
-    plt.plot(x, data, 'b--')
+    plt.plot(x, normalize(data), 'b--')
 
+    # # using generative model
+    # print("compute generative model")
+    # M = build_generative_model(g)
+    # bin_rep = generate_onehot_representation(np.arange(g.shape[0]), g.shape[0])
+    # data = M.compute_prop(np.transpose(bin_rep))
+    # plt.plot(x, normalize(data), 'b:')
 
-    # using energy model
+    # using energy model and entropy
     print("compute energy model")
     M = build_energy_model(g)
-    bin_rep = generate_binary_representation(np.arange(g.shape[0]) + 1, 7)
-    data = M.compute_prop(np.transpose(bin_rep))
-    plt.plot(x, data, 'b:')
+    bin_rep = generate_onehot_representation(np.arange(g.shape[0]), g.shape[0])
+    data = M.compute_entropy(np.transpose(bin_rep))
+    plt.plot(x, normalize(data), 'g')
+    print(g)
+    print(M)
 
     plt.show()
