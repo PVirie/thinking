@@ -6,6 +6,7 @@ from random_graph import *
 import random
 import time
 import math
+import matplotlib.pyplot as plt
 
 
 def generate_binary_representation(d, max_digits=8):
@@ -84,16 +85,26 @@ if __name__ == '__main__':
     # print(bin_rep)
 
     g = random_graph(128, 0.1)
+    x = np.arange(128)
 
     # directly compute
-    print(count_in_betweeness_centrality(g))
+    print("compute ground truth")
+    data = count_in_betweeness_centrality(g)
+    plt.plot(x, data, 'b')
 
     # using node degree
+    print("compute node degree")
     out_going, in_coming = node_degrees(g)
     degrees = out_going + in_coming
-    print(degrees / np.sum(degrees))
+    data = degrees / np.sum(degrees)
+    plt.plot(x, data, 'b--')
+
 
     # using energy model
+    print("compute energy model")
     M = build_energy_model(g)
     bin_rep = generate_binary_representation(np.arange(g.shape[0]) + 1, 7)
-    print(M.compute_prop(np.transpose(bin_rep)))
+    data = M.compute_prop(np.transpose(bin_rep))
+    plt.plot(x, data, 'b:')
+
+    plt.show()
