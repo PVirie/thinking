@@ -7,7 +7,7 @@ def is_same_node(c, t):
     c start node as shape: [vector length, 1]
     t target node as shape: [vector length, 1]
     '''
-    return np.linalg.norm(c - t) < 1e-4
+    return np.linalg.norm(c - t) < 1e-2
 
 
 class Layer:
@@ -15,9 +15,13 @@ class Layer:
         self.num_dimensions = num_dimensions
         self.model_neighbor = energy.Energy_model(self.num_dimensions)
         self.model_estimate = energy.Energy_model(self.num_dimensions)
-        self.pincer_model = energy.Pincer_model(self.model_neighbor, self.model_estimate)
         self.enhancer = enhancer
         self.next = None
+
+    def __str__(self):
+        if self.next is not None:
+            return str(self.model_neighbor) + "\n" + str(self.next)
+        return str(self.model_neighbor)
 
     def assign_next(self, next_layer):
         self.next = next_layer
@@ -27,14 +31,14 @@ class Layer:
         path = [dimensions, batch]
         '''
         entropy = self.model_neighbor.compute_entropy(path)
-        self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:])
+        self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:], lr=0.01)
         last_pv = 0
         all_pvs = []
         for j in range(1, path.shape[1]):
             if entropy[j] < entropy[j - 1]:
                 last_pv = j - 1
                 all_pvs.append(j - 1)
-            self.model_estimate.incrementally_learn(path[:, last_pv:j], path[:, j:(j + 1)])
+            self.model_estimate.incrementally_learn(path[:, last_pv:j], path[:, j:(j + 1)], lr=0.01)
 
         if self.next is not None and len(all_pvs) > 1:
             self.next.incrementally_learn(path[:, all_pvs])
@@ -76,7 +80,7 @@ class Layer:
             while True:
                 if is_same_node(c, g):
                     break
-                c = self.enhancer(self.pincer_model.inference(c, g))
+                c = self.enhancer(energy.pincer_inference(self.model_neighbor, self.model_estimate, c, g))
                 yield c
 
             c = g

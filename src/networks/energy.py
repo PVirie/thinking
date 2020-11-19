@@ -1,15 +1,9 @@
 import numpy as np
 
 
-class Pincer_model:
-
-    def __init__(self, neighbor_model, estimate_model):
-        self.neighbor_model = neighbor_model
-        self.estimate_model = estimate_model
-
-    def inference(self, s, g):
-        pincer_potential = self.neighbor_model.forward_energy(s) + self.estimate_model.backward_energy(g)
-        return 1 / (1 + np.exp(-pincer_potential))
+def pincer_inference(neighbor_model, estimate_model, s, g):
+    pincer_potential = neighbor_model.forward_energy(s) + estimate_model.backward_energy(g)
+    return 1 / (1 + np.exp(-pincer_potential))
 
 
 class Energy_model:
@@ -21,7 +15,7 @@ class Energy_model:
         self.b = np.random.normal(0, 0.001, [self.dim, 1])
 
     def __str__(self):
-        return str(np.transpose(self.W))
+        return str((np.transpose(self.W) > 0).astype(np.int32))
 
     def compute_entropy(self, h):
         p = self.forward(h)
