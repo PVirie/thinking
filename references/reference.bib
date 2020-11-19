@@ -86,7 +86,7 @@ Cost algebra: A* can be used on any search structure with cost that satisfies th
 }
 
 
-To help define heuristics for search, one could use embedding. But embedding compromises network structure. We find a way without the need to compromise, that's to use the classic neighbor table. Embedding is good because memory space is O(V) while our table is O(V*n) where n is the size of neighbor. But the optimal planner requires we maintain the n = V. We use hierarchy to help planning, comprimise the result but saves space and searching time instead.
+To help define heuristics for search, one could use embedding. But embedding compromises network structure. (Only in low dimensional space, embedding can perfectly capture all the variance when the number of dimensions equal the number of nodes.) We find a way without the need to compromise, that's to use the classic neighbor table. Embedding is good because memory space is O(V) while our table is O(V*n) where n is the size of neighbor. But the optimal planner requires we maintain the n = V. We use hierarchy to help planning, comprimise the result but saves space and searching time instead.
 
 @article{goyal2018graph,
   title={Graph embedding techniques, applications, and performance: A survey},
@@ -108,4 +108,12 @@ Energy functions, recent work:
 }
 
 
-
+Using graph and A* to plan robot. Solving high-dimensional sensory input with graph.
+Selecting node with merging to promote sparsity.
+@article{emmons2020sparse,
+  title={Sparse Graphical Memory for Robust Planning},
+  author={Emmons, Scott and Jain, Ajay and Laskin, Misha and Kurutach, Thanard and Abbeel, Pieter and Pathak, Deepak},
+  journal={Advances in Neural Information Processing Systems},
+  volume={33},
+  year={2020}
+}

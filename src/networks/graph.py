@@ -8,14 +8,15 @@ def is_same_node(c, t):
     '''
     return np.linalg.norm(c - t) < 1e-4
 
+
 def sigmoid(x):
-    return 1/(1 + np.exp(-x))
+    return 1 / (1 + np.exp(-x))
+
 
 class Graph:
     def __init__(self, adj_matrix, estimate):
         self.adj_matrix = adj_matrix
         self.estimate = estimate
-        
 
     def find_path(self, c, t):
         '''
