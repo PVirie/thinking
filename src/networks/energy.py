@@ -1,6 +1,17 @@
 import numpy as np
 
 
+class Pincer_model:
+
+    def __init__(self, neighbor_model, estimate_model):
+        self.neighbor_model = neighbor_model
+        self.estimate_model = estimate_model
+
+    def inference(self, s, g):
+        pincer_potential = self.neighbor_model.__forward_energy(s) + self.estimate_model.__backward_energy(g)
+        return np.around(1 / (1 + np.exp(-pincer_potential)))
+
+
 class Energy_model:
 
     def __init__(self, num_dimensions):
@@ -19,13 +30,17 @@ class Energy_model:
         in_degree = np.sum(-q * np.log(q) - (1 - q) * np.log(1 - q), axis=0)
         return np.minimum(out_degree, in_degree)
 
+    def __forward_energy(self, h):
+        return np.matmul(self.W, h) + self.a
+
     def __forward(self, h):
-        x = np.matmul(self.W, h) + self.a
-        return 1 / (1 + np.exp(-x))
+        return 1 / (1 + np.exp(-self.__forward_energy(h)))
+
+    def __backward_energy(self, v):
+        return np.matmul(np.transpose(self.W), v) + self.b
 
     def __backward(self, v):
-        x = np.matmul(np.transpose(self.W), v) + self.b
-        return 1 / (1 + np.exp(-x))
+        return 1 / (1 + np.exp(-self.__backward_energy(v)))
 
     def sample(self, h):
         return np.random.binomial(1, self.__forward(h))

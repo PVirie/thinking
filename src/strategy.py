@@ -5,7 +5,7 @@ import numpy as np
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(dir_path, "networks"))
-from networks import energy
+from networks import network
 
 
 def generate_onehot_representation(d, max_digits=8):
@@ -31,20 +31,15 @@ def random_walk(graph, s, max_steps):
     return path
 
 
-def build_energy_layer(graph, explore_steps=2000):
+def build_energy_hierarchy(graph, explore_steps=2000):
 
     all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
 
-    model_neighbor = energy.Energy_model(graph.shape[0])
-    model_estimate = energy.Energy_model(graph.shape[0])
+    root = network.build_network(graph.shape[0], 3)
 
     for i in range(explore_steps):
         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
         path = all_reps[path]
-        entropy = model_neighbor.compute_entropy(path)
-        model_neighbor.incrementally_learn(np.transpose(path[:-1, :]), np.transpose(path[1:, :]))
-        last_pv = 0
-        for j in range(1, path.shape[0]):
-            if entropy[j] < entropy[j - 1]:
-                last_pv = j - 1
-            model_estimate.incrementally_learn(np.transpose(path[last_pv:j, :]), np.transpose(path[j:(j + 1)]))
+        root.incrementally_learn(path)
+
+    return root
