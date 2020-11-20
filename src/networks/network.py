@@ -1,6 +1,6 @@
 import numpy as np
 import energy
-
+import path_finder
 
 def is_same_node(c, t):
     '''
@@ -84,6 +84,29 @@ class Layer:
                 yield c
 
             c = g
+
+    def find_path_breadth(self, c, t):
+        if self.next is not None:
+            goals = self.next.find_path_breadth(self.next.encode(c, forward=True), self.next.encode(t, forward=False))
+
+        yield c
+        while True:
+            if is_same_node(c, t):
+                break
+
+            if self.next is not None:
+                try:
+                    g = self.enhancer(self.next.decode(next(goals)))
+                except StopIteration:
+                    g = t
+            else:
+                g = t
+
+            p = path_finder.shortest_path(self, is_same_node, c, g)
+            for p_i in p:
+                yield p_i
+            c = g
+
 
 def build_network(num_dimensions, num_layers, enhancer):
 

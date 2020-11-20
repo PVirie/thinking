@@ -24,6 +24,13 @@ class Energy_model:
         in_degree = np.sum(-q * np.log(q) - (1 - q) * np.log(1 - q), axis=0)
         return np.minimum(out_degree, in_degree)
 
+    def compute_prop(self, h, v):
+        '''
+        v \in {0, 1}^{num_dimensions}
+        '''
+        p = self.forward(h)
+        return np.prod(v*p + (1-v)*(1-p), axis=0)
+
     def forward_energy(self, h):
         return np.matmul(self.W, h) + self.a
 
