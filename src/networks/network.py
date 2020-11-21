@@ -2,6 +2,7 @@ import numpy as np
 import energy
 import path_finder
 
+
 def is_same_node(c, t):
     '''
     c start node as shape: [vector length, 1]
@@ -32,13 +33,16 @@ class Layer:
         '''
         entropy = self.model_neighbor.compute_entropy(path)
         self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:], lr=0.01)
+        path_log_props = np.cumsum(np.log(self.model_neighbor.compute_prop(path[:, :-1], path[:, 1:]), axis=0))
         last_pv = 0
+        last_log_prop = 1.0
         all_pvs = []
         for j in range(1, path.shape[1]):
             if entropy[j] < entropy[j - 1]:
                 last_pv = j - 1
+                last_log_prop = 1.0 if last_pv == 0 else path_log_props[last_pv - 1]
                 all_pvs.append(j - 1)
-            self.model_estimate.incrementally_learn(path[:, last_pv:j], path[:, j:(j + 1)], lr=0.01)
+            self.model_estimate.learn(path[:, last_pv:j], path[:, j:(j + 1)], path_log_props[last_pv:j] - last_log_prop, lr=0.01)
 
         if self.next is not None and len(all_pvs) > 1:
             self.next.incrementally_learn(path[:, all_pvs])
@@ -76,7 +80,7 @@ class Layer:
                     g = t
             else:
                 g = t
-
+            print("goal!", np.argmax(g))
             while True:
                 if is_same_node(c, g):
                     break

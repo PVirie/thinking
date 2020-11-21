@@ -29,7 +29,7 @@ class Energy_model:
         v \in {0, 1}^{num_dimensions}
         '''
         p = self.forward(h)
-        return np.prod(v*p + (1-v)*(1-p), axis=0)
+        return np.prod(v * p + (1 - v) * (1 - p), axis=0)
 
     def forward_energy(self, h):
         return np.matmul(self.W, h) + self.a
@@ -54,3 +54,16 @@ class Energy_model:
         self.W = self.W + lr * np.matmul(v, np.transpose(h - self.backward(v))) / batch_size
         self.a = self.a + lr * np.sum(v - self.forward(h), axis=1, keepdims=True) / batch_size
         self.b = self.b + lr * np.sum(h - self.backward(v), axis=1, keepdims=True) / batch_size
+
+    def learn(self, h, v, log_target, lr=0.01, steps=2):
+        if v.shape[1] == 1 and h.shape[1] > 1:
+            v = np.broadcast_to(v, (v.shape[0], h.shape[1]))
+        batch_size = h.shape[1]
+        for i in range(steps):
+            forward_delta = log_target - np.sum(v * self.forward_energy(h), axis=0)
+            backward_delta = log_target - np.sum(h * self.backward_energy(v), axis=0)
+            # print(v.shape, forward_delta.shape, h.shape)
+            self.W = self.W - lr * np.matmul(v, np.transpose(forward_delta * h)) / batch_size
+            self.W = self.W - lr * np.matmul(h, np.transpose(backward_delta * v)) / batch_size
+            self.a = self.a - lr * np.sum(forward_delta * h, axis=1, keepdims=True) / batch_size
+            self.b = self.b - lr * np.sum(backward_delta * v, axis=1, keepdims=True) / batch_size
