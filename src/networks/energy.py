@@ -8,11 +8,9 @@ def pincer_inference(neighbor_model, estimate_model, s, g):
 
 class Energy_model:
 
-    def __init__(self, num_dimensions):
+    def __init__(self, num_dimensions, negative_init=False):
         self.dim = num_dimensions
-        self.W = np.random.normal(0, 0.001, [self.dim, self.dim])
-        self.a = np.random.normal(0, 0.001, [self.dim, 1])
-        self.b = np.random.normal(0, 0.001, [self.dim, 1])
+        self.W = np.random.normal(0, 0.001, [self.dim, self.dim]) + (0.0 if not negative_init else -10.0)
 
     def __str__(self):
         return str((np.transpose(self.W) > 0).astype(np.int32))
@@ -31,14 +29,17 @@ class Energy_model:
         p = self.forward(h)
         return np.prod(v * p + (1 - v) * (1 - p), axis=0)
 
+    def compute_energy(self, h, v):
+        return np.matmul(np.transpose(v), np.matmul(self.W, h))
+
     def forward_energy(self, h):
-        return np.matmul(self.W, h) + self.a
+        return np.matmul(self.W, h)
 
     def forward(self, h):
         return 1 / (1 + np.exp(-self.forward_energy(h)))
 
     def backward_energy(self, v):
-        return np.matmul(np.transpose(self.W), v) + self.b
+        return np.matmul(np.transpose(self.W), v)
 
     def backward(self, v):
         return 1 / (1 + np.exp(-self.backward_energy(v)))
@@ -51,19 +52,29 @@ class Energy_model:
             v = np.broadcast_to(v, (v.shape[0], h.shape[1]))
         batch_size = h.shape[1]
         self.W = self.W + lr * np.matmul(v - self.forward(h), np.transpose(h)) / batch_size
-        self.W = self.W + lr * np.matmul(v, np.transpose(h - self.backward(v))) / batch_size
-        self.a = self.a + lr * np.sum(v - self.forward(h), axis=1, keepdims=True) / batch_size
-        self.b = self.b + lr * np.sum(h - self.backward(v), axis=1, keepdims=True) / batch_size
+        # self.W = self.W + lr * np.matmul(v, np.transpose(h - self.backward(v))) / batch_size
 
-    def learn(self, h, v, log_target, lr=0.01, steps=2):
+    def learn(self, h, v, log_target, lr=0.5, steps=100):
         if v.shape[1] == 1 and h.shape[1] > 1:
             v = np.broadcast_to(v, (v.shape[0], h.shape[1]))
         batch_size = h.shape[1]
         for i in range(steps):
-            forward_delta = log_target - np.sum(v * self.forward_energy(h), axis=0)
-            backward_delta = log_target - np.sum(h * self.backward_energy(v), axis=0)
-            # print(v.shape, forward_delta.shape, h.shape)
-            self.W = self.W - lr * np.matmul(v, np.transpose(forward_delta * h)) / batch_size
-            self.W = self.W - lr * np.matmul(h, np.transpose(backward_delta * v)) / batch_size
-            self.a = self.a - lr * np.sum(forward_delta * h, axis=1, keepdims=True) / batch_size
-            self.b = self.b - lr * np.sum(backward_delta * v, axis=1, keepdims=True) / batch_size
+            # forward_delta = np.maximum(log_target - np.sum(v * self.forward_energy(h), axis=0), 0.0)
+            backward_delta = np.maximum(log_target - np.sum(h * self.backward_energy(v), axis=0), 0.0)
+
+            # self.W = self.W + lr * np.matmul(v, np.transpose(forward_delta * h)) / batch_size
+            self.W = self.W + lr * np.matmul(backward_delta * v, np.transpose(h)) / batch_size
+
+
+if __name__ == '__main__':
+
+    b = np.zeros((8, 8))
+    b[np.arange(8), np.arange(8)] = 1
+
+    model = Energy_model(8, negative_init=True)
+    h = b[:, 0:4]
+    v = b[:, 0:1]
+    log_target = np.log(np.array([0.2, 0.3, 0.4, 0.5]))
+    model.learn(h, v, log_target)
+    print(model.W)
+    print(np.exp(model.compute_energy(h, v)))
