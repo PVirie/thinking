@@ -60,7 +60,7 @@ def build_energy_hierarchy(graph, explore_steps=2000):
 
 if __name__ == '__main__':
 
-    g = random_graph(16, 0.3)
+    g = random_graph(16, 0.2)
     print(g)
 
     cognitive_map, representations = build_energy_hierarchy(g, 10000)
@@ -73,10 +73,11 @@ if __name__ == '__main__':
     total_length = 0
     stamp = time.time()
     for t in goals:
-        p = cognitive_map.find_path(np.transpose(representations[0:1, :]), np.transpose(representations[t:(t + 1), :]))
-        for n in p:
-            print(np.argmax(n))
-        # print([np.argmax(n)[0] for n in p])
-        p = list(p)
-        total_length = total_length + len(p)
+        try:
+            p = cognitive_map.find_path(np.transpose(representations[0:1, :]), np.transpose(representations[t:(t + 1), :]))
+            p = list(p)
+            total_length = total_length + len(p)
+            print([np.argmax(n) for n in p])
+        except RecursionError:
+            print("fail to find path in time.")
     print("energy planner:", time.time() - stamp, " average length:", total_length / len(goals))

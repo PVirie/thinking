@@ -14,7 +14,7 @@ def is_same_node(c, t):
 class Layer:
     def __init__(self, num_dimensions, enhancer):
         self.num_dimensions = num_dimensions
-        self.model_neighbor = energy.Energy_model(self.num_dimensions)
+        self.model_neighbor = energy.Energy_model(self.num_dimensions, negative_init=True)
         self.model_estimate = energy.Energy_model(self.num_dimensions, negative_init=True)
         self.enhancer = enhancer
         self.next = None
@@ -32,19 +32,19 @@ class Layer:
         path = [dimensions, batch]
         '''
         entropy = self.model_neighbor.compute_entropy(path)
-        self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:], lr=0.01)
-        path_log_props = np.cumsum(np.log(self.model_neighbor.compute_prop(path[:, :-1], path[:, 1:])), axis=0)
+        self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:], lr=0.5)
+        path_props = np.cumprod(self.model_neighbor.compute_prop(path[:, :-1], path[:, 1:]), axis=0)
         last_pv = 0
-        last_log_prop = 0.0
+        last_prop = 1.0
         all_pvs = []
         for j in range(1, path.shape[1]):
             if entropy[j] < entropy[j - 1]:
                 last_pv = j - 1
-                last_log_prop = 0.0 if last_pv == 0 else path_log_props[last_pv - 1]
+                last_prop = 1.0 if last_pv == 0 else path_props[last_pv - 1]
                 all_pvs.append(j - 1)
-            self.model_estimate.learn(path[:, last_pv:j], path[:, j:(j + 1)], path_log_props[last_pv:j] - last_log_prop, lr=0.1)
+            self.model_estimate.learn(path[:, last_pv:j], path[:, j:(j + 1)], path_props[last_pv:j] / last_prop, lr=0.1)
 
-        self.model_estimate.learn(path, path, 0, lr=0.1)
+        self.model_estimate.learn(path, path, 1.0, lr=0.1)
 
         if self.next is not None and len(all_pvs) > 1:
             self.next.incrementally_learn(path[:, all_pvs])
@@ -66,10 +66,11 @@ class Layer:
     def decode(self, c):
         return c
 
-    def find_path(self, c, t):
+    def find_path(self, c, t, hard_limit=20):
         if self.next is not None:
             goals = self.next.find_path(self.next.encode(c, forward=True), self.next.encode(t, forward=False))
 
+        count_steps = 0
         yield c
         while True:
             if is_same_node(c, t):
@@ -82,35 +83,16 @@ class Layer:
                     g = t
             else:
                 g = t
-            print("goal!", np.argmax(g))
+
             while True:
+                count_steps = count_steps + 1
+                if count_steps >= hard_limit:
+                    raise RecursionError
                 if is_same_node(c, g):
                     break
                 c = self.enhancer(energy.pincer_inference(self.model_neighbor, self.model_estimate, c, g))
                 yield c
 
-            c = g
-
-    def find_path_breadth(self, c, t):
-        if self.next is not None:
-            goals = self.next.find_path_breadth(self.next.encode(c, forward=True), self.next.encode(t, forward=False))
-
-        yield c
-        while True:
-            if is_same_node(c, t):
-                break
-
-            if self.next is not None:
-                try:
-                    g = self.enhancer(self.next.decode(next(goals)))
-                except StopIteration:
-                    g = t
-            else:
-                g = t
-
-            p = path_finder.shortest_path(self, is_same_node, c, g)
-            for p_i in p:
-                yield p_i
             c = g
 
 
