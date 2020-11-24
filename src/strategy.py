@@ -75,6 +75,9 @@ if __name__ == '__main__':
     for t in goals:
         try:
             p = cognitive_map.find_path(np.transpose(representations[0:1, :]), np.transpose(representations[t:(t + 1), :]))
+            for n in p:
+                print("step", np.argmax(n, axis=0))
+
             p = list(p)
             total_length = total_length + len(p)
             print([np.argmax(n) for n in p])

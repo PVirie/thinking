@@ -32,7 +32,7 @@ class Layer:
         path = [dimensions, batch]
         '''
         entropy = self.model_neighbor.compute_entropy(path)
-        self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:], lr=0.5)
+        self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:])
         path_props = np.cumprod(self.model_neighbor.compute_prop(path[:, :-1], path[:, 1:]), axis=0)
         last_pv = 0
         last_prop = 1.0
@@ -40,9 +40,9 @@ class Layer:
         for j in range(1, path.shape[1]):
             if entropy[j] < entropy[j - 1]:
                 last_pv = j - 1
-                last_prop = 1.0 if last_pv == 0 else path_props[last_pv - 1]
+                last_prop = 1.0 if last_pv == 0 else path_props[last_pv - 1] + 1e-8
                 all_pvs.append(j - 1)
-            self.model_estimate.learn(path[:, last_pv:j], path[:, j:(j + 1)], path_props[last_pv:j] / last_prop, lr=0.1)
+            self.model_estimate.learn(path[:, last_pv:j], path[:, j:(j + 1)], path_props[last_pv:j] / last_prop)
 
         self.model_estimate.learn(path, path, 1.0, lr=0.1)
 
