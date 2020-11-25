@@ -63,9 +63,8 @@ if __name__ == '__main__':
     g = random_graph(16, 0.2)
     print(g)
 
-    cognitive_map, representations = build_energy_hierarchy(g, 10000)
+    cognitive_map, representations = build_energy_hierarchy(g, 5000)
     print("Finish learning.")
-
     print(cognitive_map)
 
     goals = random.sample(range(g.shape[0]), g.shape[0] // 2)
@@ -76,9 +75,6 @@ if __name__ == '__main__':
     for t in goals:
         try:
             p = cognitive_map.find_path(np.transpose(representations[0:1, :]), np.transpose(representations[t:(t + 1), :]), hard_limit=max_steps)
-            # for n in p:
-            #     print("step", np.argmax(n, axis=0))
-
             p = list(p)
             total_length = total_length + len(p)
             print([np.argmax(n) for n in p], t)
