@@ -1,6 +1,5 @@
 import numpy as np
 import energy
-import path_finder
 
 
 def is_same_node(c, t):
@@ -37,8 +36,8 @@ class Layer:
         self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:])
         last_pv = 0
         all_pvs = []
-        for j in range(1, path.shape[1]):
-            if entropy[j] < entropy[j - 1]:
+        for j in range(0, path.shape[1]):
+            if j > 0 and entropy[j] < entropy[j - 1]:
                 last_pv = j - 1
                 all_pvs.append(j - 1)
             self.model_estimate.incrementally_learn(path[:, last_pv:(j + 1)], path[:, j:(j + 1)])

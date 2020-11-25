@@ -63,7 +63,7 @@ if __name__ == '__main__':
     g = random_graph(16, 0.2)
     print(g)
 
-    cognitive_map, representations = build_energy_hierarchy(g, 5000)
+    cognitive_map, representations = build_energy_hierarchy(g, 10000)
     print("Finish learning.")
     print(cognitive_map)
 
