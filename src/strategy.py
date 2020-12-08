@@ -39,16 +39,11 @@ def random_walk(graph, s, max_steps):
     return path
 
 
-def enhancer(c):
-    b = np.zeros((c.shape[0], c.shape[1]))
-    b[np.argmax(c, axis=0), np.arange(c.shape[1])] = 1
-    return b
-
 def build_energy_hierarchy(graph, explore_steps=2000):
 
     all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
 
-    root = network.build_network(graph.shape[0], 3, enhancer)
+    root = network.build_network(graph.shape[0], 3)
 
     for i in range(explore_steps):
         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)

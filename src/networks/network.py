@@ -11,11 +11,10 @@ def is_same_node(c, t):
 
 
 class Layer:
-    def __init__(self, num_dimensions, enhancer):
+    def __init__(self, num_dimensions):
         self.num_dimensions = num_dimensions
         self.model_neighbor = energy.Energy_model(self.num_dimensions, negative_init=False)
         self.model_estimate = energy.Energy_model(self.num_dimensions, negative_init=False)
-        self.enhancer = enhancer
         self.next = None
 
     def __str__(self):
@@ -74,7 +73,7 @@ class Layer:
 
             if self.next is not None:
                 try:
-                    g = self.enhancer(self.next.decode(next(goals)))
+                    g = self.model_neighbor.enhance(self.next.decode(next(goals)))
                 except StopIteration:
                     g = t
             else:
@@ -86,18 +85,18 @@ class Layer:
                     raise RecursionError
                 if is_same_node(c, g):
                     break
-                c = self.enhancer(energy.pincer_inference(self.model_neighbor, self.model_estimate, c, g))
+                c = self.model_neighbor.enhance(self.model_neighbor.pincer_inference(self.model_neighbor, self.model_estimate, c, g))
                 yield c
 
             c = g
 
 
-def build_network(num_dimensions, num_layers, enhancer):
+def build_network(num_dimensions, num_layers):
 
-    root = Layer(num_dimensions, enhancer)
+    root = Layer(num_dimensions)
     last = root
     for i in range(num_layers - 1):
-        temp = Layer(num_dimensions, enhancer)
+        temp = Layer(num_dimensions)
         last.assign_next(temp)
         last = temp
 

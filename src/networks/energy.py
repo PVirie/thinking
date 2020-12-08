@@ -2,12 +2,19 @@ import numpy as np
 import math
 
 
-def pincer_inference(neighbor_model, estimate_model, s, g):
-    pincer_potential = neighbor_model.forward_energy(s) + estimate_model.backward_energy(g)
-    return 1 / (1 + np.exp(-pincer_potential))
-
 
 class Energy_model:
+
+    @staticmethod
+    def pincer_inference(neighbor_model, estimate_model, s, g):
+        pincer_potential = neighbor_model.forward_energy(s) + estimate_model.backward_energy(g)
+        return 1 / (1 + np.exp(-pincer_potential))
+
+    @staticmethod
+    def enhance(c):
+        b = np.zeros((c.shape[0], c.shape[1]))
+        b[np.argmax(c, axis=0), np.arange(c.shape[1])] = 1
+        return b
 
     def __init__(self, num_dimensions, negative_init=False):
         self.dim = num_dimensions
