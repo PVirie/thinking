@@ -73,7 +73,7 @@ class Layer:
 
             if self.next is not None:
                 try:
-                    g = self.model_neighbor.enhance(self.next.decode(next(goals)))
+                    g = self.next.decode(next(goals))
                 except StopIteration:
                     g = t
             else:
@@ -85,7 +85,7 @@ class Layer:
                     raise RecursionError
                 if is_same_node(c, g):
                     break
-                c = self.model_neighbor.enhance(self.model_neighbor.pincer_inference(self.model_neighbor, self.model_estimate, c, g))
+                c = self.model_neighbor.pincer_inference(self.model_neighbor, self.model_estimate, c, g)
                 yield c
 
             c = g

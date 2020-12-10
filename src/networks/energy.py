@@ -2,19 +2,17 @@ import numpy as np
 import math
 
 
+def enhance(c):
+    b = np.zeros((c.shape[0], c.shape[1]))
+    b[np.argmax(c, axis=0), np.arange(c.shape[1])] = 1
+    return b
 
 class Energy_model:
 
     @staticmethod
     def pincer_inference(neighbor_model, estimate_model, s, g):
         pincer_potential = neighbor_model.forward_energy(s) + estimate_model.backward_energy(g)
-        return 1 / (1 + np.exp(-pincer_potential))
-
-    @staticmethod
-    def enhance(c):
-        b = np.zeros((c.shape[0], c.shape[1]))
-        b[np.argmax(c, axis=0), np.arange(c.shape[1])] = 1
-        return b
+        return enhance(1 / (1 + np.exp(-pincer_potential)))
 
     def __init__(self, num_dimensions, negative_init=False):
         self.dim = num_dimensions
@@ -42,7 +40,7 @@ class Energy_model:
         return np.prod(v * p + (1 - v) * (1 - p), axis=0)
 
     def compute_energy(self, h, v):
-        return np.matmul(np.transpose(v), np.matmul(self.W, h))
+        return np.matmul(np.transpose(v), self.forward_energy(h))
 
     def forward_energy(self, h):
         return np.matmul(self.W, h)
