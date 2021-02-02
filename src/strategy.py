@@ -1,12 +1,7 @@
-import sys
-import os
 import random
 import numpy as np
 import time
-
-dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(dir_path, "networks"))
-from networks import network
+import network
 
 
 def generate_onehot_representation(d, max_digits=8):

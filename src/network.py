@@ -1,5 +1,12 @@
 import numpy as np
-import energy
+import sys
+import os
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(dir_path, "models"))
+sys.path.append(os.path.join(dir_path, "hierarchy"))
+
+from models import energy
 
 
 def is_same_node(c, t):
@@ -31,8 +38,9 @@ class Layer:
         '''
         if path.shape[1] < 2:
             return
-        entropy = self.model_neighbor.compute_entropy(path)
         self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:])
+
+        entropy = self.model_neighbor.compute_entropy(path)
         last_pv = 0
         all_pvs = []
         for j in range(0, path.shape[1]):

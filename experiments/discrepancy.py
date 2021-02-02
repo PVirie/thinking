@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 if __name__ == '__main__':
     B = 10000
     N = 100
-    data = np.random.random([B, N])*np.random.random([B, 1])
+    data = np.random.random([B, N]) * np.random.random([B, 1])
 
     S = np.sum(data, axis=1, keepdims=True)
     data_mean = np.sum(data * data / S, axis=1)
