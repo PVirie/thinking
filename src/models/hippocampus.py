@@ -17,12 +17,11 @@ class Hippocampus:
 
         cortex_potential = neighbor_model.forward_energy(s) + estimate_model.backward_energy(t)
         cortex_pre_prop = 1 / (1 + np.exp(-cortex_potential))
-        cortex_prop = np.prod(cortex_pre_prop, axis=0)
         cortex_rep = self.enhance(cortex_pre_prop)
 
         # To do: this is not completely correct. How to enhance the signal with high-level hippocampus?
-
-        return np.where(hippocampus_prop > cortex_prop, hippocampus_rep, cortex_rep)
+        results = np.where(hippocampus_prop > 0.5, hippocampus_rep, cortex_rep)
+        return results
 
     def enhance(self, c):
         return np.matmul(self.H, self.resolve_address(c)[0])
@@ -32,6 +31,7 @@ class Hippocampus:
 
     def resolve_address(self, h):
         prop = np.matmul(np.transpose(self.H), h)
+        prop = prop / np.sum(prop, axis=0, keepdims=True)
         max_indices = np.argmax(prop, axis=0)
         b = np.zeros((self.h_size, h.shape[1]))
 
