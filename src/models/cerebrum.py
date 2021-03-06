@@ -1,5 +1,5 @@
 import numpy as np
-import energy
+from energy import Energy_model
 import math
 
 

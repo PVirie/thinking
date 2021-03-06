@@ -36,8 +36,8 @@ def random_walk(graph, s, max_steps):
 
 def build_energy_hierarchy(graph, explore_steps=2000):
 
-    # all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
-    all_reps = np.transpose(graph) # Adjacency graph itself is used as the representation.
+    all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
+    # all_reps = np.transpose(graph) # Adjacency graph itself is used as the representation.
 
     root = network.build_network(graph.shape[0], 3)
 
