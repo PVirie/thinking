@@ -7,6 +7,7 @@ sys.path.append(os.path.join(dir_path, "models"))
 sys.path.append(os.path.join(dir_path, "hierarchy"))
 
 from models import energy
+from models import hippocampus
 
 
 def is_same_node(c, t):
@@ -22,6 +23,7 @@ class Layer:
         self.num_dimensions = num_dimensions
         self.model_neighbor = energy.Energy_model(self.num_dimensions, negative_init=False)
         self.model_estimate = energy.Energy_model(self.num_dimensions, negative_init=False)
+        self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, 1024)
         self.next = None
 
     def __str__(self):
@@ -39,6 +41,8 @@ class Layer:
         if path.shape[1] < 2:
             return
         self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:])
+
+        self.hippocampus.incrementally_learn(path)
 
         entropy = self.model_neighbor.compute_entropy(path)
         last_pv = 0
@@ -93,7 +97,7 @@ class Layer:
                     raise RecursionError
                 if is_same_node(c, g):
                     break
-                c = self.model_neighbor.pincer_inference(self.model_neighbor, self.model_estimate, c, g)
+                c = self.hippocampus.pincer_inference(self.model_neighbor, self.model_estimate, c, g)
                 yield c
 
             c = g

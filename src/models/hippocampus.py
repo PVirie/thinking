@@ -4,41 +4,40 @@ import math
 
 class Hippocampus:
 
-    @staticmethod
-    def pincer_inference(neighbor_model, estimate_model, hippocampus, s, t):
-        _, s_indices, s_prop = hippocampus.resolve_address(s)
-        _, t_indices, t_prop = hippocampus.resolve_address(t)
+    def __init__(self, num_dimensions, hippocampus_size):
+        self.dim = num_dimensions
+        self.h_size = hippocampus_size
+        self.H = np.zeros([self.dim, self.h_size])  # [oldest, ..., new, newer, newest ]
+
+    def pincer_inference(self, neighbor_model, estimate_model, s, t):
+        _, s_indices, s_prop = self.resolve_address(s)
+        _, t_indices, t_prop = self.resolve_address(t)
         hippocampus_prop = np.power(0.9, t_indices - s_indices) * s_prop * t_prop
-        hippocampus_rep = hippocampus.access_memory(s_indices + 1)
+        hippocampus_rep = self.access_memory(s_indices + 1)
 
         cortex_potential = neighbor_model.forward_energy(s) + estimate_model.backward_energy(t)
         cortex_pre_prop = 1 / (1 + np.exp(-cortex_potential))
         cortex_prop = np.prod(cortex_pre_prop, axis=0)
-        cortex_rep = hippocampus.enhance(cortex_pre_prop)
+        cortex_rep = self.enhance(cortex_pre_prop)
 
         # To do: this is not completely correct. How to enhance the signal with high-level hippocampus?
 
         return np.where(hippocampus_prop > cortex_prop, hippocampus_rep, cortex_rep)
 
     def enhance(self, c):
-        return np.matmul(self.H, self.resolve_address(c))
-
-    def __init__(self, hippocampus_size):
-        self.h_size = hippocampus_size
-        self.H = np.zeros([self.h_size, self.c_dim])  # [oldest, ..., new, newer, newest ]
+        return np.matmul(self.H, self.resolve_address(c)[0])
 
     def __str__(self):
-        if self.is_negative_inited:
-            return str((np.transpose(self.H) > math.log(1e-7)).astype(np.int32))
-        else:
-            return str((np.transpose(self.H) > 0).astype(np.int32))
+        return str((self.H > 0).astype(np.int32))
 
     def resolve_address(self, h):
-        prop = np.matmul(self.H, h)
+        prop = np.matmul(np.transpose(self.H), h)
         max_indices = np.argmax(prop, axis=0)
-        b = np.zeros((self.H.shape[0], h.shape[1]))
-        b[max_indices] = 1
-        return b, max_indices, prop[max_indices]
+        b = np.zeros((self.h_size, h.shape[1]))
+
+        supports = np.arange(h.shape[1])
+        b[max_indices, supports] = 1
+        return b, max_indices, prop[max_indices, supports]
 
     def store_memory(self, h):
         num_steps = h.shape[1]
@@ -48,7 +47,7 @@ class Hippocampus:
     def access_memory(self, indices):
         return self.H[:, indices]
 
-    def incrementally_learn(self, h, v, lr=0.1):
+    def incrementally_learn(self, h):
         batch_size = h.shape[1]
         if batch_size <= 0:
             return
@@ -56,4 +55,11 @@ class Hippocampus:
 
 
 if __name__ == '__main__':
-    main()
+    model = Hippocampus(8, 24)
+    model.incrementally_learn(np.array(np.eye(8)))
+    model.incrementally_learn(np.array(np.eye(8)))
+    print(model)
+    a_record = model.access_memory([10, 11])
+    print(a_record)
+    addr = model.resolve_address(a_record)
+    print(addr)
