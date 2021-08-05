@@ -16,3 +16,8 @@ An implementation of thinking model version XXIV (codename: duality).
 
 ### Axiom: mind aims the equilibrium where there is no discrepancy between levels in the hierarchy.
 #### Theorem II': why hierarchy is good
+
+## To do
+* Bridging hippocampus module
+* Embedding representation in each layer
+* ~~Pattern enhancer~~
