@@ -8,7 +8,7 @@ import time
 
 
 def random_walk(graph, s, max_steps):
-    unvisited = np.ones([graph.shape[0]], dtype=np.bool)
+    unvisited = np.ones([graph.shape[0]], dtype=bool)
     indices = np.arange(graph.shape[0])
     path = []
     c = s
@@ -122,7 +122,7 @@ class Graph:
 
     def find_path(self, c, t):
 
-        unvisited = np.ones([self.adj_matrix.shape[0]], dtype=np.bool)
+        unvisited = np.ones([self.adj_matrix.shape[0]], dtype=bool)
         while True:
             if c == t:
                 break

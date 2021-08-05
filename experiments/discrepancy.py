@@ -20,4 +20,4 @@ if __name__ == '__main__':
     plt.show()
 
     # As N grows larger, the sequence converge to 3/2
-    # 3x - 1 / 2
+    # (3x - 1) / 2

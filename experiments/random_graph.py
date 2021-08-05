@@ -24,7 +24,7 @@ def shortest_path(graph, s, d):
     inf = graph.shape[0] * 2
     dist = np.ones([graph.shape[0]]) * inf
     dist[s] = 0
-    unvisited = np.ones([graph.shape[0]], dtype=np.bool)
+    unvisited = np.ones([graph.shape[0]], dtype=bool)
 
     indices = np.arange(graph.shape[0])
     trace = np.arange(graph.shape[0], dtype=np.int32)
@@ -50,8 +50,8 @@ def shortest_path(graph, s, d):
 
 
 def random_path(graph, s, d):
-    unvisited = np.ones([graph.shape[0]], dtype=np.bool)
-    potential = np.zeros([graph.shape[0]], dtype=np.bool)
+    unvisited = np.ones([graph.shape[0]], dtype=bool)
+    potential = np.zeros([graph.shape[0]], dtype=bool)
 
     indices = np.arange(graph.shape[0])
     trace = np.arange(graph.shape[0], dtype=np.int32)
