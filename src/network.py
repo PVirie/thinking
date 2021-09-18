@@ -4,8 +4,9 @@ import os
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(dir_path, "models"))
-sys.path.append(os.path.join(dir_path, "hierarchy"))
+sys.path.append(os.path.join(dir_path, "embedding"))
 
+from embedding import torch_resnet as embedding
 from models import energy
 from models import hippocampus
 
@@ -21,8 +22,8 @@ def is_same_node(c, t):
 class Layer:
     def __init__(self, num_dimensions):
         self.num_dimensions = num_dimensions
-        self.model_neighbor = energy.Energy_model(self.num_dimensions, negative_init=False)
-        self.model_estimate = energy.Energy_model(self.num_dimensions, negative_init=False)
+        self.model_neighbor = energy.Energy_model(self.num_dimensions)
+        self.model_estimate = energy.Energy_model(self.num_dimensions)
         self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, 1024)
         self.next = None
 
@@ -40,11 +41,17 @@ class Layer:
         '''
         if path.shape[1] < 2:
             return
+
+        # Learn embedding
+
+        # Learn neighbor and estimator
+        path = self.encode(path)
+
         self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:])
 
         self.hippocampus.incrementally_learn(path)
 
-        entropy = self.model_neighbor.compute_entropy(path)
+        entropy = self.hippocampus.compute_entropy(path)
         last_pv = 0
         all_pvs = []
         for j in range(0, path.shape[1]):
@@ -56,36 +63,45 @@ class Layer:
         if self.next is not None and len(all_pvs) > 1:
             self.next.incrementally_learn(path[:, all_pvs])
 
-    def encode(self, c, forward=True):
-        c_ent = self.model_neighbor.compute_entropy(c)
+    def encode(self, c):
+        return c
+
+    def decode(self, c):
+        return c
+
+    def project_next(self, c, forward=True):
+        c_ent = self.hippocampus.compute_entropy(c)
         while True:
             if forward:
                 n = self.model_neighbor.forward(c)
             else:
                 n = self.model_neighbor.backward(c)
-            n_ent = self.model_neighbor.compute_entropy(n)
+            n_ent = self.hippocampus.compute_entropy(n)
             if c_ent > n_ent:
                 return c
             else:
                 c = n
                 c_ent = n_ent
 
-    def decode(self, c):
-        return c
+    def from_next(self, c):
+        return self.decode(c)
 
     def find_path(self, c, t, hard_limit=20):
+        c = self.encode(c)
+        t = self.encode(t)
+
         if self.next is not None:
-            goals = self.next.find_path(self.next.encode(c, forward=True), self.next.encode(t, forward=False))
+            goals = self.next.find_path(self.project_next(c, forward=True), self.project_next(t, forward=False))
 
         count_steps = 0
-        yield c
+        yield self.decode(c)
         while True:
             if is_same_node(c, t):
                 break
 
             if self.next is not None:
                 try:
-                    g = self.next.decode(next(goals))
+                    g = self.from_next(next(goals))
                 except StopIteration:
                     g = t
             else:
@@ -98,7 +114,7 @@ class Layer:
                 if is_same_node(c, g):
                     break
                 c = self.hippocampus.pincer_inference(self.model_neighbor, self.model_estimate, c, g)
-                yield c
+                yield self.decode(c)
 
             c = g
 
@@ -119,3 +135,4 @@ if __name__ == '__main__':
     print("assert that probabilistic network works.")
     print(is_same_node(np.array([[2], [0]]), np.array([[1], [0]])))
     print(is_same_node(np.array([[2], [0]]), np.array([[1], [2]])))
+    print(is_same_node(np.array([[1], [0]]), np.array([[1], [0]])))
