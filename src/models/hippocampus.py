@@ -17,11 +17,12 @@ class Hippocampus:
         hippocampus_prop = np.power(self.diminishing_factor, t_indices - s_indices) * s_prop * t_prop
         hippocampus_rep = self.access_memory(s_indices + 1)
 
-        cortex_rep = energy.Energy_model.pincer_inference(neighbor_model, estimate_model, s, t)
+        cortex_rep, cortex_prop = energy.Energy_model.pincer_inference(neighbor_model, estimate_model, s, t)
 
         # To do: this is not completely correct. How to enhance the signal with high-level hippocampus?
-        results = np.where(hippocampus_prop > 0.5, hippocampus_rep, cortex_rep)
-        return results
+        compare_results = hippocampus_prop > cortex_prop
+        results = np.where(compare_results, hippocampus_rep, cortex_rep)
+        return results, np.where(compare_results, hippocampus_prop, cortex_prop)
 
     def match(self, x):
         H_ = np.transpose(self.H)

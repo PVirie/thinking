@@ -7,7 +7,9 @@ class Energy_model:
         var_n = neighbor_model.var
         var_h = estimate_model.var
         inferred_rep = (neighbor_model.forward(s) * var_h + estimate_model.backward(g) * var_n) / (var_n + var_h)
-        return inferred_rep
+
+        var = (var_n * var_h) / (var_n + var_h)
+        return inferred_rep, 1 / np.sqrt(np.power(2 * np.pi, s.shape[0]) * np.prod(var, axis=0))
 
     def __init__(self, num_dimensions):
         self.dim = num_dimensions
@@ -42,4 +44,4 @@ if __name__ == '__main__':
     h = b[:, 0:4]
     v = b[:, 0:1]
     model.incrementally_learn(h, v)
-    print(Energy_model.pincer_inference(model, model, h, v).shape)
+    print(Energy_model.pincer_inference(model, model, h, v)[0].shape)

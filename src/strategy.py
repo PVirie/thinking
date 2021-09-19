@@ -39,12 +39,19 @@ def build_energy_hierarchy(graph, explore_steps=2000):
     all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
     # all_reps = np.transpose(graph) # Adjacency graph itself is used as the representation.
 
-    root = network.build_network(graph.shape[0], 3)
+    config = {
+        "layers": [
+            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "embedding_base", "embedding_config": {}},
+            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "embedding_base", "embedding_config": {}},
+            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "embedding_base", "embedding_config": {}},
+        ]
+    }
 
-    for i in range(explore_steps):
-        path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-        path = all_reps[path, :]
-        root.incrementally_learn(np.transpose(path))
+    with network.build_network(config) as root:
+        for i in range(explore_steps):
+            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+            path = all_reps[path, :]
+            root.incrementally_learn(np.transpose(path))
 
     return root, all_reps
 

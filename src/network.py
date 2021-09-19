@@ -1,12 +1,14 @@
 import numpy as np
 import sys
 import os
+import importlib
+from contextlib import contextmanager
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(dir_path, "models"))
 sys.path.append(os.path.join(dir_path, "embedding"))
 
-from embedding import torch_resnet as embedding
+from embedding import embedding_base
 from models import energy
 from models import hippocampus
 
@@ -20,11 +22,12 @@ def is_same_node(c, t):
 
 
 class Layer:
-    def __init__(self, num_dimensions):
+    def __init__(self, num_dimensions, embedding=embedding_base.Embedding(), memory_slots=2048):
         self.num_dimensions = num_dimensions
         self.model_neighbor = energy.Energy_model(self.num_dimensions)
         self.model_estimate = energy.Energy_model(self.num_dimensions)
-        self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, 1024)
+        self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, memory_slots)
+        self.embedding = embedding
         self.next = None
 
     def __str__(self):
@@ -43,9 +46,10 @@ class Layer:
             return
 
         # Learn embedding
+        self.embedding.incrementally_learn(path)
 
         # Learn neighbor and estimator
-        path = self.encode(path)
+        path = self.embedding.encode(path)
 
         self.model_neighbor.incrementally_learn(path[:, :-1], path[:, 1:])
 
@@ -63,12 +67,6 @@ class Layer:
         if self.next is not None and len(all_pvs) > 1:
             self.next.incrementally_learn(path[:, all_pvs])
 
-    def encode(self, c):
-        return c
-
-    def decode(self, c):
-        return c
-
     def project_next(self, c, forward=True):
         c_ent = self.hippocampus.compute_entropy(c)
         while True:
@@ -84,17 +82,17 @@ class Layer:
                 c_ent = n_ent
 
     def from_next(self, c):
-        return self.decode(c)
+        return self.embedding.decode(c)
 
     def find_path(self, c, t, hard_limit=20):
-        c = self.encode(c)
-        t = self.encode(t)
+        c = self.embedding.encode(c)
+        t = self.embedding.encode(t)
 
         if self.next is not None:
             goals = self.next.find_path(self.project_next(c, forward=True), self.project_next(t, forward=False))
 
         count_steps = 0
-        yield self.decode(c)
+        yield self.embedding.decode(c)
         while True:
             if is_same_node(c, t):
                 break
@@ -113,22 +111,30 @@ class Layer:
                     raise RecursionError
                 if is_same_node(c, g):
                     break
-                c = self.hippocampus.pincer_inference(self.model_neighbor, self.model_estimate, c, g)
-                yield self.decode(c)
+                c, _ = self.hippocampus.pincer_inference(self.model_neighbor, self.model_estimate, c, g)
+                yield self.embedding.decode(c)
 
             c = g
 
 
-def build_network(num_dimensions, num_layers):
+@contextmanager
+def build_network(config, save_on_exit=True):
+    # The following runs BEFORE with block.
+    layers = []
+    for layer in config["layers"]:
+        embedding_module = importlib.import_module(layer["embedding"], package="embedding")
+        layers.append(Layer(layer["num_dimensions"], embedding_module.Embedding(**layer["embedding_config"]), layer["memory_slots"]))
 
-    root = Layer(num_dimensions)
-    last = root
-    for i in range(num_layers - 1):
-        temp = Layer(num_dimensions)
-        last.assign_next(temp)
-        last = temp
+    for i in range(len(layers) - 1):
+        layers[i].assign_next(layers[i + 1])
 
-    return root
+    # The following returns into the with block.
+    yield layers[0]
+
+    # The following runs AFTER with block.
+    if save_on_exit:
+        for layer in layers:
+            layer.embedding.save()
 
 
 if __name__ == '__main__':
