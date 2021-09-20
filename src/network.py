@@ -46,7 +46,7 @@ class Layer:
             return
 
         # Learn embedding
-        self.embedding.incrementally_learn(path)
+        loss, iteration = self.embedding.incrementally_learn(path)
 
         # Learn neighbor and estimator
         path = self.embedding.encode(path)

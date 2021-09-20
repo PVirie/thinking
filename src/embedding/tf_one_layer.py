@@ -90,6 +90,7 @@ class Embedding(embedding_base.Embedding):
 
     def incrementally_learn(self, path):
         loss, iterations = self.update(path[:, :-1], path[:, 1:])
+        return loss, iterations
 
     def bootstrap(self, path):
         clear_directory(self.checkpoint_dir)

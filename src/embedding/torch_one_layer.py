@@ -78,7 +78,7 @@ class Embedding(embedding_base.Embedding):
         V_ = self.forward(V)
         proximity_loss = compute_mse_loss(V_, self.forward(H))
         reconstruction_loss = compute_mse_loss(self.backward(V_), V)
-        loss_values = proximity_loss + reconstruction_loss
+        loss_values = proximity_loss + 0.1 * reconstruction_loss
 
         self.opt.zero_grad()
         loss_values.backward()
@@ -131,6 +131,7 @@ class Embedding(embedding_base.Embedding):
 
         path = torch.from_numpy(path).to(self.device)
         loss, iterations = self.update(path[:, :-1], path[:, 1:])
+        return loss, iterations
 
     def bootstrap(self, path):
         clear_directory(self.checkpoint_dir)

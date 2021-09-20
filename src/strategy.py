@@ -5,8 +5,8 @@ import network
 
 
 def generate_onehot_representation(d, max_digits=8):
-    b = np.zeros((d.size, max_digits), dtype=np.float32)
-    b[np.arange(d.size), d] = 1
+    b = np.zeros((max_digits, d.size), dtype=np.float32)
+    b[d, np.arange(d.size)] = 1
     return b
 
 
@@ -37,7 +37,6 @@ def random_walk(graph, s, max_steps):
 def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
 
     all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
-    # all_reps = np.transpose(graph) # Adjacency graph itself is used as the representation.
 
     config = {
         "layers": [
@@ -59,8 +58,8 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
     with network.build_network(config, save_on_exit=False) as root:
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-            path = all_reps[path, :]
-            root.incrementally_learn(np.transpose(path))
+            path = all_reps[:, path]
+            root.incrementally_learn(path)
 
     return root, all_reps
 
@@ -81,7 +80,7 @@ if __name__ == '__main__':
     stamp = time.time()
     for t in goals:
         try:
-            p = cognitive_map.find_path(np.transpose(representations[0:1, :]), np.transpose(representations[t:(t + 1), :]), hard_limit=max_steps)
+            p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps)
             p = list(p)
             total_length = total_length + len(p)
             print([np.argmax(n) for n in p], t)

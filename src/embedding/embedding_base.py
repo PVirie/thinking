@@ -13,7 +13,7 @@ class Embedding:
 
     def incrementally_learn(self, path):
         # path of shape (dimension, length)
-        pass
+        return 0, 0
 
     def bootstrap(self, path):
         # path of shape (dimension, length, batch)
