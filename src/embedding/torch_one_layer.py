@@ -56,6 +56,13 @@ class Embedding(embedding_base.Embedding):
 
         self.eval_mode = True
 
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        # initialize any parameters
+        # by default, the pre-built modules are already initialized.
+        pass
+
     def set_eval_mode(self, flag):
         if flag == self.eval_mode:
             return

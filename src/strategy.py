@@ -43,15 +43,15 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
         "layers": [
             {"num_dimensions": graph.shape[0] // 2, "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
                 'input_dims': graph.shape[0], 'output_dims': graph.shape[0] // 2,
-                'lr': 0.01, 'step_size': 10, 'weight_decay': 0.95
+                'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
             }},
             {"num_dimensions": graph.shape[0] // 4, "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
                 'input_dims': graph.shape[0] // 2, 'output_dims': graph.shape[0] // 4,
-                'lr': 0.01, 'step_size': 10, 'weight_decay': 0.95
+                'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
             }},
             {"num_dimensions": graph.shape[0] // 8, "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
                 'input_dims': graph.shape[0] // 4, 'output_dims': graph.shape[0] // 8,
-                'lr': 0.01, 'step_size': 10, 'weight_decay': 0.95
+                'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
             }},
         ]
     }
