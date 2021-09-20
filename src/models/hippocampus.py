@@ -8,7 +8,7 @@ class Hippocampus:
     def __init__(self, num_dimensions, hippocampus_size):
         self.dim = num_dimensions
         self.h_size = hippocampus_size
-        self.H = np.zeros([self.dim, self.h_size])  # [oldest, ..., new, newer, newest ]
+        self.H = np.zeros([self.dim, self.h_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
         self.diminishing_factor = 0.9
 
     def pincer_inference(self, neighbor_model, estimate_model, s, t):

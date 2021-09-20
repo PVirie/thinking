@@ -13,8 +13,8 @@ class Energy_model:
 
     def __init__(self, num_dimensions):
         self.dim = num_dimensions
-        self.var = np.zeros([self.dim, 1])
-        self.T = np.random.normal(0, 0.001, [self.dim, 1])
+        self.var = np.zeros([self.dim, 1], dtype=np.float32)
+        self.T = np.random.normal(0, 0.001, [self.dim, 1]).astype(np.float32)
 
     def __str__(self):
         return str(self.var)

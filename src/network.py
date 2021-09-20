@@ -67,7 +67,7 @@ class Layer:
         if self.next is not None and len(all_pvs) > 1:
             self.next.incrementally_learn(path[:, all_pvs])
 
-    def project_next(self, c, forward=True):
+    def to_next(self, c, forward=True):
         c_ent = self.hippocampus.compute_entropy(c)
         while True:
             if forward:
@@ -82,14 +82,14 @@ class Layer:
                 c_ent = n_ent
 
     def from_next(self, c):
-        return self.embedding.decode(c)
+        return c
 
     def find_path(self, c, t, hard_limit=20):
         c = self.embedding.encode(c)
         t = self.embedding.encode(t)
 
         if self.next is not None:
-            goals = self.next.find_path(self.project_next(c, forward=True), self.project_next(t, forward=False))
+            goals = self.next.find_path(self.to_next(c, forward=True), self.to_next(t, forward=False))
 
         count_steps = 0
         yield self.embedding.decode(c)
@@ -127,6 +127,9 @@ def build_network(config, save_on_exit=True):
 
     for i in range(len(layers) - 1):
         layers[i].assign_next(layers[i + 1])
+
+    for layer in layers:
+        layer.embedding.load()
 
     # The following returns into the with block.
     yield layers[0]

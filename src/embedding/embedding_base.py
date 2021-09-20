@@ -12,9 +12,11 @@ class Embedding:
         return c
 
     def incrementally_learn(self, path):
+        # path of shape (dimension, length)
         pass
 
     def bootstrap(self, path):
+        # path of shape (dimension, length, batch)
         print("Method bootstrap is called on the default embedding.")
 
     def load(self):

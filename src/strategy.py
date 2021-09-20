@@ -5,7 +5,7 @@ import network
 
 
 def generate_onehot_representation(d, max_digits=8):
-    b = np.zeros((d.size, max_digits))
+    b = np.zeros((d.size, max_digits), dtype=np.float32)
     b[np.arange(d.size), d] = 1
     return b
 
@@ -34,20 +34,29 @@ def random_walk(graph, s, max_steps):
     return path
 
 
-def build_energy_hierarchy(graph, explore_steps=2000):
+def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
 
     all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
     # all_reps = np.transpose(graph) # Adjacency graph itself is used as the representation.
 
     config = {
         "layers": [
-            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "embedding_base", "embedding_config": {}},
-            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "embedding_base", "embedding_config": {}},
-            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "embedding_base", "embedding_config": {}},
+            {"num_dimensions": graph.shape[0] // 2, "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
+                'input_dims': graph.shape[0], 'output_dims': graph.shape[0] // 2,
+                'lr': 0.01, 'step_size': 10, 'weight_decay': 0.95
+            }},
+            {"num_dimensions": graph.shape[0] // 4, "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
+                'input_dims': graph.shape[0] // 2, 'output_dims': graph.shape[0] // 4,
+                'lr': 0.01, 'step_size': 10, 'weight_decay': 0.95
+            }},
+            {"num_dimensions": graph.shape[0] // 8, "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
+                'input_dims': graph.shape[0] // 4, 'output_dims': graph.shape[0] // 8,
+                'lr': 0.01, 'step_size': 10, 'weight_decay': 0.95
+            }},
         ]
     }
 
-    with network.build_network(config) as root:
+    with network.build_network(config, save_on_exit=False) as root:
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
             path = all_reps[path, :]
