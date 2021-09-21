@@ -64,11 +64,11 @@ if __name__ == '__main__':
     print("########################################")
 
     model = embedding.Embedding(**{
-        'input_dims': graph.shape[0], 'output_dims': graph.shape[0] // 2,
+        'dims': graph.shape[0],
         'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
     })
 
-    for i in range(1000):
+    for i in range(2000):
         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
         path = all_reps[:, path]
         model.incrementally_learn(path)

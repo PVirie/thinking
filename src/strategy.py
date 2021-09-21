@@ -40,16 +40,16 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
 
     config = {
         "layers": [
-            {"num_dimensions": graph.shape[0] // 2, "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
-                'input_dims': graph.shape[0], 'output_dims': graph.shape[0] // 2,
+            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
+                'dims': graph.shape[0],
                 'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
             }},
-            {"num_dimensions": graph.shape[0] // 4, "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
-                'input_dims': graph.shape[0] // 2, 'output_dims': graph.shape[0] // 4,
+            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
+                'dims': graph.shape[0],
                 'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
             }},
-            {"num_dimensions": graph.shape[0] // 8, "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
-                'input_dims': graph.shape[0] // 4, 'output_dims': graph.shape[0] // 8,
+            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
+                'dims': graph.shape[0],
                 'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
             }},
         ]
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     g = random_graph(16, 0.2)
     print(g)
 
-    cognitive_map, representations = build_energy_hierarchy(g, 10000)
+    cognitive_map, representations = build_energy_hierarchy(g, 2000)
     print("Finish learning.")
     print(cognitive_map)
 

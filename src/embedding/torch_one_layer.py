@@ -5,19 +5,37 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import modules
 
 import os
 import embedding_base
 import numpy as np
 
 
-class Linear(nn.Module):
-    def __init__(self, input_dims, output_dims, device):
-        super(Linear, self).__init__()
-        self.W = nn.Linear(input_dims, output_dims, device=device)
+class Transposer(nn.Module):
+    def __init__(self):
+        super(Transposer, self).__init__()
 
     def __call__(self, x):
-        return torch.transpose(self.W(torch.transpose(x, 0, 1)), 1, 0)
+        return torch.transpose(x, 0, 1)
+
+
+class Forward_interface(nn.Module):
+    def __init__(self, model):
+        super(Forward_interface, self).__init__()
+        self.model = model
+
+    def __call__(self, x):
+        return self.model.forward(x)[0]
+
+
+class Backward_interface(nn.Module):
+    def __init__(self, model):
+        super(Backward_interface, self).__init__()
+        self.model = model
+
+    def __call__(self, x):
+        return self.model.inverse(x)[0]
 
 
 def compute_mse_loss(predictions, targets):
@@ -33,23 +51,32 @@ def clear_directory(output_dir):
 
 class Embedding(embedding_base.Embedding):
 
-    def __init__(self, input_dims, output_dims, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99, on_cpu=True):
-        self.input_dims = input_dims
-        self.output_dims = output_dims
+    def __init__(self, dims, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99, on_cpu=True):
+        self.input_dims = dims
         self.checkpoint_dir = checkpoint_dir
         self.save_every = save_every
 
         self.device = torch.device("cuda:0") if not on_cpu else torch.device("cpu:0")
 
-        self.forward = Linear(self.input_dims, self.output_dims, self.device)
-        self.backward = Linear(self.output_dims, self.input_dims, self.device)
+        model = modules.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=8)
+
+        self.forward = nn.Sequential(
+            Transposer(),
+            Forward_interface(model),
+            Transposer()
+        )
+        self.backward = nn.Sequential(
+            Transposer(),
+            Backward_interface(model),
+            Transposer()
+        )
 
         # Setup the optimizers
         self.num_epoch = num_epoch
         self.save_format = "{:0" + str(len(str(num_epoch))) + "d}.ckpt"
         lr = lr
 
-        self.opt = optim.Adam(list(self.forward.parameters()) + list(self.backward.parameters()), lr=lr)
+        self.opt = optim.Adam(model.parameters(), lr=lr)
         self.step = 0
         self.step_size = step_size
         self.scheduler = optim.lr_scheduler.ExponentialLR(self.opt, gamma=weight_decay)
@@ -77,8 +104,10 @@ class Embedding(embedding_base.Embedding):
 
         V_ = self.forward(V)
         proximity_loss = compute_mse_loss(V_, self.forward(H))
-        reconstruction_loss = compute_mse_loss(self.backward(V_), V)
-        loss_values = proximity_loss + 0.1 * reconstruction_loss
+        # #using flow modules instead which guarantee invertibility.
+        # reconstruction_loss = compute_mse_loss(self.backward(V_), V)
+        # loss_values = proximity_loss + reconstruction_loss
+        loss_values = proximity_loss
 
         self.opt.zero_grad()
         loss_values.backward()
@@ -174,7 +203,7 @@ if __name__ == '__main__':
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
     model = Embedding(**{
-        'input_dims': 8, 'output_dims': 4,
+        'dims': 8,
         'checkpoint_dir': os.path.join(dir_path, "..", "..", "artifacts", "torch_one_layer"),
         'save_every': 10, 'num_epoch': 100,
         'lr': 0.01, 'step_size': 10, 'weight_decay': 0.95,
