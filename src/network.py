@@ -18,7 +18,7 @@ def is_same_node(c, t):
     c start node as shape: [vector length, 1]
     t target node as shape: [vector length, 1]
     '''
-    return np.linalg.norm(c - t) < 1e-3
+    return np.linalg.norm(c - t) < 1e-4
 
 
 class Layer:

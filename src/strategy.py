@@ -47,11 +47,7 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
             {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
                 'dims': graph.shape[0],
                 'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-            }},
-            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
-                'dims': graph.shape[0],
-                'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-            }},
+            }}
         ]
     }
 

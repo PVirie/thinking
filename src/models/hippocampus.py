@@ -19,7 +19,6 @@ class Hippocampus:
 
         cortex_rep, cortex_prop = energy.Energy_model.pincer_inference(neighbor_model, estimate_model, s, t)
 
-        # To do: this is not completely correct. How to enhance the signal with high-level hippocampus?
         compare_results = hippocampus_prop > cortex_prop
         results = np.where(compare_results, hippocampus_rep, cortex_rep)
         return results, np.where(compare_results, hippocampus_prop, cortex_prop)

@@ -38,8 +38,8 @@ class Backward_interface(nn.Module):
         return self.model.inverse(x)[0]
 
 
-def compute_mse_loss(predictions, targets):
-    return torch.mean(torch.square(predictions - targets))
+def compute_gap_loss(predictions, targets):
+    return torch.mean(torch.square(torch.sum(torch.norm(predictions - targets), dim=0) - 1))
 
 
 def clear_directory(output_dir):
@@ -103,7 +103,7 @@ class Embedding(embedding_base.Embedding):
     def update(self, V, H):
 
         V_ = self.forward(V)
-        proximity_loss = compute_mse_loss(V_, self.forward(H))
+        proximity_loss = compute_gap_loss(V_, self.forward(H))
         # #using flow modules instead which guarantee invertibility.
         # reconstruction_loss = compute_mse_loss(self.backward(V_), V)
         # loss_values = proximity_loss + reconstruction_loss

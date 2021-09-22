@@ -48,7 +48,13 @@ def measure_distance(graph, representations):
     Y = grid_y.flatten()[graph.flatten()]
     S = representations[:, Y]
     T = representations[:, X]
-    print(np.mean(np.square(S - T)))
+    print("Neighbor score:", np.mean(np.square(S - T)))
+
+    X = grid_x.flatten()
+    Y = grid_y.flatten()
+    S = representations[:, Y]
+    T = representations[:, X]
+    print("Average score:", np.mean(np.square(S - T)))
 
 
 if __name__ == '__main__':
@@ -79,5 +85,5 @@ if __name__ == '__main__':
             measure_distance(graph, new_metric)
 
             reconstruction = model.decode(new_metric)
-            print(np.mean(np.square(all_reps - reconstruction)))
+            print("Reconstruction score", np.mean(np.square(all_reps - reconstruction)))
             print("########################################")
