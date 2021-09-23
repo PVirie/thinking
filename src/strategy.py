@@ -47,6 +47,12 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
         ]
     }
 
+    # config = {
+    #     "layers": [
+    #         {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "embedding_base", "embedding_config": {}}
+    #     ]
+    # }
+
     with network.build_network(config, save_on_exit=False) as root:
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)

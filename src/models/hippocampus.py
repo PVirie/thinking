@@ -14,29 +14,28 @@ class Hippocampus:
     def pincer_inference(self, neighbor_model, estimate_model, s, t):
         s_indices, s_prop = self.resolve_address(s)
         t_indices, t_prop = self.resolve_address(t, s_indices)
+        t_prop[t_indices <= s_indices] = 0
         hippocampus_prop = np.power(self.diminishing_factor, t_indices - s_indices) * s_prop * t_prop
-        t_prop[s_indices >= self.h_size] = 0
-        # print(s_indices, t_indices, t_prop)
-
         hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
+        # print(s_indices, t_indices, t_prop)
 
         # cortex_rep, cortex_prop = energy.Energy_model.pincer_inference(neighbor_model, estimate_model, s, t)
 
         # compare_results = hippocampus_prop > cortex_prop
         # results = np.where(compare_results, hippocampus_rep, cortex_rep)
         # return results, np.where(compare_results, hippocampus_prop, cortex_prop)
-
         return hippocampus_rep, None
 
     def match(self, x):
         H_ = np.transpose(self.H)
-        prop = np.exp(- (np.linalg.norm(H_, ord=2, axis=1, keepdims=True)**2 - 2 * np.matmul(H_, x)) + np.linalg.norm(x, ord=2, axis=0, keepdims=True)**2)
-        prop = prop / np.sum(prop, axis=0, keepdims=True)
+        # use isometric gaussian now, should be using the metric in the neighbor model for computing entropy.
+        prop = np.exp(- (np.linalg.norm(H_, ord=2, axis=1, keepdims=True)**2 - 2 * np.matmul(H_, x) + np.linalg.norm(x, ord=2, axis=0, keepdims=True)**2))
         return prop
 
     def compute_entropy(self, x):
         prop = self.match(x)
-        entropy = np.sum(prop, axis=0, keepdims=False) / self.h_size
+        norm_prop = prop / np.sum(prop, axis=0, keepdims=True)
+        entropy = np.sum(norm_prop, axis=0, keepdims=False) / self.h_size
         return entropy
 
     def enhance(self, c):
