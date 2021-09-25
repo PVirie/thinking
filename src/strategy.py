@@ -40,18 +40,17 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
 
     config = {
         "layers": [
-            {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "torch_one_layer", "embedding_config": {
-                'dims': graph.shape[0],
-                'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-            }}
+            {
+                "num_dimensions": graph.shape[0],
+                "memory_slots": 1024,
+                "embedding_model": "torch_one_layer",
+                "neighbor_model": "torch_one_layer",
+                "trainer": {
+                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+                }
+            }
         ]
     }
-
-    # config = {
-    #     "layers": [
-    #         {"num_dimensions": graph.shape[0], "memory_slots": 1024, "embedding": "embedding_base", "embedding_config": {}}
-    #     ]
-    # }
 
     with network.build_network(config, save_on_exit=False) as root:
         for i in range(explore_steps):

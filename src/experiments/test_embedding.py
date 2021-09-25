@@ -6,9 +6,11 @@ import time
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(dir_path, ".."))
-sys.path.append(os.path.join(dir_path, "..", "embedding"))
+sys.path.append(os.path.join(dir_path, "..", "models"))
+sys.path.append(os.path.join(dir_path, "..", "trainers"))
 
-from embedding import torch_one_layer as embedding
+from models import torch_one_layer as embedding
+from trainers import mse_loss_trainer as trainer
 
 
 def generate_onehot_representation(d, max_digits=8):
@@ -59,6 +61,8 @@ def measure_distance(graph, representations):
 
 if __name__ == '__main__':
 
+    import torch
+
     graph = random_graph(16, 0.2)
     print("Result using the adjacency matrix itself as the representation.")
     measure_distance(graph, np.transpose(graph))
@@ -69,21 +73,25 @@ if __name__ == '__main__':
     measure_distance(graph, all_reps)
     print("########################################")
 
-    model = embedding.Embedding(**{
-        'dims': graph.shape[0],
-        'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+    model = embedding.Model(**{
+        'dims': graph.shape[0]
     })
+
+    trainer = trainer.Trainer(
+        variables=model.parameters(),
+        lr=0.01, step_size=1000, weight_decay=0.99
+    )
 
     for i in range(2000):
         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-        path = all_reps[:, path]
-        model.incrementally_learn(path)
+        path = torch.from_numpy(all_reps[:, path])
+        trainer.incrementally_learn(model.encode(path[:, :-1]), model.decode(path[:, 1:]))
 
         if i % 100 == 0:
             print("Result after", i, "steps")
-            new_metric = model.encode(all_reps)
-            measure_distance(graph, new_metric)
+            new_metric = model.encode(torch.from_numpy(all_reps))
+            measure_distance(graph, new_metric.detach().cpu().numpy())
 
-            reconstruction = model.decode(new_metric)
+            reconstruction = model.decode(new_metric).detach().cpu().numpy()
             print("Reconstruction score", np.mean(np.square(all_reps - reconstruction)))
             print("########################################")

@@ -1,6 +1,5 @@
 import numpy as np
-import math
-import energy
+import variational_energy
 
 
 class Hippocampus:
@@ -11,7 +10,7 @@ class Hippocampus:
         self.H = np.zeros([self.dim, self.h_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
         self.diminishing_factor = 0.9
 
-    def pincer_inference(self, neighbor_model, estimate_model, s, t):
+    def pincer_inference(self, neighbor_model, estimate_model, s, x, t):
         s_indices, s_prop = self.resolve_address(s)
         t_indices, t_prop = self.resolve_address(t, s_indices)
         t_prop[t_indices <= s_indices] = 0
@@ -19,12 +18,11 @@ class Hippocampus:
         hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
         # print(s_indices, t_indices, t_prop)
 
-        # cortex_rep, cortex_prop = energy.Energy_model.pincer_inference(neighbor_model, estimate_model, s, t)
+        cortex_rep, cortex_prop = variational_energy.Energy_model.pincer_inference(neighbor_model, estimate_model, s, x, t)
 
-        # compare_results = hippocampus_prop > cortex_prop
-        # results = np.where(compare_results, hippocampus_rep, cortex_rep)
-        # return results, np.where(compare_results, hippocampus_prop, cortex_prop)
-        return hippocampus_rep, None
+        compare_results = hippocampus_prop > cortex_prop
+        results = np.where(compare_results, hippocampus_rep, cortex_rep)
+        return results, np.where(compare_results, hippocampus_prop, cortex_prop)
 
     def match(self, x):
         H_ = np.transpose(self.H)
