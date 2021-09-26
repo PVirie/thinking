@@ -23,8 +23,9 @@ def compute_mse_loss(predictions, targets):
 
 class Trainer:
 
-    def __init__(self, variables, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99, on_cpu=True):
-        self.parameters = variables
+    def __init__(self, embedding_model, neighbor_model, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99, on_cpu=True):
+        self.embedding_model = embedding_model
+        self.neighbor_model = neighbor_model
         self.checkpoint_dir = checkpoint_dir
         self.save_every = save_every
 
@@ -33,15 +34,23 @@ class Trainer:
         self.save_format = "{:0" + str(len(str(num_epoch))) + "d}.ckpt"
         lr = lr
 
-        self.opt = optim.Adam(self.parameters, lr=lr)
+        self.opt = optim.Adam(list(self.embedding_model.parameters()) + list(self.neighbor_model.parameters()), lr=lr)
         self.step = 0
         self.step_size = step_size
         self.scheduler = optim.lr_scheduler.ExponentialLR(self.opt, gamma=weight_decay)
 
         self.eval_mode = True
 
-    def incrementally_learn(self, V, H):
-        loss_values = compute_mse_loss(V, H)
+    def incrementally_learn(self, path):
+        self.embedding_model.train()
+        self.neighbor_model.train()
+
+        path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
+        encoded_path = self.embedding_model.encode(path)
+        V = encoded_path[:, :-1]
+        H = encoded_path[:, 1:]
+
+        loss_values = compute_mse_loss(self.neighbor_model.forward(V), H)
 
         self.opt.zero_grad()
         loss_values.backward()
@@ -50,23 +59,23 @@ class Trainer:
 
         return loss_values, self.step
 
-    def bootstrap(self, V, H):
+    def bootstrap(self, path):
         clear_directory(self.checkpoint_dir)
 
-        self.set_eval_mode(False)
+        self.embedding_model.train()
+        self.neighbor_model.train()
 
         # Start training
         sum_loss = 0
         sum_count = 0
 
         writer = SummaryWriter(os.path.join(self.checkpoint_dir, "logs"))
+        path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
 
-        V = torch.from_numpy(V)
-        H = torch.from_numpy(H)
         while True:
 
             # Main training code
-            loss, iterations = self.incrementally_learn(V, H)
+            loss, iterations = self.incrementally_learn(path)
             sum_loss = sum_loss + loss.detach().cpu().numpy()
             sum_count = sum_count + 1
 
@@ -89,8 +98,8 @@ class Trainer:
         if self.checkpoint_dir is not None:
             latest = sorted(os.listdir(os.path.join(self.checkpoint_dir, "weights")))[-1]
             checkpoint = torch.load(os.path.join(self.checkpoint_dir, "weights", latest))
-            self.forward.load_state_dict(checkpoint['forward'])
-            self.backward.load_state_dict(checkpoint['backward'])
+            self.embedding_model.load_state_dict(checkpoint['embedding_model'])
+            self.neighbor_model.load_state_dict(checkpoint['neighbor_model'])
             self.opt.load_state_dict(checkpoint['opt'])
             self.scheduler.load_state_dict(checkpoint['scheduler'])
             self.step = checkpoint['step']
@@ -103,8 +112,8 @@ class Trainer:
             os.makedirs(os.path.join(self.checkpoint_dir, "weights"))
 
         torch.save({
-            'forward': self.forward.state_dict(),
-            'backward': self.backward.state_dict(),
+            'embedding_model': self.embedding_model.state_dict(),
+            'neighbor_model': self.neighbor_model.state_dict(),
             'opt': self.opt.state_dict(),
             'scheduler': self.scheduler.state_dict(),
             'step': self.step

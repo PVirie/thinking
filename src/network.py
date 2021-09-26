@@ -30,7 +30,7 @@ class Layer:
         self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, memory_slots)
         self.embedding = embedding_model if embedding_model is not None else embedding_base.Model(num_dimensions)
         self.neighbor_model = neighbor_model if neighbor_model is not None else embedding_base.Model(num_dimensions)
-        self.trainer = trainer
+        self.trainer = trainer if trainer is not None else Trainer(embedding_model, neighbor_model)
         self.next = None
 
     def __str__(self):
@@ -49,16 +49,12 @@ class Layer:
             return
 
         # Learn embedding and forward model
-        self.embedding.train()
-        self.neighbor_model.train()
-
-        encoded_path = self.embedding.encode(torch.from_numpy(path))
-        self.trainer.incrementally_learn(self.forward(encoded_path[:, :-1]), encoded_path[:, 1:])
+        self.trainer.incrementally_learn(path)
 
         # learning distribution
         self.embedding.eval()
         self.neighbor_model.eval()
-        encoded_path = self.embedding.encode(torch.from_numpy(path)).detach().cpu().numpy()
+        encoded_path = self.embedding.encode(path)
 
         self.neighbor_distribution.incrementally_learn(self.forward(encoded_path[:, :-1]), encoded_path[:, 1:])
         self.hippocampus.incrementally_learn(encoded_path)
@@ -140,7 +136,8 @@ def build_network(config, save_on_exit=True):
         embedding_model = importlib.import_module(layer["embedding_model"], package="models").Model(layer["num_dimensions"])
         neighbor_model = importlib.import_module(layer["neighbor_model"], package="models").Model(layer["num_dimensions"])
         trainer_params = layer["trainer"]
-        trainer_params["variables"] = list(embedding_model.parameters()) + list(neighbor_model.parameters())
+        trainer_params["embedding_model"] = embedding_model
+        trainer_params["neighbor_model"] = neighbor_model
         trainer = Trainer(**trainer_params)
         layers.append(Layer(layer["num_dimensions"], layer["memory_slots"], embedding_model, neighbor_model, trainer))
 

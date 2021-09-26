@@ -9,7 +9,7 @@ sys.path.append(os.path.join(dir_path, ".."))
 sys.path.append(os.path.join(dir_path, "..", "models"))
 sys.path.append(os.path.join(dir_path, "..", "trainers"))
 
-from models import torch_one_layer as embedding
+from models import spline_flow as embedding
 from trainers import mse_loss_trainer as trainer
 
 
@@ -77,15 +77,19 @@ if __name__ == '__main__':
         'dims': graph.shape[0]
     })
 
+    neighbor_model = embedding.Model(**{
+        'dims': graph.shape[0]
+    })
+
     trainer = trainer.Trainer(
-        variables=model.parameters(),
+        embedding_model=model,
+        neighbor_model=neighbor_model,
         lr=0.01, step_size=1000, weight_decay=0.99
     )
 
     for i in range(2000):
         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-        path = torch.from_numpy(all_reps[:, path])
-        trainer.incrementally_learn(model.encode(path[:, :-1]), model.decode(path[:, 1:]))
+        trainer.incrementally_learn(all_reps[:, path])
 
         if i % 100 == 0:
             print("Result after", i, "steps")

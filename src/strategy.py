@@ -43,8 +43,8 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
             {
                 "num_dimensions": graph.shape[0],
                 "memory_slots": 1024,
-                "embedding_model": "torch_one_layer",
-                "neighbor_model": "torch_one_layer",
+                "embedding_model": "spline_flow",
+                "neighbor_model": "spline_flow",
                 "trainer": {
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }

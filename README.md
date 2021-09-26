@@ -19,5 +19,5 @@ An implementation of thinking model version XXIV (codename: duality).
 
 ## To do
 * Bridging hippocampus module
-* Embedding representation in each layer
+* ~~Embedding representation in each layer~~
 * ~~Pattern enhancer~~
