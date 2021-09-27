@@ -77,6 +77,12 @@ class Model(embedding_base.Model):
     def eval(self):
         self.model.eval()
 
+    def load_state_dict(self, state_dict):
+        self.model.load_state_dict(state_dict)
+
+    def state_dict(self):
+        return self.model.state_dict()
+
 
 if __name__ == '__main__':
     dir_path = os.path.dirname(os.path.realpath(__file__))

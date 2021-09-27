@@ -2,13 +2,13 @@ import sys
 import os
 import random
 import numpy as np
-import time
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(dir_path, ".."))
 sys.path.append(os.path.join(dir_path, "..", "models"))
 sys.path.append(os.path.join(dir_path, "..", "trainers"))
 
+from utilities import *
 from models import spline_flow as embedding
 from trainers import mse_loss_trainer as trainer
 

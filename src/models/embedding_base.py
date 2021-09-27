@@ -13,9 +13,3 @@ class Model:
 
     def parameters(self):
         return []
-
-    def train(self):
-        pass
-
-    def eval(self):
-        pass
