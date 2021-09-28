@@ -57,7 +57,7 @@ class Trainer:
         self.opt.step()
         self.step += 1
 
-        return loss_values, self.step
+        return loss_values.detach().cpu().numpy(), self.step
 
     def bootstrap(self, path):
         clear_directory(self.checkpoint_dir)
@@ -76,7 +76,7 @@ class Trainer:
 
             # Main training code
             loss, iterations = self.incrementally_learn(path)
-            sum_loss = sum_loss + loss.detach().cpu().numpy()
+            sum_loss = sum_loss + loss
             sum_count = sum_count + 1
 
             writer.add_scalar('Loss/train', loss, iterations)
