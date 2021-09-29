@@ -38,10 +38,10 @@ if __name__ == '__main__':
     trainer = trainer.Trainer(
         embedding_model=model,
         neighbor_model=neighbor_model,
-        lr=0.001, step_size=1000, weight_decay=0.99
+        lr=0.0001, step_size=1000, weight_decay=0.99
     )
 
-    for i in range(5000):
+    for i in range(100000):
         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
         loss, _ = trainer.incrementally_learn(all_reps[:, path])
 
@@ -57,9 +57,11 @@ if __name__ == '__main__':
 
     encoded_rep = model.encode(torch.from_numpy(all_reps))
     encoded_next_rep = neighbor_model.encode(encoded_rep)
-    next_rep = model.decode(encoded_next_rep)
+    decoded_rep = model.decode(encoded_rep)
 
-    print(encoded_rep.shape, encoded_next_rep.shape)
+    distances = mat_sqr_diff(all_reps, decoded_rep.detach().cpu().numpy())
+    print("If the next line is sorted, reconstruction is good.")
+    print(np.argmin(distances, axis=1))
 
     distances = mat_sqr_diff(encoded_rep.detach().cpu().numpy(), encoded_next_rep.detach().cpu().numpy())
     print(distances)

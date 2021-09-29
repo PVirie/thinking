@@ -12,7 +12,10 @@ class Transposer(nn.Module):
         super(Transposer, self).__init__()
 
     def __call__(self, x):
-        return torch.transpose(x, 0, 1)
+        if type(x) is tuple:
+            return torch.transpose(x[0], 0, 1), x[1]
+        else:
+            return torch.transpose(x, 0, 1)
 
 
 class Forward_interface(nn.Module):
@@ -21,7 +24,7 @@ class Forward_interface(nn.Module):
         self.model = model
 
     def __call__(self, x):
-        return self.model.forward(x)[0]
+        return self.model.forward(x)
 
 
 class Backward_interface(nn.Module):
@@ -30,7 +33,7 @@ class Backward_interface(nn.Module):
         self.model = model
 
     def __call__(self, x):
-        return self.model.inverse(x)[0]
+        return self.model.inverse(x)
 
 
 class Model(embedding_base.Model):
@@ -61,14 +64,22 @@ class Model(embedding_base.Model):
     def parameters(self):
         return self.model.parameters()
 
+    def encode_with_log_density(self, c):
+        result, log_d = self.forward(c)
+        return result, log_d
+
+    def decode_with_log_density(self, h):
+        result, log_d = self.backward(h)
+        return result, log_d
+
     def encode(self, c):
         is_numpy = type(c).__module__ == np.__name__
-        result = self.forward(torch.from_numpy(c) if is_numpy else c)
+        result = self.forward(torch.from_numpy(c) if is_numpy else c)[0]
         return result.detach().cpu().numpy() if is_numpy else result
 
     def decode(self, h):
         is_numpy = type(h).__module__ == np.__name__
-        result = self.backward(torch.from_numpy(h) if is_numpy else h)
+        result = self.backward(torch.from_numpy(h) if is_numpy else h)[0]
         return result.detach().cpu().numpy() if is_numpy else result
 
     def train(self):

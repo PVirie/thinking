@@ -21,6 +21,9 @@ def compute_mse_loss(predictions, targets):
     return torch.mean(torch.square(predictions - targets))
 
 
+def compute_gausian_density_loss(predictions, targets, log_density):
+    return torch.mean(torch.square(predictions - targets) / 2) - torch.mean(log_density)
+
 class Trainer:
 
     def __init__(self, embedding_model, neighbor_model, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99, on_cpu=True):
@@ -46,12 +49,14 @@ class Trainer:
         self.neighbor_model.train()
 
         path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
-        encoded_path = self.embedding_model.encode(path)
+        encoded_path, log_density = self.embedding_model.encode_with_log_density(path)
         V = encoded_path[:, :-1]
         H = encoded_path[:, 1:]
 
-        loss_values = compute_mse_loss(self.neighbor_model.forward(V), H)
-
+        density_loss = compute_mse_loss(log_density, 0)
+        X, neighbor_log_density = self.neighbor_model.encode_with_log_density(V)
+        neighbor_loss = compute_gausian_density_loss(X, H, neighbor_log_density)
+        loss_values = neighbor_loss + density_loss
         self.opt.zero_grad()
         loss_values.backward()
         self.opt.step()
