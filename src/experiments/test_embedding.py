@@ -77,13 +77,8 @@ if __name__ == '__main__':
         'dims': graph.shape[0]
     })
 
-    neighbor_model = embedding.Model(**{
-        'dims': graph.shape[0]
-    })
-
     trainer = trainer.Trainer(
         embedding_model=model,
-        neighbor_model=neighbor_model,
         lr=0.01, step_size=1000, weight_decay=0.99
     )
 

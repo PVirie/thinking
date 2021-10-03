@@ -3,10 +3,10 @@ import numpy as np
 class Energy_model:
 
     @staticmethod
-    def pincer_inference(neighbor_model, estimate_model, s, x, t):
+    def pincer_inference(neighbor_model, estimate_model, s, t):
         var_n = neighbor_model.var
         var_h = estimate_model.var
-        inferred_rep = (x * var_h + t * var_n) / (var_n + var_h)
+        inferred_rep = (s * var_h + t * var_n) / (var_n + var_h)
 
         var = (var_n * var_h) / (var_n + var_h)
         return inferred_rep, 1 / np.sqrt(np.power(2 * np.pi, s.shape[0]) * np.prod(var, axis=0))

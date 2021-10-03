@@ -1,10 +1,17 @@
 import torch
 import torch.nn as nn
-import modules
-
 import os
 import embedding_base
 import numpy as np
+import sys
+
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(dir_path, ".."))
+sys.path.append(os.path.join(dir_path, "..", "third_party"))
+
+import third_party.nf.flows as flows
+import third_party.nf.models as flowsequence
 
 
 class Transposer(nn.Module):
@@ -41,7 +48,11 @@ class Model(embedding_base.Model):
     def __init__(self, dims):
         self.input_dims = dims
 
-        self.model = modules.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=8)
+        self.model = flowsequence.NormalizingFlowModel([
+            flows.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=16),
+            flows.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=16),
+            flows.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=16)
+        ])
 
         self.forward = nn.Sequential(
             Transposer(),

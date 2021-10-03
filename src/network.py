@@ -23,14 +23,13 @@ def is_same_node(c, t):
 
 
 class Layer:
-    def __init__(self, num_dimensions, memory_slots=2048, embedding_model=None, neighbor_model=None, trainer=None):
+    def __init__(self, num_dimensions, memory_slots=2048, embedding_model=None, trainer=None):
         self.num_dimensions = num_dimensions
         self.neighbor_distribution = variational_energy.Energy_model(self.num_dimensions)
         self.estimate_distribution = variational_energy.Energy_model(self.num_dimensions)
         self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, memory_slots)
         self.embedding = embedding_model if embedding_model is not None else embedding_base.Model(num_dimensions)
-        self.neighbor_model = neighbor_model if neighbor_model is not None else embedding_base.Model(num_dimensions)
-        self.trainer = trainer if trainer is not None else Trainer(embedding_model, neighbor_model)
+        self.trainer = trainer if trainer is not None else Trainer(embedding_model)
         self.next = None
 
     def __str__(self):
@@ -48,15 +47,14 @@ class Layer:
         if path.shape[1] < 2:
             return
 
-        # Learn embedding and forward model
+        # Learn embedding
         self.trainer.incrementally_learn(path)
 
         # learning distribution
         self.embedding.eval()
-        self.neighbor_model.eval()
         encoded_path = self.embedding.encode(path)
 
-        self.neighbor_distribution.incrementally_learn(self.forward(encoded_path[:, :-1]), encoded_path[:, 1:])
+        self.neighbor_distribution.incrementally_learn(encoded_path[:, :-1], encoded_path[:, 1:])
         self.hippocampus.incrementally_learn(encoded_path)
 
         entropy = self.hippocampus.compute_entropy(encoded_path)
@@ -71,25 +69,9 @@ class Layer:
         if self.next is not None and len(all_pvs) > 1:
             self.next.incrementally_learn(encoded_path[:, all_pvs])
 
-    def forward(self, c):
-        return self.neighbor_model.encode(c)
-
-    def backward(self, t):
-        return self.neighbor_model.decode(t)
-
-    def to_next(self, c, forward=True):
-        c_ent = self.hippocampus.compute_entropy(c)
-        while True:
-            if forward:
-                n = self.forward(c)
-            else:
-                n = self.backward(c)
-            n_ent = self.hippocampus.compute_entropy(n)
-            if c_ent > n_ent:
-                return c
-            else:
-                c = n
-                c_ent = n_ent
+    def to_next(self, c):
+        # should not just enhance, but select the closest with highest entropy
+        return self.hippocampus.enhance(c)
 
     def from_next(self, c):
         return c
@@ -99,7 +81,7 @@ class Layer:
         t = self.embedding.encode(t)
 
         if self.next is not None:
-            goals = self.next.find_path(self.to_next(c, forward=True), self.to_next(t, forward=False))
+            goals = self.next.find_path(self.to_next(c), self.to_next(t))
 
         count_steps = 0
         yield self.embedding.decode(c)
@@ -121,8 +103,7 @@ class Layer:
                     raise RecursionError
                 if is_same_node(c, g):
                     break
-                x = self.forward(c)
-                c, _ = self.hippocampus.pincer_inference(self.neighbor_distribution, self.estimate_distribution, c, x, g)
+                c, _ = self.hippocampus.pincer_inference(self.neighbor_distribution, self.estimate_distribution, c, g)
                 yield self.embedding.decode(c)
 
             c = g
@@ -134,12 +115,10 @@ def build_network(config, save_on_exit=True):
     layers = []
     for layer in config["layers"]:
         embedding_model = importlib.import_module(layer["embedding_model"], package="models").Model(layer["num_dimensions"])
-        neighbor_model = importlib.import_module(layer["neighbor_model"], package="models").Model(layer["num_dimensions"])
         trainer_params = layer["trainer"]
         trainer_params["embedding_model"] = embedding_model
-        trainer_params["neighbor_model"] = neighbor_model
         trainer = Trainer(**trainer_params)
-        layers.append(Layer(layer["num_dimensions"], layer["memory_slots"], embedding_model, neighbor_model, trainer))
+        layers.append(Layer(layer["num_dimensions"], layer["memory_slots"], embedding_model, trainer))
 
     for i in range(len(layers) - 1):
         layers[i].assign_next(layers[i + 1])
