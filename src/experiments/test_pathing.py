@@ -12,7 +12,9 @@ sys.path.append(os.path.join(dir_path, "..", "trainers"))
 
 from utilities import *
 from models import spline_flow as embedding
+# from models import resnet as embedding
 from trainers import mse_loss_trainer as trainer
+# from trainers import gan_trainer as trainer
 
 
 def mat_sqr_diff(A, B):
@@ -47,16 +49,20 @@ if __name__ == '__main__':
         lr=0.0001, step_size=1000, weight_decay=0.99
     )
 
-    for i in range(10000):
+    paths = []
+    for i in range(1000):
         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-        loss, _ = trainer.incrementally_learn(all_reps[:, path])
+        paths.append(path)
 
-        if i % 500 == 0:
-            print("Result after", i, "steps", loss)
-            new_metric = model.encode(torch.from_numpy(all_reps))
-            reconstruction = model.decode(new_metric).detach().cpu().numpy()
-            print("Reconstruction score", np.mean(np.square(all_reps - reconstruction)))
-            print("########################################")
+    for i in range(10):
+        for path in paths:
+            loss, _ = trainer.incrementally_learn(all_reps[:, path])
+
+        print("Result after", i + 1, "epoches", loss)
+        new_metric = model.encode(torch.from_numpy(all_reps))
+        reconstruction = model.decode(new_metric).detach().cpu().numpy()
+        print("Reconstruction score", np.mean(np.square(all_reps - reconstruction)))
+        print("########################################")
 
     model.eval()
 

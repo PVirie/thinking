@@ -21,8 +21,20 @@ def compute_mse_loss(predictions, targets):
     return torch.mean(torch.square(predictions - targets))
 
 
+def compute_contranstive_loss(predictions, targets):
+    return compute_mse_loss(predictions, targets) - compute_mse_loss(predictions, torch.mean(predictions, dim=1, keepdim=True))
+
+
 def compute_gausian_density_loss(predictions, targets, log_density):
     return torch.mean(torch.square(predictions - targets) / 2) - torch.mean(log_density)
+
+
+def compute_gausian_variational_loss(predictions, targets):
+    X = targets - predictions
+    mu = torch.mean(X, dim=1)
+    mean_sqr = torch.mean(X * X, dim=1)
+    var = mean_sqr - mu * mu
+    return torch.mean(mean_sqr - torch.log(var))
 
 class Trainer:
 
@@ -47,11 +59,14 @@ class Trainer:
         self.embedding_model.train()
 
         path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
-        encoded_path, log_density = self.embedding_model.encode_with_log_density(path)
+        encoded_path = self.embedding_model.encode(path)
         V = encoded_path[:, :-1]
         H = encoded_path[:, 1:]
 
-        loss_values = compute_gausian_density_loss(V, H, log_density)
+        # decoded_path = self.embedding_model.decode(encoded_path)
+        # reconstruction_loss = compute_mse_loss(encoded_path, decoded_path)
+
+        loss_values = compute_gausian_variational_loss(V, H)
         self.opt.zero_grad()
         loss_values.backward()
         self.opt.step()

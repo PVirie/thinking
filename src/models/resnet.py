@@ -3,15 +3,6 @@ import torch.nn as nn
 import os
 import embedding_base
 import numpy as np
-import sys
-
-
-dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(dir_path, ".."))
-sys.path.append(os.path.join(dir_path, "..", "third_party"))
-
-import third_party.nf.flows as flows
-import third_party.nf.models as flowsequence
 
 
 class Transposer(nn.Module):
@@ -25,43 +16,33 @@ class Transposer(nn.Module):
             return torch.transpose(x, 0, 1)
 
 
-class Forward_interface(nn.Module):
-    def __init__(self, model):
-        super(Forward_interface, self).__init__()
-        self.model = model
+class Residue_block(nn.Module):
+    def __init__(self, dims):
+        super(Residue_block, self).__init__()
+        self.model1 = nn.Linear(dims, dims)
+        self.model2 = nn.Linear(dims, dims)
 
     def __call__(self, x):
-        return self.model.forward(x)
-
-
-class Backward_interface(nn.Module):
-    def __init__(self, model):
-        super(Backward_interface, self).__init__()
-        self.model = model
-
-    def __call__(self, x):
-        return self.model.inverse(x)
-
+        y = self.model2(nn.functional.relu6(self.model1(x))) + x
+        return nn.functional.relu6(y)
 
 class Model(embedding_base.Model):
 
     def __init__(self, dims):
         self.input_dims = dims
 
-        self.model = flowsequence.NormalizingFlowModel([
-            flows.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=16),
-            flows.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=16),
-            flows.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=16)
-        ])
-
         self.forward = nn.Sequential(
             Transposer(),
-            Forward_interface(self.model),
+            Residue_block(dims),
+            Residue_block(dims),
+            Residue_block(dims),
             Transposer()
         )
         self.backward = nn.Sequential(
             Transposer(),
-            Backward_interface(self.model),
+            Residue_block(dims),
+            Residue_block(dims),
+            Residue_block(dims),
             Transposer()
         )
 
@@ -76,43 +57,43 @@ class Model(embedding_base.Model):
         pass
 
     def parameters(self):
-        return self.model.parameters()
-
-    def encode_with_log_density(self, c):
-        result, log_d = self.forward(c)
-        return result, log_d
-
-    def decode_with_log_density(self, h):
-        result, log_d = self.backward(h)
-        return result, log_d
+        return list(self.forward.parameters()) + list(self.backward.parameters())
 
     def encode(self, c):
         is_numpy = type(c).__module__ == np.__name__
-        result = self.forward(torch.from_numpy(c) if is_numpy else c)[0]
+        result = self.forward(torch.from_numpy(c) if is_numpy else c)
         return result.detach().cpu().numpy() if is_numpy else result
 
     def decode(self, h):
         is_numpy = type(h).__module__ == np.__name__
-        result = self.backward(torch.from_numpy(h) if is_numpy else h)[0]
+        result = self.backward(torch.from_numpy(h) if is_numpy else h)
         return result.detach().cpu().numpy() if is_numpy else result
 
     def train(self):
-        self.model.train()
+        self.forward.train()
+        self.backward.train()
 
     def eval(self):
-        self.model.eval()
+        self.forward.eval()
+        self.backward.eval()
 
     def load_state_dict(self, state_dict):
-        self.model.load_state_dict(state_dict)
+        self.forward.load_state_dict(state_dict["forward"])
+        self.backward.load_state_dict(state_dict["backward"])
 
     def state_dict(self):
-        return self.model.state_dict()
+        state_dict = {
+            "forward": self.forward.state_dict(),
+            "backward": self.backward.state_dict()
+        }
+        return state_dict
 
 
 if __name__ == '__main__':
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
     model = Model(8)
+    print(model.parameters())
 
     path = np.random.normal(0, 1.0, [8, 16]).astype(np.float32)
     path = torch.from_numpy(path)
