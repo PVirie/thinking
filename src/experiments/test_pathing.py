@@ -7,14 +7,12 @@ import torch
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(dir_path, ".."))
-sys.path.append(os.path.join(dir_path, "..", "models"))
+sys.path.append(os.path.join(dir_path, "..", "embeddings"))
 sys.path.append(os.path.join(dir_path, "..", "trainers"))
 
 from utilities import *
-from models import spline_flow as embedding
-# from models import resnet as embedding
+from embeddings import spline_flow as embedding
 from trainers import mse_loss_trainer as trainer
-# from trainers import gan_trainer as trainer
 
 
 def mat_sqr_diff(A, B):
@@ -46,7 +44,7 @@ if __name__ == '__main__':
 
     trainer = trainer.Trainer(
         embedding_model=model,
-        lr=0.0001, step_size=1000, weight_decay=0.99
+        lr=0.0001, step_size=1000, weight_decay=0.95
     )
 
     paths = []

@@ -102,18 +102,18 @@ class Trainer:
         self.heuristic_variational_model.train()
 
         path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
-        pivots = torch.from_numpy(pivots) if type(pivots).__module__ == np.__name__ else pivots
-
         encoded_path = self.embedding_model.encode(path)
         V = encoded_path[:, :-1]
         H = encoded_path[:, 1:]
-        P = encoded_path[:, pivots]
-
         neighbor_var = self.neighbor_variational_model(V)
-        heuristic_var = self.heuristic_variational_model(P)
-
         loss_values = compute_log_gausian_density_loss(H, V, neighbor_var)
-        + compute_log_gausian_density_loss_against_pivots(encoded_path, generate_masks(pivots, path.shape[1]), P, heuristic_var)
+
+        if pivots.size > 0:
+            pivots = torch.from_numpy(pivots) if type(pivots).__module__ == np.__name__ else pivots
+            P = encoded_path[:, pivots]
+            heuristic_var = self.heuristic_variational_model(P)
+            loss_values = loss_values + compute_log_gausian_density_loss_against_pivots(encoded_path, generate_masks(pivots, path.shape[1]), P, heuristic_var)
+
         self.opt.zero_grad()
         loss_values.backward()
         self.opt.step()

@@ -4,14 +4,14 @@ import os
 import importlib
 from contextlib import contextmanager
 import torch
-
-import variational_energy
 import hippocampus
+from embeddings import embedding_base
+from variationals import variational_base
+from trainers.mse_loss_trainer import Trainer
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(dir_path, "models"))
-from models import embedding_base
-from trainers.mse_loss_trainer import Trainer
+sys.path.append(os.path.join(dir_path, "embeddings"))
+sys.path.append(os.path.join(dir_path, "variationals"))
 
 
 def is_same_node(c, t):
@@ -23,19 +23,19 @@ def is_same_node(c, t):
 
 
 class Layer:
-    def __init__(self, num_dimensions, memory_slots=2048, embedding_model=None, trainer=None):
+    def __init__(self, num_dimensions, memory_slots=2048, embedding_model=None, neighbor_variational_model=None, heuristic_variational_model=None, trainer=None):
         self.num_dimensions = num_dimensions
-        self.neighbor_distribution = variational_energy.Energy_model(self.num_dimensions)
-        self.estimate_distribution = variational_energy.Energy_model(self.num_dimensions)
         self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, memory_slots)
         self.embedding = embedding_model if embedding_model is not None else embedding_base.Model(num_dimensions)
-        self.trainer = trainer if trainer is not None else Trainer(embedding_model)
+        self.neighbor_variational_model = neighbor_variational_model if neighbor_variational_model is not None else variational_base.Model(num_dimensions)
+        self.heuristic_variational_model = heuristic_variational_model if heuristic_variational_model is not None else variational_base.Model(num_dimensions)
+        self.trainer = trainer if trainer is not None else Trainer(embedding_model, neighbor_variational_model, heuristic_variational_model)
         self.next = None
 
     def __str__(self):
         if self.next is not None:
-            return str(self.neighbor_distribution) + "\n" + str(self.next)
-        return str(self.neighbor_distribution)
+            return str(self.num_dimensions) + "\n" + str(self.next)
+        return str(self.num_dimensions)
 
     def assign_next(self, next_layer):
         self.next = next_layer
@@ -47,24 +47,18 @@ class Layer:
         if path.shape[1] < 2:
             return
 
-        # Learn embedding
-        self.trainer.incrementally_learn(path)
-
-        # learning distribution
         self.embedding.eval()
         encoded_path = self.embedding.encode(path)
 
-        self.neighbor_distribution.incrementally_learn(encoded_path[:, :-1], encoded_path[:, 1:])
         self.hippocampus.incrementally_learn(encoded_path)
 
-        entropy = self.hippocampus.compute_entropy(encoded_path)
-        last_pv = 0
+        entropy = self.neighbor_variational_model.compute_entropy(encoded_path)
         all_pvs = []
         for j in range(0, encoded_path.shape[1]):
             if j > 0 and entropy[j] < entropy[j - 1]:
-                last_pv = j - 1  # remove this line will improve the result, but cost the network more.
                 all_pvs.append(j - 1)
-            self.estimate_distribution.incrementally_learn(encoded_path[:, last_pv:(j + 1)], encoded_path[:, j:(j + 1)])
+
+        self.trainer.incrementally_learn(path, np.array(all_pvs, dtype=np.int64))
 
         if self.next is not None and len(all_pvs) > 1:
             self.next.incrementally_learn(encoded_path[:, all_pvs])
@@ -103,7 +97,7 @@ class Layer:
                     raise RecursionError
                 if is_same_node(c, g):
                     break
-                c, _ = self.hippocampus.pincer_inference(self.neighbor_distribution, self.estimate_distribution, c, g)
+                c, _ = self.hippocampus.pincer_inference(self.neighbor_variational_model, self.heuristic_variational_model, c, g)
                 yield self.embedding.decode(c)
 
             c = g
@@ -114,11 +108,16 @@ def build_network(config, save_on_exit=True):
     # The following runs BEFORE with block.
     layers = []
     for layer in config["layers"]:
-        embedding_model = importlib.import_module(layer["embedding_model"], package="models").Model(layer["num_dimensions"])
+        embedding_model = importlib.import_module(layer["embedding_model"], package="embeddings").Model(layer["num_dimensions"])
+        neighbor_variational_model = importlib.import_module(layer["neighbor_variational_model"], package="variationals").Model(layer["num_dimensions"])
+        heuristic_variational_model = importlib.import_module(layer["heuristic_variational_model"], package="variationals").Model(layer["num_dimensions"])
         trainer_params = layer["trainer"]
         trainer_params["embedding_model"] = embedding_model
+        trainer_params["neighbor_variational_model"] = neighbor_variational_model
+        trainer_params["heuristic_variational_model"] = heuristic_variational_model
+
         trainer = Trainer(**trainer_params)
-        layers.append(Layer(layer["num_dimensions"], layer["memory_slots"], embedding_model, trainer))
+        layers.append(Layer(layer["num_dimensions"], layer["memory_slots"], embedding_model, neighbor_variational_model, heuristic_variational_model, trainer))
 
     for i in range(len(layers) - 1):
         layers[i].assign_next(layers[i + 1])

@@ -49,9 +49,9 @@ class Model(embedding_base.Model):
         self.input_dims = dims
 
         self.model = flowsequence.NormalizingFlowModel([
-            flows.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=16),
-            flows.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=16),
-            flows.NSF_CL(self.input_dims, K=5, B=3, hidden_dim=16)
+            flows.MAF(self.input_dims, hidden_dim=16),
+            flows.MAF(self.input_dims, hidden_dim=16),
+            flows.MAF(self.input_dims, hidden_dim=16)
         ])
 
         self.forward = nn.Sequential(

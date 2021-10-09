@@ -1,5 +1,4 @@
 import numpy as np
-import variational_energy
 
 
 class Hippocampus:
@@ -18,7 +17,7 @@ class Hippocampus:
         hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
         # print(s_indices, t_indices, t_prop)
 
-        cortex_rep, cortex_prop = variational_energy.Energy_model.pincer_inference(neighbor_model, estimate_model, s, t)
+        cortex_rep, cortex_prop = neighbor_model.pincer_inference(neighbor_model, estimate_model, s, t)
 
         compare_results = hippocampus_prop > cortex_prop
         results = np.where(compare_results, hippocampus_rep, cortex_rep)

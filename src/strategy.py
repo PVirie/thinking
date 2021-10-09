@@ -15,6 +15,8 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
                 "num_dimensions": graph.shape[0],
                 "memory_slots": 1024,
                 "embedding_model": "spline_flow",
+                "neighbor_variational_model": "gaussian_variational",
+                "heuristic_variational_model": "gaussian_variational",
                 "trainer": {
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
