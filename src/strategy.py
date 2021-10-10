@@ -5,7 +5,7 @@ import network
 from utilities import *
 
 
-def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
+def build_energy_hierarchy(graph, explore_steps=20000, weight_path=None):
 
     all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
 
@@ -18,7 +18,7 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
                 "neighbor_variational_model": "gaussian_variational",
                 "heuristic_variational_model": "gaussian_variational",
                 "trainer": {
-                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+                    'lr': 0.0001, 'step_size': 1000, 'weight_decay': 0.99
                 }
             }
         ]

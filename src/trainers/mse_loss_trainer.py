@@ -89,7 +89,8 @@ class Trainer:
         self.save_format = "{:0" + str(len(str(num_epoch))) + "d}.ckpt"
         lr = lr
 
-        self.opt = optim.Adam(self.embedding_model.parameters(), lr=lr)
+        parameters = list(self.embedding_model.parameters()) + list(self.neighbor_variational_model.parameters()) + list(self.heuristic_variational_model.parameters())
+        self.opt = optim.Adam(parameters, lr=lr)
         self.step = 0
         self.step_size = step_size
         self.scheduler = optim.lr_scheduler.ExponentialLR(self.opt, gamma=weight_decay)

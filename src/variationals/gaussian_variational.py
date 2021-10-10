@@ -75,7 +75,8 @@ class Model(variational_base.Model):
         return self.model.parameters()
 
     def __call__(self, x):
-        return self.model(x)
+        sd = self.model(x)
+        return torch.clip(sd * sd, min=1e-6)
 
     def compute_entropy(self, x):
         is_numpy = type(x).__module__ == np.__name__
