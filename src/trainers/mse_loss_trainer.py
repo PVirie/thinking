@@ -114,6 +114,7 @@ class Trainer:
             P = encoded_path[:, pivots]
             heuristic_var = self.heuristic_variational_model(P)
             loss_values = loss_values + compute_log_gausian_density_loss_against_pivots(encoded_path, generate_masks(pivots, path.shape[1]), P, heuristic_var)
+            loss_values = loss_values + 100 * compute_mse_loss(heuristic_var, 1)
 
         self.opt.zero_grad()
         loss_values.backward()

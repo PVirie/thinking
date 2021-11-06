@@ -94,10 +94,11 @@ class Layer:
             while True:
                 count_steps = count_steps + 1
                 if count_steps >= hard_limit:
-                    raise RecursionError
+                    # raise RecursionError
+                    break
                 if is_same_node(c, g):
                     break
-                c, _ = self.hippocampus.pincer_inference(self.neighbor_variational_model, self.heuristic_variational_model, c, g)
+                c, _ = self.neighbor_variational_model.pincer_inference(self.neighbor_variational_model, self.heuristic_variational_model, c, g)
                 yield self.embedding.decode(c)
 
             c = g

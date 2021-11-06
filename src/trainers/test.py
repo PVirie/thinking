@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     for i in range(20):
         for path in paths:
-            loss, _ = trainer.incrementally_learn(all_reps[:, path], np.array([len(path) - 1], dtype=np.int64))
+            loss, _ = trainer.incrementally_learn(all_reps[:, path], np.arange(3, len(path), 3, dtype=np.int64))
 
         print("Result after", i + 1, "epoches", loss)
         new_metric = model.encode(torch.from_numpy(all_reps))
@@ -85,4 +85,5 @@ if __name__ == '__main__':
     distances = mat_sqr_diff(encoded_rep.detach().cpu().numpy(), encoded_rep.detach().cpu().numpy())
     print(distances)
 
-    print(sample_path(all_reps, model, 0, 10))
+    print("neighbor var", neighbor(encoded_rep).detach().cpu().numpy())
+    print("heuristic var", heuristic(encoded_rep).detach().cpu().numpy())

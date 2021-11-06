@@ -5,7 +5,7 @@ import network
 from utilities import *
 
 
-def build_energy_hierarchy(graph, explore_steps=20000, weight_path=None):
+def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
 
     all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
 
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     g = random_graph(16, 0.2)
     print(g)
 
-    cognitive_map, representations = build_energy_hierarchy(g, 2000)
+    cognitive_map, representations = build_energy_hierarchy(g, 10000)
     print("Finish learning.")
     print(cognitive_map)
 
