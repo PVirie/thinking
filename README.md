@@ -1,8 +1,8 @@
 # Thinking model
-An implementation of thinking model version XXIV (codename: duality).
+An implementation of thinking model version XL (codename: knapsack).
 
 
-## Duality 
+## Core principles
 
 ### Axiom: mind aims to reduce discrepancy between itself and the world
 
@@ -17,7 +17,14 @@ An implementation of thinking model version XXIV (codename: duality).
 ### Axiom: mind aims the equilibrium where there is no discrepancy between levels in the hierarchy.
 #### Theorem II': why hierarchy is good
 
+
+## Knapsack
+
+Using fix object-feature representation to implicit generalization.
+
+
 ## To do
-* Bridging hippocampus module
-* ~~Embedding representation in each layer~~
-* ~~Pattern enhancer~~
+* Clear weight on retrain
+* Implement knapsack GPU
+* Implement trainer
+* Test hippocampus new functions (compute_entropy, get_next)

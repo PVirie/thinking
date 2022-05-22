@@ -17,36 +17,20 @@ def clear_directory(output_dir):
             os.remove(os.path.join(root, file))
 
 
-def compute_mse_loss(predictions, targets):
-    return torch.mean(torch.square(predictions - targets))
-
-
-def compute_contranstive_loss(predictions, targets):
-    return compute_mse_loss(predictions, targets) - compute_mse_loss(predictions, torch.mean(predictions, dim=1, keepdim=True))
-
-
-def compute_gausian_variational_loss(predictions, targets):
-    X = targets - predictions
-    mu = torch.mean(X, dim=1)
-    mean_sqr = torch.mean(X * X, dim=1)
-    var = mean_sqr - mu * mu
-    return torch.mean(mean_sqr - torch.log(var))
-
-
 log_2PI = math.log(2 * math.pi)
 
 
-def compute_log_gausian_density_loss(x, means, variances):
+def compute_loss_against_pivots(x, masks, P):
     '''
         x of shape [dims, batch]
-        means of shape [dims, batch]
-        variances of shape [dims, batch]
+        masks of shape [length, batch]
+        P of shape [dims, batch]
     '''
-    dims = x.shape[0]
-    return torch.mean(torch.sum(torch.square(x - means) / (2 * variances), dim=0)
-                      + 0.5 * torch.sum(torch.log(variances), dim=0)
-                      + (0.5 * dims) * log_2PI
-                      )
+    return torch.mean(
+        torch.sum(
+            masks * torch.sum(torch.square(x - P), dim=0),
+            dim=0) / torch.sum(masks, dim=0)
+    )
 
 
 def compute_log_gausian_density_loss_against_pivots(x, masks, P, variances):
@@ -77,6 +61,7 @@ def generate_masks(pivots, length):
 
 
 class Knapsack_model:
+    # must use invertible model only
     pass
 
 
@@ -107,18 +92,12 @@ class Model:
         self.model.train()
 
         path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
-        encoded_path = self.embedding_model.encode(path)
-        V = encoded_path[:, :-1]
-        H = encoded_path[:, 1:]
-        neighbor_var = self.neighbor_variational_model(V)
-        loss_values = compute_log_gausian_density_loss(H, V, neighbor_var)
+        encoded_path = self.model.encode(path)
 
         if pivots.size > 0:
             pivots = torch.from_numpy(pivots) if type(pivots).__module__ == np.__name__ else pivots
             P = encoded_path[:, pivots]
-            heuristic_var = self.heuristic_variational_model(P)
-            loss_values = loss_values + compute_log_gausian_density_loss_against_pivots(encoded_path, generate_masks(pivots, path.shape[1]), P, heuristic_var)
-            loss_values = loss_values + 100 * compute_mse_loss(heuristic_var, 1)
+            loss_values = compute_loss_against_pivots(encoded_path, generate_masks(pivots, path.shape[1]), P)
 
         self.opt.zero_grad()
         loss_values.backward()
@@ -189,5 +168,4 @@ if __name__ == '__main__':
     masks = generate_masks(torch.from_numpy(np.array([3, 5, 8])), 10)
     print(masks)
 
-    print(compute_log_gausian_density_loss(torch.randn(4, 5), torch.randn(4, 5), torch.randn(4, 5)**2))
     print(compute_log_gausian_density_loss_against_pivots(torch.randn(4, 10), masks, torch.randn(4, 3), torch.randn(4, 3)**2))
