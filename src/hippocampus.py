@@ -9,19 +9,13 @@ class Hippocampus:
         self.H = np.zeros([self.dim, self.h_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
         self.diminishing_factor = 0.9
 
-    def pincer_inference(self, neighbor_model, estimate_model, s, t):
+    def infer(self, s, t):
         s_indices, s_prop = self.resolve_address(s)
         t_indices, t_prop = self.resolve_address(t, s_indices)
         t_prop[t_indices <= s_indices] = 0
         hippocampus_prop = np.power(self.diminishing_factor, t_indices - s_indices) * s_prop * t_prop
         hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
-        # print(s_indices, t_indices, t_prop)
-
-        cortex_rep, cortex_prop = neighbor_model.pincer_inference(neighbor_model, estimate_model, s, t)
-
-        compare_results = hippocampus_prop > cortex_prop
-        results = np.where(compare_results, hippocampus_rep, cortex_rep)
-        return results, np.where(compare_results, hippocampus_prop, cortex_prop)
+        return hippocampus_rep, hippocampus_prop
 
     def match(self, x):
         H_ = np.transpose(self.H)
@@ -39,6 +33,11 @@ class Hippocampus:
         prop = self.match(c)
         max_indices = np.argmax(prop, axis=0)
         return self.access_memory(max_indices)
+
+    def get_next(self, c):
+        one_step_forwarded = np.roll(self.H, -1)
+        one_step_forwarded[-1] = c
+        return one_step_forwarded
 
     def __str__(self):
         return str((self.H > 0).astype(np.int32))

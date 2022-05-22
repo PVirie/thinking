@@ -1,10 +1,9 @@
 import os
-import rep_base
 import numpy as np
 import sys
 
 
-class Model(rep_base.Model):
+class Model:
 
     def __init__(self, knapsack_size):
         self.data = np.zeros([knapsack_size], dtype=np.int32)

@@ -76,12 +76,14 @@ def generate_masks(pivots, length):
     return torch.logical_and(pos > torch.unsqueeze(pre_pivots, dim=0), pos <= torch.unsqueeze(pivots, dim=0)).float()
 
 
-class Trainer:
+class Knapsack_model:
+    pass
 
-    def __init__(self, embedding_model, neighbor_variational_model, heuristic_variational_model, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99, on_cpu=True):
-        self.embedding_model = embedding_model
-        self.neighbor_variational_model = neighbor_variational_model
-        self.heuristic_variational_model = heuristic_variational_model
+
+class Model:
+
+    def __init__(self, dims, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99):
+        self.model = Knapsack_model(dims)
         self.checkpoint_dir = checkpoint_dir
         self.save_every = save_every
 
@@ -90,7 +92,7 @@ class Trainer:
         self.save_format = "{:0" + str(len(str(num_epoch))) + "d}.ckpt"
         lr = lr
 
-        parameters = list(self.embedding_model.parameters()) + list(self.neighbor_variational_model.parameters()) + list(self.heuristic_variational_model.parameters())
+        parameters = list(self.model.parameters())
         self.opt = optim.Adam(parameters, lr=lr)
         self.step = 0
         self.step_size = step_size
@@ -98,10 +100,11 @@ class Trainer:
 
         self.eval_mode = True
 
+    def consolidate(self, candidates, props, target):
+        pass
+
     def incrementally_learn(self, path, pivots):
-        self.embedding_model.train()
-        self.neighbor_variational_model.train()
-        self.heuristic_variational_model.train()
+        self.model.train()
 
         path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
         encoded_path = self.embedding_model.encode(path)
@@ -127,7 +130,7 @@ class Trainer:
     def bootstrap(self, paths):
         clear_directory(self.checkpoint_dir)
 
-        self.embedding_model.train()
+        self.model.train()
 
         # Start training
         sum_loss = 0
@@ -162,9 +165,7 @@ class Trainer:
         if self.checkpoint_dir is not None:
             latest = sorted(os.listdir(os.path.join(self.checkpoint_dir, "weights")))[-1]
             checkpoint = torch.load(os.path.join(self.checkpoint_dir, "weights", latest))
-            self.embedding_model.load_state_dict(checkpoint['embedding_model'])
-            self.neighbor_variational_model.load_state_dict(checkpoint['neighbor_variational_model'])
-            self.heuristic_variational_model.load_state_dict(checkpoint['heuristic_variational_model'])
+            self.model.load_state_dict(checkpoint['model'])
             self.opt.load_state_dict(checkpoint['opt'])
             self.scheduler.load_state_dict(checkpoint['scheduler'])
             self.step = checkpoint['step']
@@ -177,9 +178,7 @@ class Trainer:
             os.makedirs(os.path.join(self.checkpoint_dir, "weights"))
 
         torch.save({
-            'embedding_model': self.embedding_model.state_dict(),
-            'neighbor_variational_model': self.neighbor_variational_model.state_dict(),
-            'heuristic_variational_model': self.heuristic_variational_model.state_dict(),
+            'model': self.model.state_dict(),
             'opt': self.opt.state_dict(),
             'scheduler': self.scheduler.state_dict(),
             'step': self.step

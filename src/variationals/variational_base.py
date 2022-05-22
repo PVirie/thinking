@@ -1,6 +1,7 @@
 import numpy as np
 import math
 
+
 class Model:
 
     @staticmethod

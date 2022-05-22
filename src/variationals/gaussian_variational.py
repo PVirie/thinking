@@ -29,6 +29,7 @@ class Residue_block(nn.Module):
 
 log_2PI = math.log(2 * math.pi)
 
+
 class Model(variational_base.Model):
 
     @staticmethod

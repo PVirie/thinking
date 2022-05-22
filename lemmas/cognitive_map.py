@@ -131,6 +131,7 @@ class Graph:
             c = self.indices[neighbors][np.argmin(self.adj_matrix[c, neighbors] + self.estimate[neighbors, t])]
             yield c
 
+
 class Layer:
 
     def __init__(self, forward_encoder, backward_encoder, decoder, graph, top):
