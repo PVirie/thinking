@@ -1,27 +1,16 @@
 # Thinking model
 An implementation of thinking model version XL (codename: knapsack).
 
-
-## Core principles
-
-### Axiom: mind aims to reduce discrepancy between itself and the world
-
-#### Conjecture: mind aims the equilibrium where the properties are related by space-time.
-#### Theorem I': goal approaching is convex under duality.
-
-#### Conjecture: mind encourages exploration via boring and forgetting.
-
-
-## Hierarchy model
-
-### Axiom: mind aims the equilibrium where there is no discrepancy between levels in the hierarchy.
-#### Theorem II': why hierarchy is good
-
-
 ## Knapsack
 
-Using fix object-feature representation to implicit generalization.
+Using fix object-feature representation to implicit generalization to by-pass the requirement for negative examples.
 
+
+## Run
+* install [docker-ce](https://www.linode.com/docs/guides/installing-and-using-docker-on-ubuntu-and-debian/) 
+* adding user to docker group `sudo usermod -aG docker $USER`
+* `./build_docker.sh`
+* `./run_docker.sh` to open a shell
 
 ## To do
 * Clear weight on retrain
