@@ -13,7 +13,9 @@ Using fix object-feature representation to implicit generalization to by-pass th
 * `./run_docker.sh` to open a shell
 
 ## To do
+* ~Implement knapsack GPU~
+* ~Implement trainer~
+* ~Test hippocampus new functions (compute_entropy, get_next)~
+* Invertible mutual knapsack
+* Entropy should be computed from the heuristic model not the hippocampus?
 * Clear weight on retrain
-* Implement knapsack GPU
-* Implement trainer
-* Test hippocampus new functions (compute_entropy, get_next)

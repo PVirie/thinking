@@ -3,7 +3,7 @@ import sys
 import os
 from contextlib import contextmanager
 import hippocampus
-import mutual_knapsack as heuristic
+import heuristic
 
 
 def is_same_node(c, t):
@@ -58,7 +58,7 @@ class Layer:
 
     def pincer_inference(self, s, t):
         props = self.hippocampus.match(s)
-        candidates = self.hippocampus.get_next(s)
+        candidates = self.hippocampus.get_next()
 
         cortex_rep, cortex_prop = self.heuristic_variational_model.consolidate(candidates, props, t)
         hippocampus_rep, hippocampus_prop = self.hippocampus.infer(s, t)
@@ -112,7 +112,7 @@ def build_network(config, save_on_exit=True):
         layers[i].assign_next(layers[i + 1])
 
     for layer in layers:
-        layer.trainer.load()
+        layer.heuristic_variational_model.load()
 
     # The following returns into the with block.
     yield layers[0]
@@ -120,7 +120,7 @@ def build_network(config, save_on_exit=True):
     # The following runs AFTER with block.
     if save_on_exit:
         for layer in layers:
-            layer.trainer.save()
+            layer.heuristic_variational_model.save()
 
 
 if __name__ == '__main__':

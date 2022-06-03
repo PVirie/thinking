@@ -34,13 +34,12 @@ class Hippocampus:
         max_indices = np.argmax(prop, axis=0)
         return self.access_memory(max_indices)
 
-    def get_next(self, c):
+    def get_next(self):
         one_step_forwarded = np.roll(self.H, -1)
-        one_step_forwarded[-1] = c
         return one_step_forwarded
 
     def __str__(self):
-        return str((self.H > 0).astype(np.int32))
+        return str(self.H)
 
     def resolve_address(self, x, start_indices=None):
         prop = self.match(x)
@@ -69,6 +68,7 @@ class Hippocampus:
 
 
 if __name__ == '__main__':
+    np.set_printoptions(precision=2)
     model = Hippocampus(8, 4)
     a = np.random.normal(0, 1, [8, 1])
     b = np.random.normal(0, 1, [8, 1])
@@ -81,3 +81,7 @@ if __name__ == '__main__':
     print(addr)
     prop = model.match(a_record)
     print(prop)
+    entropy = model.compute_entropy(a_record)
+    print(entropy)
+    next_records = model.get_next()
+    print(next_records)

@@ -8,6 +8,8 @@ import torch.optim as optim
 import math
 import os
 import numpy as np
+import embeddings
+import metrics
 
 
 def clear_directory(output_dir):
@@ -20,7 +22,7 @@ def clear_directory(output_dir):
 log_2PI = math.log(2 * math.pi)
 
 
-def compute_loss_against_pivots(x, masks, P):
+def compute_loss_against_pivots(x, masks, P, metric):
     '''
         x of shape [dims, batch]
         masks of shape [length, batch]
@@ -28,7 +30,7 @@ def compute_loss_against_pivots(x, masks, P):
     '''
     return torch.mean(
         torch.sum(
-            masks * torch.sum(torch.square(x - P), dim=0),
+            masks * torch.sum(torch.square(metric.dist(x, P)), dim=0),
             dim=0) / torch.sum(masks, dim=0)
     )
 
@@ -60,15 +62,11 @@ def generate_masks(pivots, length):
     return torch.logical_and(pos > torch.unsqueeze(pre_pivots, dim=0), pos <= torch.unsqueeze(pivots, dim=0)).float()
 
 
-class Knapsack_model:
-    # must use invertible model only
-    pass
-
-
 class Model:
 
-    def __init__(self, dims, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99):
-        self.model = Knapsack_model(dims)
+    def __init__(self, dims, inner_dims, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99):
+        self.model = embeddings.spline_flow.Model(dims * inner_dims)
+        self.metric = metrics.mutual_knapsack.Model(dims)
         self.checkpoint_dir = checkpoint_dir
         self.save_every = save_every
 
@@ -86,7 +84,8 @@ class Model:
         self.eval_mode = True
 
     def consolidate(self, candidates, props, target):
-        pass
+        encoded_candidates = self.model.encode(candidates)
+        encoded_target = self.model.encode(target)
 
     def incrementally_learn(self, path, pivots):
         self.model.train()
@@ -97,7 +96,7 @@ class Model:
         if pivots.size > 0:
             pivots = torch.from_numpy(pivots) if type(pivots).__module__ == np.__name__ else pivots
             P = encoded_path[:, pivots]
-            loss_values = compute_loss_against_pivots(encoded_path, generate_masks(pivots, path.shape[1]), P)
+            loss_values = compute_loss_against_pivots(encoded_path, generate_masks(pivots, path.shape[1]), P, self.metric)
 
         self.opt.zero_grad()
         loss_values.backward()

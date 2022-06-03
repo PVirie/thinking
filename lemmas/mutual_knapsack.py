@@ -23,16 +23,18 @@ class Model:
         return self.__dist__(c)
 
     def sub_dist(self, c):
+        # is c a subset of self? then how far?
         if c.dims() != self.dims():
             return None
 
-        if np.sum((c.data != 0) * (self.data - c.data)) != 0:
+        if np.sum((c.data != 0) * (self.data != c.data)) != 0:
             return np.inf
 
         return self.__dist__(c)
 
     def min_dist(self, cs):
         # cs is a list of knapsacks
+        # Given a set of cs, how far as the union compare to self?
         tobestacked = []
         for element in cs:
             tobestacked.append(element.data)
