@@ -40,9 +40,10 @@ class Layer:
 
         entropy = self.hippocampus.compute_entropy(path)
         all_pvs = []
-        for j in range(0, path.shape[1]):
+        for j in range(0, path.shape[1] - 1):
             if j > 0 and entropy[j] < entropy[j - 1]:
                 all_pvs.append(j - 1)
+        all_pvs.append(path.shape[1] - 1)
 
         self.heuristic_variational_model.incrementally_learn(path, np.array(all_pvs, dtype=np.int64))
 

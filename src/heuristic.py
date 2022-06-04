@@ -24,10 +24,13 @@ log_2PI = math.log(2 * math.pi)
 
 def compute_loss_against_pivots(x, masks, P, metric):
     '''
-        x of shape [dims, batch]
+        x of shape [dims, length]
         masks of shape [length, batch]
         P of shape [dims, batch]
     '''
+    x = torch.unsqueeze(x, dim=2)
+    P = torch.unsqueeze(P, dim=1)
+
     return torch.mean(
         torch.sum(
             masks * metric.sqr_dist(x, P),
@@ -104,9 +107,9 @@ class Model:
         result = torch.sum(candidates * weights, dim=1, keepdims=True)
 
         if return_numpy:
-            return result.detach().cpu().numpy()
+            return result.detach().cpu().numpy(), 1.0
         else:
-            return result
+            return result, 1.0
 
     def incrementally_learn(self, path, pivots):
         self.model.train()
