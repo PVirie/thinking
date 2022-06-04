@@ -4,5 +4,5 @@ class Model:
     def __init__(self):
         pass
 
-    def dist(self, a, b):
-        return -1
+    def sqr_dist(self, a, b):
+        return 0

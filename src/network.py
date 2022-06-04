@@ -60,7 +60,7 @@ class Layer:
         props = self.hippocampus.match(s)
         candidates = self.hippocampus.get_next()
 
-        cortex_rep, cortex_prop = self.heuristic_variational_model.consolidate(candidates, props, t)
+        cortex_rep, cortex_prop = self.heuristic_variational_model.consolidate(candidates, np.squeeze(props), t)
         hippocampus_rep, hippocampus_prop = self.hippocampus.infer(s, t)
 
         compare_results = hippocampus_prop > cortex_prop

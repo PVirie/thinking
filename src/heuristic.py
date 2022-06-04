@@ -30,7 +30,7 @@ def compute_loss_against_pivots(x, masks, P, metric):
     '''
     return torch.mean(
         torch.sum(
-            masks * torch.sum(torch.square(metric.dist(x, P)), dim=0),
+            masks * metric.sqr_dist(x, P),
             dim=0) / torch.sum(masks, dim=0)
     )
 
@@ -64,9 +64,9 @@ def generate_masks(pivots, length):
 
 class Model:
 
-    def __init__(self, dims, inner_dims, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99):
-        self.model = embeddings.spline_flow.Model(dims * inner_dims)
-        self.metric = metrics.mutual_knapsack.Model(dims)
+    def __init__(self, dims, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99):
+        self.model = embeddings.spline_flow.Model(dims)
+        self.metric = metrics.euclidean.Model(dims)
         self.checkpoint_dir = checkpoint_dir
         self.save_every = save_every
 
@@ -83,9 +83,30 @@ class Model:
 
         self.eval_mode = True
 
-    def consolidate(self, candidates, props, target):
+    def consolidate(self, candidates, props, target, return_numpy=True):
+        # candidates has shape [dim, batch]
+        # props has shape [batch]
+        # target has shape [dim, 1]
+
+        candidates = torch.from_numpy(candidates) if type(candidates).__module__ == np.__name__ else candidates
+        target = torch.from_numpy(target) if type(target).__module__ == np.__name__ else target
+        props = torch.from_numpy(props) if type(props).__module__ == np.__name__ else props
+
         encoded_candidates = self.model.encode(candidates)
         encoded_target = self.model.encode(target)
+        var = 1.0
+
+        heuristic_scores = torch.exp(-0.5 * self.metric.sqr_dist(encoded_candidates, encoded_target) / var)
+
+        nominators = props * heuristic_scores
+        weights = nominators / torch.sum(nominators)
+
+        result = torch.sum(candidates * weights, dim=1, keepdims=True)
+
+        if return_numpy:
+            return result.detach().cpu().numpy()
+        else:
+            return result
 
     def incrementally_learn(self, path, pivots):
         self.model.train()
@@ -104,40 +125,6 @@ class Model:
         self.step += 1
 
         return loss_values.detach().cpu().numpy(), self.step
-
-    def bootstrap(self, paths):
-        clear_directory(self.checkpoint_dir)
-
-        self.model.train()
-
-        # Start training
-        sum_loss = 0
-        sum_count = 0
-
-        writer = SummaryWriter(os.path.join(self.checkpoint_dir, "logs"))
-        paths = torch.from_numpy(paths) if type(paths).__module__ == np.__name__ else paths
-
-        while True:
-
-            # Main training code
-            loss, iterations = self.incrementally_learn(paths)
-            sum_loss = sum_loss + loss
-            sum_count = sum_count + 1
-
-            writer.add_scalar('Loss/train', loss, iterations)
-
-            if (iterations) % self.step_size == 0:
-                self.scheduler.step()
-
-            # Save network weights
-            if (iterations) % self.save_every == 0:
-                print("Iteration: %08d/%08d, loss: %.8f" % (iterations, self.num_epoch, sum_loss / sum_count))
-                sum_loss = 0
-                sum_count = 0
-                self.save()
-
-            if iterations >= self.num_epoch:
-                break
 
     def load(self):
         if self.checkpoint_dir is not None:
@@ -168,3 +155,12 @@ if __name__ == '__main__':
     print(masks)
 
     print(compute_log_gausian_density_loss_against_pivots(torch.randn(4, 10), masks, torch.randn(4, 3), torch.randn(4, 3)**2))
+
+    model = Model(2)
+
+    candidates = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+    props = np.array([1.0, 1.0], dtype=np.float32)
+    targets = np.array([[1.0], [1.0]], dtype=np.float32)
+
+    results = model.consolidate(candidates, props, targets)
+    print(results)
