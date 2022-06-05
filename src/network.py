@@ -10,7 +10,8 @@ def is_same_node(c, t):
     c start node as shape: [vector length, 1]
     t target node as shape: [vector length, 1]
     '''
-    return np.linalg.norm(c - t) < 1e-4
+    dist = np.linalg.norm(c - t)
+    return dist < 1e-4
 
 
 class Layer:
@@ -73,7 +74,7 @@ class Layer:
 
         compare_results = hippocampus_prop > cortex_prop
         results = np.where(compare_results, hippocampus_rep, cortex_rep)
-        return results, np.where(compare_results, hippocampus_prop, cortex_prop)
+        return results
 
     def find_path(self, c, t, hard_limit=20):
 
@@ -95,18 +96,23 @@ class Layer:
                 g = t
 
             while True:
+                if is_same_node(c, t):
+                    # wait we found the true target!
+                    break
+
+                if is_same_node(c, g):
+                    c = g
+                    break
+
                 count_steps = count_steps + 1
                 if count_steps >= hard_limit:
-                    # raise RecursionError
+                    raise RecursionError
                     break
-                if is_same_node(c, g):
-                    break
-                c, _ = self.pincer_inference(c, g)
-                # enhance signal preventing signal degradation
-                c = self.hippocampus.enhance(c)
-                yield c
 
-            c = g
+                c = self.pincer_inference(c, g)
+                c = self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
+
+                yield c
 
 
 @contextmanager

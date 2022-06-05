@@ -15,8 +15,8 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 ## To do
 * ~Solve signal degradation by adding hippocampus enhancer~
 * Cortex pathway
-* Hippocampus pathway
+* ~Hippocampus pathway~
 * Compute proper cortex prop
 * Entropy should be computed from the heuristic model not the hippocampus?
-* !Clear weight on retrain!
+* ~Clear weight on retrain~
 

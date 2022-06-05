@@ -5,7 +5,7 @@ import network
 from utilities import *
 
 
-def build_energy_hierarchy(graph, explore_steps=2000, train=True, weight_path=None):
+def build_energy_hierarchy(graph, explore_steps=2000, train=None, weight_path=None):
 
     all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
 
@@ -27,6 +27,10 @@ def build_energy_hierarchy(graph, explore_steps=2000, train=True, weight_path=No
             }
         ]
     }
+
+    if train is None:
+        answer = input("Do you want to retrain? (y/n): ").lower().strip()
+        train = answer == "y"
 
     if train:
         empty_directory(weight_path)
@@ -52,7 +56,7 @@ if __name__ == '__main__':
     g = random_graph(16, 0.2)
     print(g)
 
-    cognitive_map, representations = build_energy_hierarchy(g, 10000, train=True, weight_path=os.path.join(dir_path, "..", "weights", "strategy.py.test"))
+    cognitive_map, representations = build_energy_hierarchy(g, 10000, weight_path=os.path.join(dir_path, "..", "weights", "strategy.py.test"))
     print(cognitive_map)
 
     goals = random.sample(range(g.shape[0]), g.shape[0] // 2)
