@@ -13,6 +13,9 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 * `./run_docker.sh` to open a shell
 
 ## To do
+* ~Solve signal degradation by adding hippocampus enhancer~
 * Compute proper cortex prop
+* Hierarchy path planning
 * Entropy should be computed from the heuristic model not the hippocampus?
 * Clear weight on retrain
+

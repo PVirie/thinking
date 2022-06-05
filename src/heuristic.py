@@ -107,9 +107,9 @@ class Model:
         result = torch.sum(candidates * weights, dim=1, keepdims=True)
 
         if return_numpy:
-            return result.detach().cpu().numpy(), 1.0
+            return result.detach().cpu().numpy(), np.array([1.0], dtype=np.float32)
         else:
-            return result, 1.0
+            return result, np.array([1.0], dtype=np.float32)
 
     def incrementally_learn(self, path, pivots):
         self.model.train()

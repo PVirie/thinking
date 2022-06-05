@@ -20,7 +20,8 @@ class Hippocampus:
     def match(self, x):
         H_ = np.transpose(self.H)
         # use isometric gaussian now, should be using the metric in the neighbor model for computing entropy.
-        prop = np.exp(- (np.linalg.norm(H_, ord=2, axis=1, keepdims=True)**2 - 2 * np.matmul(H_, x) + np.linalg.norm(x, ord=2, axis=0, keepdims=True)**2))
+        sqr_dist = (np.linalg.norm(H_, ord=2, axis=1, keepdims=True)**2 - 2 * np.matmul(H_, x) + np.linalg.norm(x, ord=2, axis=0, keepdims=True)**2)
+        prop = np.exp(-0.5 * sqr_dist / 0.1)
         return prop
 
     def compute_entropy(self, x):

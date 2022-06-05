@@ -15,7 +15,14 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
                 "num_dimensions": graph.shape[0],
                 "memory_slots": 1024,
                 "heuristic_model_param": {
-                    'dims': 16, 'lr': 0.0001, 'step_size': 1000, 'weight_decay': 0.99
+                    'dims': graph.shape[0], 'lr': 0.0001, 'step_size': 1000, 'weight_decay': 0.99
+                }
+            },
+            {
+                "num_dimensions": graph.shape[0],
+                "memory_slots": 256,
+                "heuristic_model_param": {
+                    'dims': graph.shape[0], 'lr': 0.0001, 'step_size': 1000, 'weight_decay': 0.99
                 }
             }
         ]
@@ -26,6 +33,8 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
             path = all_reps[:, path]
             root.incrementally_learn(path)
+            if i % (explore_steps // 100) == 0:
+                print("Training progress: %.2f%%" % (i * 100 / explore_steps), end="\r", flush=True)
 
     return root, all_reps
 

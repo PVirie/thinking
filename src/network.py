@@ -95,6 +95,8 @@ class Layer:
                 if is_same_node(c, g):
                     break
                 c, _ = self.pincer_inference(c, g)
+                # enhance signal preventing signal degradation
+                c = self.hippocampus.enhance(c)
                 yield c
 
             c = g
