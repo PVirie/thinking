@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 
 class Hippocampus:
@@ -8,6 +9,19 @@ class Hippocampus:
         self.h_size = hippocampus_size
         self.H = np.zeros([self.dim, self.h_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
         self.diminishing_factor = 0.9
+
+    def save(self, weight_path):
+        if not os.path.exists(weight_path):
+            print("Creating directory: {}".format(weight_path))
+            os.makedirs(weight_path)
+        np.save(os.path.join(weight_path, "H.npy"), self.H)
+
+    def load(self, weight_path):
+        if not os.path.exists(weight_path):
+            print("Cannot load memories: the path do not exist.")
+            return
+
+        self.H = np.load(os.path.join(weight_path, "H.npy"))
 
     def infer(self, s, t):
         s_indices, s_prop = self.resolve_address(s)
@@ -26,8 +40,7 @@ class Hippocampus:
 
     def compute_entropy(self, x):
         prop = self.match(x)
-        norm_prop = prop / np.sum(prop, axis=0, keepdims=True)
-        entropy = np.sum(norm_prop, axis=0, keepdims=False) / self.h_size
+        entropy = np.sum(prop, axis=0, keepdims=False) / self.h_size
         return entropy
 
     def enhance(self, c):
@@ -75,14 +88,14 @@ if __name__ == '__main__':
     b = np.random.normal(0, 1, [8, 1])
     model.incrementally_learn(a)
     model.incrementally_learn(b)
-    print(model)
+    print("all memories", model)
     a_record = model.access_memory([2, 3])
-    print(a_record)
+    print("retrieved", a_record)
     addr = model.resolve_address(a_record)
-    print(addr)
+    print("address", addr)
     prop = model.match(a_record)
-    print(prop)
+    print("match prop", prop)
     entropy = model.compute_entropy(a_record)
-    print(entropy)
+    print("entropy", entropy)
     next_records = model.get_next()
-    print(next_records)
+    print("next memories", next_records)

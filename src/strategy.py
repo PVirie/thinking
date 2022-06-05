@@ -5,7 +5,7 @@ import network
 from utilities import *
 
 
-def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
+def build_energy_hierarchy(graph, explore_steps=2000, train=True, weight_path=None):
 
     all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
 
@@ -28,24 +28,31 @@ def build_energy_hierarchy(graph, explore_steps=2000, weight_path=None):
         ]
     }
 
-    with network.build_network(config, save_on_exit=False) as root:
-        for i in range(explore_steps):
-            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-            path = all_reps[:, path]
-            root.incrementally_learn(path)
-            if i % (explore_steps // 100) == 0:
-                print("Training progress: %.2f%%" % (i * 100 / explore_steps), end="\r", flush=True)
+    if train:
+        empty_directory(weight_path)
+
+    with network.build_network(config, weight_path, save_on_exit=train) as root:
+        if train:
+            print("Training a cognitive map:")
+            for i in range(explore_steps):
+                path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+                path = all_reps[:, path]
+                root.incrementally_learn(path)
+                if i % (explore_steps // 100) == 0:
+                    print("Training progress: %.2f%%" % (i * 100 / explore_steps), end="\r", flush=True)
+            print("Finish learning.")
 
     return root, all_reps
 
 
 if __name__ == '__main__':
+    import os
+    dir_path = os.path.dirname(os.path.realpath(__file__))
 
     g = random_graph(16, 0.2)
     print(g)
 
-    cognitive_map, representations = build_energy_hierarchy(g, 10000)
-    print("Finish learning.")
+    cognitive_map, representations = build_energy_hierarchy(g, 10000, train=True, weight_path=os.path.join(dir_path, "..", "weights", "strategy.py.test"))
     print(cognitive_map)
 
     goals = random.sample(range(g.shape[0]), g.shape[0] // 2)

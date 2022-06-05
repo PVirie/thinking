@@ -1,9 +1,8 @@
 import numpy as np
-import sys
-import os
 from contextlib import contextmanager
 import hippocampus
 import heuristic
+import os
 
 
 def is_same_node(c, t):
@@ -21,10 +20,18 @@ class Layer:
         self.heuristic_variational_model = heuristic_variational_model
         self.next = None
 
+    def load(self, weight_path):
+        self.heuristic_variational_model.load(os.path.join(weight_path, "heuristic"))
+        self.hippocampus.load(os.path.join(weight_path, "hippocampus"))
+
+    def save(self, weight_path):
+        self.heuristic_variational_model.save(os.path.join(weight_path, "heuristic"))
+        self.hippocampus.save(os.path.join(weight_path, "hippocampus"))
+
     def __str__(self):
         if self.next is not None:
-            return str(self.num_dimensions) + "\n" + str(self.next)
-        return str(self.num_dimensions)
+            return "Num dims: " + str(self.num_dimensions) + "\n" + str(self.next)
+        return "Num dims: " + str(self.num_dimensions)
 
     def assign_next(self, next_layer):
         self.next = next_layer
@@ -103,7 +110,7 @@ class Layer:
 
 
 @contextmanager
-def build_network(config, save_on_exit=True):
+def build_network(config, weight_path=None, save_on_exit=True):
     # The following runs BEFORE with block.
     layers = []
     for layer in config["layers"]:
@@ -114,16 +121,16 @@ def build_network(config, save_on_exit=True):
     for i in range(len(layers) - 1):
         layers[i].assign_next(layers[i + 1])
 
-    for layer in layers:
-        layer.heuristic_variational_model.load()
+    for i, layer in enumerate(layers):
+        layer.load(os.path.join(weight_path, str(i)))
 
     # The following returns into the with block.
     yield layers[0]
 
     # The following runs AFTER with block.
     if save_on_exit:
-        for layer in layers:
-            layer.heuristic_variational_model.save()
+        for i, layer in enumerate(layers):
+            layer.save(os.path.join(weight_path, str(i)))
 
 
 if __name__ == '__main__':

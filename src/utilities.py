@@ -1,7 +1,16 @@
 import time
 import os
-import sys
+import shutil
 import numpy as np
+
+
+def empty_directory(output_dir):
+    print("Clearing directory: {}".format(output_dir))
+    for root, dirs, files in os.walk(output_dir):
+        for file in files:
+            os.remove(os.path.join(root, file))
+        for directory in dirs:
+            shutil.rmtree(os.path.join(root, directory))
 
 
 class Timer:

@@ -12,13 +12,6 @@ import embeddings
 import metrics
 
 
-def clear_directory(output_dir):
-    print("Clearing directory: {}".format(output_dir))
-    for root, dirs, files in os.walk(output_dir):
-        for file in files:
-            os.remove(os.path.join(root, file))
-
-
 log_2PI = math.log(2 * math.pi)
 
 
@@ -67,17 +60,11 @@ def generate_masks(pivots, length):
 
 class Model:
 
-    def __init__(self, dims, checkpoint_dir=None, save_every=None, num_epoch=100, lr=0.01, step_size=10, weight_decay=0.99):
+    def __init__(self, dims, lr=0.01, step_size=10, weight_decay=0.99):
         self.model = embeddings.spline_flow.Model(dims)
         self.metric = metrics.euclidean.Model(dims)
-        self.checkpoint_dir = checkpoint_dir
-        self.save_every = save_every
 
         # Setup the optimizers
-        self.num_epoch = num_epoch
-        self.save_format = "{:0" + str(len(str(num_epoch))) + "d}.ckpt"
-        lr = lr
-
         parameters = list(self.model.parameters())
         self.opt = optim.Adam(parameters, lr=lr)
         self.step = 0
@@ -129,28 +116,42 @@ class Model:
 
         return loss_values.detach().cpu().numpy(), self.step
 
-    def load(self):
-        if self.checkpoint_dir is not None:
-            latest = sorted(os.listdir(os.path.join(self.checkpoint_dir, "weights")))[-1]
-            checkpoint = torch.load(os.path.join(self.checkpoint_dir, "weights", latest))
-            self.model.load_state_dict(checkpoint['model'])
-            self.opt.load_state_dict(checkpoint['opt'])
-            self.scheduler.load_state_dict(checkpoint['scheduler'])
-            self.step = checkpoint['step']
-        else:
+    def load(self, checkpoint_dir):
+        if checkpoint_dir is None:
             print("Cannot load weights, checkpoint_dir is None.")
+            return
 
-    def save(self):
-        if not os.path.exists(os.path.join(self.checkpoint_dir, "weights")):
-            print("Creating directory: {}".format(os.path.join(self.checkpoint_dir, "weights")))
-            os.makedirs(os.path.join(self.checkpoint_dir, "weights"))
+        weight_dir = os.path.join(checkpoint_dir, "weights")
 
+        if not os.path.exists(weight_dir):
+            print("Cannot load weights, weights do not exists.")
+            return
+
+        latest = sorted(os.listdir(weight_dir))[-1]
+        checkpoint = torch.load(os.path.join(weight_dir, latest))
+        self.model.load_state_dict(checkpoint['model'])
+        self.opt.load_state_dict(checkpoint['opt'])
+        self.scheduler.load_state_dict(checkpoint['scheduler'])
+        self.step = checkpoint['step']
+
+    def save(self, checkpoint_dir):
+
+        if checkpoint_dir is None:
+            print("Cannot save weights, checkpoint_dir is None.")
+            return
+
+        weight_dir = os.path.join(checkpoint_dir, "weights")
+        if not os.path.exists(weight_dir):
+            print("Creating directory: {}".format(weight_dir))
+            os.makedirs(weight_dir)
+
+        save_format = "{:6d}.ckpt"
         torch.save({
             'model': self.model.state_dict(),
             'opt': self.opt.state_dict(),
             'scheduler': self.scheduler.state_dict(),
             'step': self.step
-        }, os.path.join(self.checkpoint_dir, "weights", self.save_format.format(self.step)))
+        }, os.path.join(weight_dir, save_format.format(self.step)))
 
 
 if __name__ == '__main__':
