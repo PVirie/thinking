@@ -73,6 +73,19 @@ class Model:
 
         self.eval_mode = True
 
+    def dist(self, s, t, return_numpy=True):
+        s = torch.from_numpy(s) if type(s).__module__ == np.__name__ else s
+        t = torch.from_numpy(t) if type(t).__module__ == np.__name__ else t
+
+        s = self.model.encode(s)
+        t = self.model.encode(t)
+        results = torch.sum(self.metric.sqr_dist(s, t), dim=0)
+
+        if return_numpy:
+            return results.detach().cpu().numpy()
+        else:
+            return results
+
     def consolidate(self, candidates, props, target, return_numpy=True):
         # candidates has shape [dim, batch]
         # props has shape [batch]
@@ -168,3 +181,34 @@ if __name__ == '__main__':
 
     results = model.consolidate(candidates, props, targets)
     print(results)
+
+    #############################################################
+
+    from utilities import *
+    import random
+
+    model = Model(8, lr=0.01, step_size=100, weight_decay=0.99)
+
+    graph = random_graph(8, 0.5)
+    print(graph)
+    all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
+    explore_steps = 1000
+
+    stat_graph = np.zeros([graph.shape[0]], dtype=np.float32)
+    position = (np.arange(graph.shape[0], 0, -1) - 1) / 1000
+
+    for i in range(explore_steps):
+        path = random_walk(graph, 0, graph.shape[0] - 1)
+        path.reverse()
+
+        stat_graph[path] = stat_graph[path] + position[:len(path)]
+
+        path = all_reps[:, path]
+        loss, _ = model.incrementally_learn(path, np.array([path.shape[1] - 1], dtype=np.int64))
+        if i % (explore_steps // 100) == 0:
+            print("Training progress: %.2f%% %.8f" % (i * 100 / explore_steps, loss), end="\r", flush=True)
+
+    print(stat_graph, np.argsort(stat_graph))
+
+    dists = model.dist(all_reps, all_reps[:, 0:1])
+    print(dists, np.argsort(dists))
