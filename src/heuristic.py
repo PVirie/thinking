@@ -83,12 +83,13 @@ class Model:
         nominators = props * heuristic_scores
         weights = nominators / torch.sum(nominators)
 
-        result = torch.sum(candidates * weights, dim=1, keepdims=True)
+        heuristic_rep = torch.sum(candidates * weights)
+        heuristic_prop = torch.mean(nominators)
 
         if return_numpy:
-            return result.detach().cpu().numpy(), np.array([1.0], dtype=np.float32)
+            return heuristic_rep.detach().cpu().numpy(), heuristic_prop.detach().cpu().numpy()
         else:
-            return result, np.array([1.0], dtype=np.float32)
+            return heuristic_rep, heuristic_prop
 
     def incrementally_learn(self, path, pivots):
         self.model.train()
