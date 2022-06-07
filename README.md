@@ -13,11 +13,12 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 * `./run_docker.sh` to open a shell
 
 ## To do
+* Use discrete logic to cope with signal degradation.
 * ~Solve signal degradation by adding hippocampus enhancer~
 * ~Cortex pathway~
 * ~Hippocampus pathway~
 * ~Compute proper cortex prop~ (because using divergence network and directly compute probability.)
 * ~Isolate diminising parameter~
-* Entropy should be computed from the heuristic model not the hippocampus?
+* ~Entropy should be computed from the heuristic model not the hippocampus? (No)~
 * ~Clear weight on retrain~
 

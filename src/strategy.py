@@ -33,6 +33,7 @@ if __name__ == '__main__':
     graph_shape = 16
 
     config = {
+        "world_update_prior": 0.1,
         "layers": [
             {
                 "num_dimensions": graph_shape,
@@ -117,8 +118,10 @@ if __name__ == '__main__':
             p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=1)
             p = list(p)
             total_length = total_length + len(p)
+            print([np.argmax(n) for n in p], t)
         except RecursionError:
             total_length = total_length + max_steps
+            print("fail to find path in time.", t)
     print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
     total_length = 0
@@ -131,5 +134,6 @@ if __name__ == '__main__':
             print(p)
         except Exception:
             total_length = total_length + max_steps
+            print("fail to find path in time.", t)
 
     print("optimal planner:", time.time() - stamp, " average length:", total_length / len(goals))

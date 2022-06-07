@@ -132,6 +132,7 @@ def build_network(config, weight_path=None, save_on_exit=True):
     for layer in config["layers"]:
         heuristic_model_params = layer["heuristic_model_param"]
         heuristic_model_params["diminishing_factor"] = layer["diminishing_factor"]
+        heuristic_model_params["world_update_prior"] = config["world_update_prior"]
         heuristic_model_params["dims"] = layer["num_dimensions"]
         heuristic_model = heuristic.Model(**heuristic_model_params)
         layers.append(Layer(layer["num_dimensions"], heuristic_model, layer["memory_slots"], layer["diminishing_factor"]))

@@ -44,10 +44,11 @@ def generate_masks(pivots, length, diminishing_factor=0.9):
 
 class Model:
 
-    def __init__(self, dims, diminishing_factor, lr=0.01, step_size=10, weight_decay=0.99):
+    def __init__(self, dims, diminishing_factor, world_update_prior, lr=0.01, step_size=10, weight_decay=0.99):
         self.model = embeddings.divergence.Model(dims)
         self.metric = metrics.euclidean.Model(dims)
         self.diminishing_factor = diminishing_factor
+        self.new_target_prior = world_update_prior
 
         # Setup the optimizers
         parameters = list(self.model.parameters())
@@ -91,8 +92,9 @@ class Model:
             return_numpy=False)
 
         nominators = torch.reshape(props, [1, -1, 1]) * torch.reshape(heuristic_scores, [1, num_mem, batch])
-        weights = torch.reshape(nominators / torch.sum(nominators, dim=1, keepdim=True), [1, num_mem, batch])
+        weights = nominators / torch.sum(nominators, dim=1, keepdim=True)
 
+        # can use max here instead of sum for non-generalize scenarios.
         heuristic_rep = torch.reshape(torch.sum(torch.unsqueeze(candidates, dim=2) * weights, dim=1), [dim, batch])
         heuristic_prop = torch.reshape(torch.mean(nominators, dim=1), [-1])
 
@@ -114,8 +116,7 @@ class Model:
             t = torch.reshape(torch.tile(torch.unsqueeze(path[:, pivots], dim=1), (1, path.shape[1], 1)), [path.shape[0], -1])
             divergences = torch.reshape(self.model.compute_divergence(s, t, return_numpy=False), [path.shape[1], pivots.shape[0]])
 
-            new_target_prior = 0.2
-            targets = torch.where(new_targets < divergences, new_targets, (1 - new_target_prior) * divergences + new_target_prior * new_targets)
+            targets = torch.where(new_targets < divergences, new_targets, (1 - self.new_target_prior) * divergences + self.new_target_prior * new_targets)
             loss_values = torch.mean(torch.square(divergences - targets))
 
         self.opt.zero_grad()
