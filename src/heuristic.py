@@ -31,37 +31,21 @@ def compute_loss_against_pivots(x, masks, P, metric):
     )
 
 
-def compute_log_gausian_density_loss_against_pivots(x, masks, P, variances):
-    '''
-        x of shape [dims, length]
-        masks of shape [length, batch]
-        P of shape [dims, batch]
-        variances of shape [dims, batch]
-    '''
-    x = torch.unsqueeze(x, dim=2)
-    P = torch.unsqueeze(P, dim=1)
-
-    dims = x.shape[0]
-    return torch.mean(
-        torch.sum(
-            masks * torch.sum(torch.square(x - P) / (2 * torch.unsqueeze(variances, dim=1)), dim=0),
-            dim=0) / torch.sum(masks, dim=0)
-        + 0.5 * torch.sum(torch.log(variances), dim=0)
-        + (0.5 * dims) * log_2PI
-    )
-
-
-def generate_masks(pivots, length):
+def generate_masks(pivots, length, diminishing_factor=0.9):
     pos = torch.unsqueeze(torch.arange(0, length, dtype=torch.int32), dim=1)
     pre_pivots = torch.roll(pivots, 1, 0)
     pre_pivots[0] = -1
-    return torch.logical_and(pos > torch.unsqueeze(pre_pivots, dim=0), pos <= torch.unsqueeze(pivots, dim=0)).float()
+    masks = torch.logical_and(pos > torch.unsqueeze(pre_pivots, dim=0), pos <= torch.unsqueeze(pivots, dim=0)).float()
+
+    order = torch.reshape(torch.arange(0, -length, -1), [-1, 1]) + torch.unsqueeze(pivots, dim=0)
+    diminishing = torch.pow(diminishing_factor, order)
+    return masks, diminishing
 
 
 class Model:
 
     def __init__(self, dims, lr=0.01, step_size=10, weight_decay=0.99):
-        self.model = embeddings.spline_flow.Model(dims)
+        self.model = embeddings.divergence.Model(dims)
         self.metric = metrics.euclidean.Model(dims)
 
         # Setup the optimizers
@@ -77,9 +61,7 @@ class Model:
         s = torch.from_numpy(s) if type(s).__module__ == np.__name__ else s
         t = torch.from_numpy(t) if type(t).__module__ == np.__name__ else t
 
-        s = self.model.encode(s)
-        t = self.model.encode(t)
-        results = torch.sum(self.metric.sqr_dist(s, t), dim=0)
+        results = torch.sum(self.model.compute_divergence(s, torch.tile(t, (1, s.shape[1])), return_numpy=False), dim=0)
 
         if return_numpy:
             return results.detach().cpu().numpy()
@@ -95,11 +77,8 @@ class Model:
         target = torch.from_numpy(target) if type(target).__module__ == np.__name__ else target
         props = torch.from_numpy(props) if type(props).__module__ == np.__name__ else props
 
-        encoded_candidates = self.model.encode(candidates)
-        encoded_target = self.model.encode(target)
-        var = 1.0
-
-        heuristic_scores = torch.exp(-0.5 * self.metric.sqr_dist(encoded_candidates, encoded_target) / var)
+        target = torch.tile(target, (1, candidates.shape[1]))
+        heuristic_scores = self.model.compute_divergence(candidates, target, return_numpy=False)
 
         nominators = props * heuristic_scores
         weights = nominators / torch.sum(nominators)
@@ -115,12 +94,16 @@ class Model:
         self.model.train()
 
         path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
-        encoded_path = self.model.encode(path)
 
         if pivots.size > 0:
             pivots = torch.from_numpy(pivots) if type(pivots).__module__ == np.__name__ else pivots
-            P = encoded_path[:, pivots]
-            loss_values = compute_loss_against_pivots(encoded_path, generate_masks(pivots, path.shape[1]), P, self.metric)
+
+            masks, targets = generate_masks(pivots, path.shape[1])
+            s = torch.reshape(torch.tile(torch.unsqueeze(path, dim=2), (1, 1, pivots.shape[0])), [path.shape[0], -1])
+            t = torch.reshape(torch.tile(torch.unsqueeze(path[:, pivots], dim=1), (1, path.shape[1], 1)), [path.shape[0], -1])
+            divergences = torch.reshape(self.model.compute_divergence(s, t, return_numpy=False), [path.shape[1], pivots.shape[0]])
+
+            loss_values = torch.mean(torch.square(divergences - targets))
 
         self.opt.zero_grad()
         loss_values.backward()
@@ -171,8 +154,6 @@ if __name__ == '__main__':
     masks = generate_masks(torch.from_numpy(np.array([3, 5, 8])), 10)
     print(masks)
 
-    print(compute_log_gausian_density_loss_against_pivots(torch.randn(4, 10), masks, torch.randn(4, 3), torch.randn(4, 3)**2))
-
     model = Model(2)
 
     candidates = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
@@ -185,7 +166,6 @@ if __name__ == '__main__':
     #############################################################
 
     from utilities import *
-    import random
 
     model = Model(8, lr=0.01, step_size=100, weight_decay=0.99)
 
@@ -195,20 +175,20 @@ if __name__ == '__main__':
     explore_steps = 1000
 
     stat_graph = np.zeros([graph.shape[0]], dtype=np.float32)
-    position = (np.arange(graph.shape[0], 0, -1) - 1) / 1000
+    position = (np.power(0.9, np.arange(graph.shape[0], 0, -1) - 1))
 
     for i in range(explore_steps):
         path = random_walk(graph, 0, graph.shape[0] - 1)
         path.reverse()
 
-        stat_graph[path] = stat_graph[path] + position[:len(path)]
+        stat_graph[path] = stat_graph[path] - position[:len(path)]
 
-        path = all_reps[:, path]
-        loss, _ = model.incrementally_learn(path, np.array([path.shape[1] - 1], dtype=np.int64))
+        encoded = all_reps[:, path]
+        loss, _ = model.incrementally_learn(encoded, np.array([encoded.shape[1] - 1], dtype=np.int64))
         if i % (explore_steps // 100) == 0:
             print("Training progress: %.2f%% %.8f" % (i * 100 / explore_steps, loss), end="\r", flush=True)
 
     print(stat_graph, np.argsort(stat_graph))
 
     dists = model.dist(all_reps, all_reps[:, 0:1])
-    print(dists, np.argsort(dists))
+    print(dists, np.argsort(-dists))
