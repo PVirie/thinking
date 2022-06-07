@@ -17,6 +17,7 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 * ~Cortex pathway~
 * ~Hippocampus pathway~
 * ~Compute proper cortex prop~ (because using divergence network and directly compute probability.)
+* ~Isolate diminising parameter~
 * Entropy should be computed from the heuristic model not the hippocampus?
 * ~Clear weight on retrain~
 

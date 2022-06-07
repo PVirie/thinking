@@ -15,9 +15,9 @@ def is_same_node(c, t):
 
 
 class Layer:
-    def __init__(self, num_dimensions, heuristic_variational_model, memory_slots=2048):
+    def __init__(self, num_dimensions, heuristic_variational_model, memory_slots=2048, diminishing_factor=0.9):
         self.num_dimensions = num_dimensions
-        self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, memory_slots)
+        self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, memory_slots, diminishing_factor)
         self.heuristic_variational_model = heuristic_variational_model
         self.next = None
 
@@ -65,18 +65,28 @@ class Layer:
     def from_next(self, c):
         return c
 
-    def pincer_inference(self, s, t):
+    def pincer_inference(self, s, t, pathway_bias=0):
+        # pathway_bias < 0 : use hippocampus
+        # pathway_bias > 0 : use cortex
+
         props = self.hippocampus.match(s)
         candidates = self.hippocampus.get_next()
 
         cortex_rep, cortex_prop = self.heuristic_variational_model.consolidate(candidates, np.squeeze(props), t)
         hippocampus_rep, hippocampus_prop = self.hippocampus.infer(s, t)
 
+        if pathway_bias < 0:
+            return hippocampus_rep
+        if pathway_bias > 0:
+            return cortex_rep
+
         compare_results = hippocampus_prop > cortex_prop
         results = np.where(compare_results, hippocampus_rep, cortex_rep)
         return results
 
-    def find_path(self, c, t, hard_limit=20):
+    def find_path(self, c, t, hard_limit=20, pathway_bias=0):
+        # pathway_bias < 0 : use hippocampus
+        # pathway_bias > 0 : use cortex
 
         if self.next is not None:
             goals = self.next.find_path(self.to_next(c), self.to_next(t))
@@ -109,7 +119,7 @@ class Layer:
                     raise RecursionError
                     break
 
-                c = self.pincer_inference(c, g)
+                c = self.pincer_inference(c, g, pathway_bias)
                 c = self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
 
                 yield c
@@ -121,8 +131,10 @@ def build_network(config, weight_path=None, save_on_exit=True):
     layers = []
     for layer in config["layers"]:
         heuristic_model_params = layer["heuristic_model_param"]
+        heuristic_model_params["diminishing_factor"] = layer["diminishing_factor"]
+        heuristic_model_params["dims"] = layer["num_dimensions"]
         heuristic_model = heuristic.Model(**heuristic_model_params)
-        layers.append(Layer(layer["num_dimensions"], heuristic_model, layer["memory_slots"]))
+        layers.append(Layer(layer["num_dimensions"], heuristic_model, layer["memory_slots"], layer["diminishing_factor"]))
 
     for i in range(len(layers) - 1):
         layers[i].assign_next(layers[i + 1])

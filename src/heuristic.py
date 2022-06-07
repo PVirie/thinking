@@ -44,9 +44,10 @@ def generate_masks(pivots, length, diminishing_factor=0.9):
 
 class Model:
 
-    def __init__(self, dims, lr=0.01, step_size=10, weight_decay=0.99):
+    def __init__(self, dims, diminishing_factor, lr=0.01, step_size=10, weight_decay=0.99):
         self.model = embeddings.divergence.Model(dims)
         self.metric = metrics.euclidean.Model(dims)
+        self.diminishing_factor = diminishing_factor
 
         # Setup the optimizers
         parameters = list(self.model.parameters())
@@ -69,22 +70,31 @@ class Model:
             return results
 
     def consolidate(self, candidates, props, target, return_numpy=True):
-        # candidates has shape [dim, batch]
-        # props has shape [batch]
-        # target has shape [dim, 1]
+        # candidates has shape [dim, num_memory]
+        # props has shape [num_memory]
+        # target has shape [dim, batch]
+
+        dim = candidates.shape[0]
+        num_mem = props.shape[0]
+        batch = target.shape[1]
 
         candidates = torch.from_numpy(candidates) if type(candidates).__module__ == np.__name__ else candidates
         target = torch.from_numpy(target) if type(target).__module__ == np.__name__ else target
         props = torch.from_numpy(props) if type(props).__module__ == np.__name__ else props
 
-        target = torch.tile(target, (1, candidates.shape[1]))
-        heuristic_scores = self.model.compute_divergence(candidates, target, return_numpy=False)
+        temp_candidates = torch.tile(torch.unsqueeze(candidates, dim=2), (1, 1, batch))
+        temp_target = torch.tile(torch.unsqueeze(target, dim=1), (1, num_mem, 1))
 
-        nominators = props * heuristic_scores
-        weights = nominators / torch.sum(nominators)
+        heuristic_scores = self.model.compute_divergence(
+            torch.reshape(temp_candidates, [dim, -1]),
+            torch.reshape(temp_target, [dim, -1]),
+            return_numpy=False)
 
-        heuristic_rep = torch.sum(candidates * weights)
-        heuristic_prop = torch.mean(nominators)
+        nominators = torch.reshape(props, [1, -1, 1]) * torch.reshape(heuristic_scores, [1, num_mem, batch])
+        weights = torch.reshape(nominators / torch.sum(nominators, dim=1, keepdim=True), [1, num_mem, batch])
+
+        heuristic_rep = torch.reshape(torch.sum(torch.unsqueeze(candidates, dim=2) * weights, dim=1), [dim, batch])
+        heuristic_prop = torch.reshape(torch.mean(nominators, dim=1), [-1])
 
         if return_numpy:
             return heuristic_rep.detach().cpu().numpy(), heuristic_prop.detach().cpu().numpy()
@@ -99,11 +109,13 @@ class Model:
         if pivots.size > 0:
             pivots = torch.from_numpy(pivots) if type(pivots).__module__ == np.__name__ else pivots
 
-            masks, targets = generate_masks(pivots, path.shape[1])
+            masks, new_targets = generate_masks(pivots, path.shape[1], self.diminishing_factor)
             s = torch.reshape(torch.tile(torch.unsqueeze(path, dim=2), (1, 1, pivots.shape[0])), [path.shape[0], -1])
             t = torch.reshape(torch.tile(torch.unsqueeze(path[:, pivots], dim=1), (1, path.shape[1], 1)), [path.shape[0], -1])
             divergences = torch.reshape(self.model.compute_divergence(s, t, return_numpy=False), [path.shape[1], pivots.shape[0]])
 
+            new_target_prior = 0.2
+            targets = torch.where(new_targets < divergences, new_targets, (1 - new_target_prior) * divergences + new_target_prior * new_targets)
             loss_values = torch.mean(torch.square(divergences - targets))
 
         self.opt.zero_grad()

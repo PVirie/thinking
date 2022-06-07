@@ -4,11 +4,11 @@ import os
 
 class Hippocampus:
 
-    def __init__(self, num_dimensions, hippocampus_size):
+    def __init__(self, num_dimensions, hippocampus_size, diminishing_factor):
         self.dim = num_dimensions
         self.h_size = hippocampus_size
         self.H = np.zeros([self.dim, self.h_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
-        self.diminishing_factor = 0.9
+        self.diminishing_factor = diminishing_factor
         self.positions = np.reshape(np.arange(self.h_size), [-1, 1])
 
     def save(self, weight_path):
