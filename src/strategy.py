@@ -36,7 +36,7 @@ if __name__ == '__main__':
         "layers": [
             {
                 "num_dimensions": graph_shape,
-                "memory_slots": 128,
+                "memory_slots": 512,
                 "diminishing_factor": 0.9,
                 "heuristic_model_param": {
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
@@ -44,7 +44,7 @@ if __name__ == '__main__':
             },
             {
                 "num_dimensions": graph_shape,
-                "memory_slots": 128,
+                "memory_slots": 256,
                 "diminishing_factor": 0.9,
                 "heuristic_model_param": {
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
@@ -120,3 +120,16 @@ if __name__ == '__main__':
         except RecursionError:
             total_length = total_length + max_steps
     print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
+
+    total_length = 0
+    stamp = time.time()
+    for t in goals:
+        try:
+            p = shortest_path(g, 0, t)
+            p = list(reversed(p))
+            total_length = total_length + len(p)
+            print(p)
+        except Exception:
+            total_length = total_length + max_steps
+
+    print("optimal planner:", time.time() - stamp, " average length:", total_length / len(goals))

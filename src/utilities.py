@@ -53,3 +53,32 @@ def random_walk(graph, s, max_steps):
         candidate_weights = candidate_weights / np.sum(candidate_weights)
         c = np.random.choice(candidates, 1, p=candidate_weights)[0]
     return path
+
+
+def shortest_path(graph, s, d):
+    inf = graph.shape[0] * 2
+    dist = np.ones([graph.shape[0]]) * inf
+    dist[s] = 0
+    unvisited = np.ones([graph.shape[0]], dtype=bool)
+
+    indices = np.arange(graph.shape[0])
+    trace = np.arange(graph.shape[0], dtype=np.int32)
+
+    c = s
+    while True:
+        unvisited[c] = False
+        uv_neighbor = np.logical_and((graph[c, :] > 0), unvisited).astype(np.float32)
+        trace = np.where(np.logical_and((graph[c, :] > 0), dist[c] + graph[c, :] < dist), c, trace)
+        dist = dist * (1 - uv_neighbor) + np.minimum(dist, dist[c] + graph[c, :]) * (uv_neighbor)
+
+        c = indices[unvisited][np.argmin(dist[unvisited])]
+        if c == d:
+            if dist[d] < inf:
+                path = []
+                while True:
+                    path.append(c)
+                    if c == s:
+                        return path
+                    c = trace[c]
+            else:
+                return []

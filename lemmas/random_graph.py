@@ -33,7 +33,7 @@ def shortest_path(graph, s, d):
     while True:
         unvisited[c] = False
         uv_neighbor = np.logical_and((graph[c, :] > 0), unvisited).astype(np.float32)
-        trace = np.where(dist[c] + graph[c, :] < dist, c, trace)
+        trace = np.where(np.logical_and((graph[c, :] > 0), dist[c] + graph[c, :] < dist), c, trace)
         dist = dist * (1 - uv_neighbor) + np.minimum(dist, dist[c] + graph[c, :]) * (uv_neighbor)
 
         c = indices[unvisited][np.argmin(dist[unvisited])]
