@@ -13,7 +13,10 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 * `./run_docker.sh` to open a shell
 
 ## To do
-* Use discrete logic to cope with signal degradation.
+* Test: one step find path
+* ~To next hierarchy function~
+* Entropy should be normalized against repetition?
+* ~Use discrete logic to cope with signal degradation.~ (Signal enhancement via external input feedback loop.)
 * ~Solve signal degradation by adding hippocampus enhancer~
 * ~Cortex pathway~
 * ~Hippocampus pathway~

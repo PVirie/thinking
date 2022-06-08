@@ -58,9 +58,20 @@ class Layer:
         if self.next is not None and len(all_pvs) > 1:
             self.next.incrementally_learn(path[:, all_pvs])
 
-    def to_next(self, c):
-        # should not just enhance, but select the closest with highest entropy
-        return self.hippocampus.enhance(c)
+    def to_next(self, c, forward=True):
+        # not just enhance, but select the closest with highest entropy
+        # c has shape [dimensions, 1]
+        if forward:
+            next_candidates = self.hippocampus.get_next()
+        else:
+            next_candidates = self.hippocampus.get_prev()
+        for i in range(1000):
+            prev_c = c
+            props = self.hippocampus.match(c)
+            c = np.sum(np.squeeze(props) * next_candidates / np.sum(props), axis=1, keepdims=True)
+            if self.hippocampus.compute_entropy(c) < self.hippocampus.compute_entropy(prev_c):
+                return self.hippocampus.enhance(prev_c)
+        return None
 
     def from_next(self, c):
         return c
@@ -89,7 +100,7 @@ class Layer:
         # pathway_bias > 0 : use cortex
 
         if self.next is not None:
-            goals = self.next.find_path(self.to_next(c), self.to_next(t))
+            goals = self.next.find_path(self.to_next(c, True), self.to_next(t, False))
 
         count_steps = 0
         yield c
@@ -123,6 +134,22 @@ class Layer:
                 c = self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
 
                 yield c
+
+    def next_step(self, c, t, pathway_bias=0):
+        # pathway_bias < 0 : use hippocampus
+        # pathway_bias > 0 : use cortex
+
+        if is_same_node(c, t):
+            return t
+
+        next_g = self.next.next_step(self.to_next(c), self.to_next(t))
+        g = self.from_next(next_g)
+
+        if is_same_node(c, g):
+            return g
+
+        c = self.pincer_inference(c, g, pathway_bias)
+        return c
 
 
 @contextmanager

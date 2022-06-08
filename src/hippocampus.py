@@ -11,6 +11,9 @@ class Hippocampus:
         self.diminishing_factor = diminishing_factor
         self.positions = np.reshape(np.arange(self.h_size), [-1, 1])
 
+    def __str__(self):
+        return str(self.H)
+
     def save(self, weight_path):
         if not os.path.exists(weight_path):
             print("Creating directory: {}".format(weight_path))
@@ -24,14 +27,6 @@ class Hippocampus:
 
         self.H = np.load(os.path.join(weight_path, "H.npy"))
 
-    def infer(self, s, t):
-        t_indices, t_prop = self.resolve_address(t)
-        s_indices, s_prop = self.resolve_address(s, t_indices)
-        t_prop[t_indices <= s_indices] = 0
-        hippocampus_prop = np.power(self.diminishing_factor, t_indices - s_indices) * s_prop * t_prop
-        hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
-        return hippocampus_rep, hippocampus_prop
-
     def match(self, x):
         H_ = np.transpose(self.H)
         # use isometric gaussian now, should be using the metric in the neighbor model for computing entropy.
@@ -39,22 +34,13 @@ class Hippocampus:
         prop = np.exp(-0.5 * sqr_dist / 0.1)
         return prop
 
-    def compute_entropy(self, x):
-        prop = self.match(x)
-        entropy = np.sum(prop, axis=0, keepdims=False) / self.h_size
-        return entropy
+    def access_memory(self, indices):
+        return self.H[:, indices]
 
     def enhance(self, c):
         prop = self.match(c)
         max_indices = np.argmax(prop, axis=0)
         return self.access_memory(max_indices)
-
-    def get_next(self):
-        one_step_forwarded = np.roll(self.H, -1)
-        return one_step_forwarded
-
-    def __str__(self):
-        return str(self.H)
 
     def resolve_address(self, x, last_indices=None):
         prop = self.match(x)
@@ -66,19 +52,37 @@ class Hippocampus:
         supports = np.arange(x.shape[1])
         return max_indices, prop[max_indices, supports]
 
+    def infer(self, s, t):
+        t_indices, t_prop = self.resolve_address(t)
+        s_indices, s_prop = self.resolve_address(s, t_indices)
+        t_prop[t_indices <= s_indices] = 0
+        hippocampus_prop = np.power(self.diminishing_factor, t_indices - s_indices) * s_prop * t_prop
+        hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
+        return hippocampus_rep, hippocampus_prop
+
     def store_memory(self, h):
         num_steps = h.shape[1]
         self.H = np.roll(self.H, -num_steps)
         self.H[:, -num_steps:] = h
-
-    def access_memory(self, indices):
-        return self.H[:, indices]
 
     def incrementally_learn(self, h):
         batch_size = h.shape[1]
         if batch_size <= 0:
             return
         self.store_memory(h)
+
+    def get_next(self):
+        one_step_forwarded = np.roll(self.H, -1)
+        return one_step_forwarded
+
+    def get_prev(self):
+        one_step_backwarded = np.roll(self.H, 1)
+        return one_step_backwarded
+
+    def compute_entropy(self, x):
+        prop = self.match(x)
+        entropy = np.sum(prop, axis=0, keepdims=False) / self.h_size
+        return entropy
 
 
 if __name__ == '__main__':
