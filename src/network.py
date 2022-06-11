@@ -70,7 +70,7 @@ class Layer:
             props = self.hippocampus.match(c)
             c = np.sum(np.squeeze(props) * next_candidates / np.sum(props), axis=1, keepdims=True)
             if self.hippocampus.compute_entropy(c) < self.hippocampus.compute_entropy(prev_c):
-                return self.hippocampus.enhance(prev_c)
+                return prev_c
         return None
 
     def from_next(self, c):
@@ -80,8 +80,7 @@ class Layer:
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
-        props = self.hippocampus.match(s)
-        candidates = self.hippocampus.get_next()
+        candidates, props = self.hippocampus.get_distinct_next_candidate(s)
 
         cortex_rep, cortex_prop = self.heuristic_variational_model.consolidate(candidates, np.squeeze(props), t)
         hippocampus_rep, hippocampus_prop = self.hippocampus.infer(s, t)

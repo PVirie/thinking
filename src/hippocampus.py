@@ -4,11 +4,18 @@ import os
 
 class Hippocampus:
 
-    def __init__(self, num_dimensions, hippocampus_size, diminishing_factor):
+    def __init__(self, num_dimensions, hippocampus_size, diminishing_factor, candidate_size=None):
         self.dim = num_dimensions
         self.h_size = hippocampus_size
         self.H = np.zeros([self.dim, self.h_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
         self.diminishing_factor = diminishing_factor
+
+        if candidate_size is not None:
+            self.c_size = candidate_size
+        else:
+            self.c_size = self.h_size // 8 #magic number
+        self.C = np.zeros([self.dim, self.c_size], dtype=np.float32)
+
         self.positions = np.reshape(np.arange(self.h_size), [-1, 1])
 
     def __str__(self):
@@ -65,10 +72,21 @@ class Hippocampus:
         self.H = np.roll(self.H, -num_steps)
         self.H[:, -num_steps:] = h
 
+    def store_candidates(self, c):
+        num_steps = c.shape[1]
+        self.C = np.roll(self.C, -num_steps)
+        self.C[:, -num_steps:] = c
+
     def incrementally_learn(self, h):
         batch_size = h.shape[1]
         if batch_size <= 0:
             return
+
+        prop = np.amax(self.match(h), axis=0, keepdims=False)
+        new_item_mask = prop < 1e-4
+        if np.sum(new_item_mask) > 0:
+            self.store_candidates(h[:, new_item_mask])
+
         self.store_memory(h)
 
     def get_next(self):
@@ -84,10 +102,27 @@ class Hippocampus:
         entropy = np.sum(prop, axis=0, keepdims=False) / self.h_size
         return entropy
 
+    def get_distinct_next_candidate(self, x):
+        # x has shape [dim, 1]
+        # keep a small set of distinct candidates
+        # p(i) = match x to hippocampus
+        # get_next
+        # q(j, i) = match candidate j to next i
+        # candidates' prop = max_i p(i)*q(j, i)
+
+        p = self.match(x)
+        neighbors = self.get_next()
+        q = self.match(self.C)
+        q = np.roll(q, -1, axis=0)
+
+        c_prop = np.amax(p*q, axis=0, keepdims=False)
+        return self.C, c_prop
+
+
 
 if __name__ == '__main__':
     np.set_printoptions(precision=2)
-    model = Hippocampus(8, 4)
+    model = Hippocampus(8, 4, 0.9, 2)
     a = np.random.normal(0, 1, [8, 1])
     b = np.random.normal(0, 1, [8, 1])
     model.incrementally_learn(a)
@@ -103,3 +138,5 @@ if __name__ == '__main__':
     print("entropy", entropy)
     next_records = model.get_next()
     print("next memories", next_records)
+    candidates, props = model.get_distinct_next_candidate(a)
+    print("candidate props", props)

@@ -14,8 +14,8 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 
 ## To do
 * Test: one step find path
-* ~To next hierarchy function~
 * Entropy should be normalized against repetition?
+* ~To next hierarchy function~ (removed enhancer to allow generalization.)
 * ~Use discrete logic to cope with signal degradation.~ (Signal enhancement via external input feedback loop.)
 * ~Solve signal degradation by adding hippocampus enhancer~
 * ~Cortex pathway~
