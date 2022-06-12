@@ -106,9 +106,9 @@ class Hippocampus:
     def get_distinct_next_candidate(self, x):
         # x has shape [dim, 1]
         # keep a small set of distinct candidates
-        # p(i) = match x to hippocampus
+        # p(i, 1) = match x to hippocampus
         # q(j, i) = match candidate j to next i + 1
-        # candidates' prop = max_i p(i)*q(j, i)
+        # candidates' prop = max_i p(i, 1)*q(j, i)
 
         p = self.match(x)
         q = self.match(self.C)
