@@ -6,14 +6,15 @@ class Hippocampus:
 
     def __init__(self, num_dimensions, hippocampus_size, diminishing_factor, candidate_size=None):
         self.dim = num_dimensions
+        self.diminishing_factor = diminishing_factor
+
         self.h_size = hippocampus_size
         self.H = np.zeros([self.dim, self.h_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
-        self.diminishing_factor = diminishing_factor
 
         if candidate_size is not None:
             self.c_size = candidate_size
         else:
-            self.c_size = self.h_size // 8 #magic number
+            self.c_size = self.dim
         self.C = np.zeros([self.dim, self.c_size], dtype=np.float32)
 
         self.positions = np.reshape(np.arange(self.h_size), [-1, 1])
@@ -26,6 +27,7 @@ class Hippocampus:
             print("Creating directory: {}".format(weight_path))
             os.makedirs(weight_path)
         np.save(os.path.join(weight_path, "H.npy"), self.H)
+        np.save(os.path.join(weight_path, "C.npy"), self.C)
 
     def load(self, weight_path):
         if not os.path.exists(weight_path):
@@ -33,9 +35,10 @@ class Hippocampus:
             return
 
         self.H = np.load(os.path.join(weight_path, "H.npy"))
+        self.C = np.load(os.path.join(weight_path, "C.npy"))
 
-    def match(self, x):
-        H_ = np.transpose(self.H)
+    def match(self, x, match_basis=False):
+        H_ = np.transpose(self.H if not match_basis else self.C)
         # use isometric gaussian now, should be using the metric in the neighbor model for computing entropy.
         sqr_dist = (np.linalg.norm(H_, ord=2, axis=1, keepdims=True)**2 - 2 * np.matmul(H_, x) + np.linalg.norm(x, ord=2, axis=0, keepdims=True)**2)
         prop = np.exp(-0.5 * sqr_dist / 0.1)
@@ -67,26 +70,24 @@ class Hippocampus:
         hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
         return hippocampus_rep, hippocampus_prop
 
-    def store_memory(self, h):
+    def store_memory(self, h, store_basis=False):
         num_steps = h.shape[1]
-        self.H = np.roll(self.H, -num_steps)
-        self.H[:, -num_steps:] = h
-
-    def store_candidates(self, c):
-        num_steps = c.shape[1]
-        self.C = np.roll(self.C, -num_steps)
-        self.C[:, -num_steps:] = c
+        if not store_basis:
+            self.H = np.roll(self.H, -num_steps)
+            self.H[:, -num_steps:] = h
+        else:
+            self.C = np.roll(self.C, -num_steps)
+            self.C[:, -num_steps:] = h
 
     def incrementally_learn(self, h):
         batch_size = h.shape[1]
         if batch_size <= 0:
             return
 
-        prop = np.amax(self.match(h), axis=0, keepdims=False)
-        new_item_mask = prop < 1e-4
-        if np.sum(new_item_mask) > 0:
-            self.store_candidates(h[:, new_item_mask])
-
+        prop = np.amax(self.match(h, match_basis=True), axis=0, keepdims=False)
+        new_item_mask = prop < 1e-2
+        if np.count_nonzero(new_item_mask) > 0:
+            self.store_memory(h[:, new_item_mask], store_basis=True)
         self.store_memory(h)
 
     def get_next(self):
@@ -106,18 +107,15 @@ class Hippocampus:
         # x has shape [dim, 1]
         # keep a small set of distinct candidates
         # p(i) = match x to hippocampus
-        # get_next
-        # q(j, i) = match candidate j to next i
+        # q(j, i) = match candidate j to next i + 1
         # candidates' prop = max_i p(i)*q(j, i)
 
         p = self.match(x)
-        neighbors = self.get_next()
         q = self.match(self.C)
         q = np.roll(q, -1, axis=0)
 
-        c_prop = np.amax(p*q, axis=0, keepdims=False)
+        c_prop = np.amax(p * q, axis=0, keepdims=False)
         return self.C, c_prop
-
 
 
 if __name__ == '__main__':

@@ -26,6 +26,8 @@ def build_cognitive_map(graph, all_reps, config, explore_steps=2000, weight_path
 
 
 if __name__ == '__main__':
+    np.set_printoptions(precision=2)
+
     import os
     dir_path = os.path.dirname(os.path.realpath(__file__))
     weight_path = os.path.join(dir_path, "..", "weights", "strategy.py.test")
@@ -43,22 +45,22 @@ if __name__ == '__main__':
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             },
-            {
-                "num_dimensions": graph_shape,
-                "memory_slots": 256,
-                "diminishing_factor": 0.9,
-                "heuristic_model_param": {
-                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-                }
-            },
-            {
-                "num_dimensions": graph_shape,
-                "memory_slots": 128,
-                "diminishing_factor": 0.9,
-                "heuristic_model_param": {
-                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-                }
-            }
+            # {
+            #     "num_dimensions": graph_shape,
+            #     "memory_slots": 256,
+            #     "diminishing_factor": 0.9,
+            #     "heuristic_model_param": {
+            #         'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+            #     }
+            # },
+            # {
+            #     "num_dimensions": graph_shape,
+            #     "memory_slots": 128,
+            #     "diminishing_factor": 0.9,
+            #     "heuristic_model_param": {
+            #         'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+            #     }
+            # }
         ]
     }
 
@@ -116,12 +118,13 @@ if __name__ == '__main__':
     for t in goals:
         try:
             p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=1)
-            p = list(p)
-            total_length = total_length + len(p)
-            print([np.argmax(n) for n in p], t)
+            for pi in p:
+                print(np.argmax(pi), end=' ')
+                total_length = total_length + 1
         except RecursionError:
-            total_length = total_length + max_steps
             print("fail to find path in time.", t)
+        finally:
+            print()
     print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
     total_length = 0

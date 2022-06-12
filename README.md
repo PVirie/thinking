@@ -13,8 +13,10 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 * `./run_docker.sh` to open a shell
 
 ## To do
+* Fix cortex loop
+* ~Entropy should be normalized against repetition?~
+* Basis learning
 * Test: one step find path
-* Entropy should be normalized against repetition?
 * ~To next hierarchy function~ (removed enhancer to allow generalization.)
 * ~Use discrete logic to cope with signal degradation.~ (Signal enhancement via external input feedback loop.)
 * ~Solve signal degradation by adding hippocampus enhancer~

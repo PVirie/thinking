@@ -75,6 +75,9 @@ class Model:
         # props has shape [num_memory]
         # target has shape [dim, batch]
 
+        # print("1 candidate", np.argmax(candidates, axis=0))
+        # print("2 its prop", props)
+
         dim = candidates.shape[0]
         num_mem = props.shape[0]
         batch = target.shape[1]
@@ -86,10 +89,15 @@ class Model:
         temp_candidates = torch.tile(torch.unsqueeze(candidates, dim=2), (1, 1, batch))
         temp_target = torch.tile(torch.unsqueeze(target, dim=1), (1, num_mem, 1))
 
+        # print("3 candidates", torch.argmax(temp_candidates, dim=0))
+        # print("3.5 target", torch.argmax(temp_target, dim=0))
+
         heuristic_scores = self.model.compute_divergence(
             torch.reshape(temp_candidates, [dim, -1]),
             torch.reshape(temp_target, [dim, -1]),
             return_numpy=False)
+
+        # print("4 score", heuristic_scores)
 
         nominators = torch.reshape(props, [1, -1, 1]) * torch.reshape(heuristic_scores, [1, num_mem, batch])
         weights = nominators / torch.sum(nominators, dim=1, keepdim=True)
@@ -97,6 +105,8 @@ class Model:
         # can use max here instead of sum for non-generalize scenarios.
         heuristic_rep = torch.reshape(torch.sum(torch.unsqueeze(candidates, dim=2) * weights, dim=1), [dim, batch])
         heuristic_prop = torch.reshape(torch.mean(nominators, dim=1), [-1])
+
+        # print("5 best", torch.argmax(heuristic_rep, dim=0))
 
         if return_numpy:
             return heuristic_rep.detach().cpu().numpy(), heuristic_prop.detach().cpu().numpy()
@@ -107,6 +117,10 @@ class Model:
         self.model.train()
 
         path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
+
+        # learn self
+        divergences = self.model.compute_divergence(path, path, return_numpy=False)
+        loss_values = 0.1 * torch.mean(torch.square(divergences - 1.0))
 
         if pivots.size > 0:
             pivots = torch.from_numpy(pivots) if type(pivots).__module__ == np.__name__ else pivots
@@ -168,7 +182,7 @@ if __name__ == '__main__':
     masks = generate_masks(torch.from_numpy(np.array([3, 5, 8])), 10)
     print(masks)
 
-    model = Model(2)
+    model = Model(2, 0.9, 0.1)
 
     candidates = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
     props = np.array([1.0, 1.0], dtype=np.float32)
@@ -181,7 +195,7 @@ if __name__ == '__main__':
 
     from utilities import *
 
-    model = Model(8, lr=0.01, step_size=100, weight_decay=0.99)
+    model = Model(8, 0.9, 0.1, lr=0.01, step_size=100, weight_decay=0.99)
 
     graph = random_graph(8, 0.5)
     print(graph)
@@ -191,8 +205,10 @@ if __name__ == '__main__':
     stat_graph = np.zeros([graph.shape[0]], dtype=np.float32)
     position = (np.power(0.9, np.arange(graph.shape[0], 0, -1) - 1))
 
+    pivot_node = 0
+
     for i in range(explore_steps):
-        path = random_walk(graph, 0, graph.shape[0] - 1)
+        path = random_walk(graph, pivot_node, graph.shape[0] - 1)
         path.reverse()
 
         stat_graph[path] = stat_graph[path] - position[:len(path)]
@@ -202,7 +218,7 @@ if __name__ == '__main__':
         if i % (explore_steps // 100) == 0:
             print("Training progress: %.2f%% %.8f" % (i * 100 / explore_steps, loss), end="\r", flush=True)
 
-    print(stat_graph, np.argsort(stat_graph))
+    print(stat_graph, np.argsort(np.argsort(stat_graph)))
 
-    dists = model.dist(all_reps, all_reps[:, 0:1])
-    print(dists, np.argsort(-dists))
+    dists = model.dist(all_reps, all_reps[:, pivot_node:pivot_node + 1])
+    print(dists, np.argsort(np.argsort(-dists)))
