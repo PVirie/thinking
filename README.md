@@ -14,8 +14,9 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 
 ## To do
 * Fix cortex loop
-* ~Entropy should be normalized against repetition?~
+* Entropy should be normalized against repetition with bases.
 * Basis learning
+* Inner product divergence model.
 * Test: one step find path
 * ~To next hierarchy function~ (removed enhancer to allow generalization.)
 * ~Use discrete logic to cope with signal degradation.~ (Signal enhancement via external input feedback loop.)
