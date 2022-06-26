@@ -32,14 +32,19 @@ class Model(embedding_base.Model):
     def __init__(self, dims):
         self.input_dims = dims
 
-        self.model = nn.Sequential(
+        self.model_from = nn.Sequential(
             Transposer(),
-            nn.Linear(dims * 2, dims),
-            nn.ReLU6(),
             Residue_block(self.input_dims),
             Residue_block(self.input_dims),
-            nn.Linear(dims, 1),
-            nn.Sigmoid(),
+            Residue_block(self.input_dims),
+            Transposer()
+        )
+
+        self.model_to = nn.Sequential(
+            Transposer(),
+            Residue_block(self.input_dims),
+            Residue_block(self.input_dims),
+            Residue_block(self.input_dims),
             Transposer()
         )
 
@@ -54,27 +59,33 @@ class Model(embedding_base.Model):
         pass
 
     def parameters(self):
-        return self.model.parameters()
+        return list(self.model_from.parameters()) + list(self.model_to.parameters())
 
     def compute_divergence(self, a, b, return_numpy=True):
         a = torch.from_numpy(a) if type(a).__module__ == np.__name__ else a
         b = torch.from_numpy(b) if type(b).__module__ == np.__name__ else b
 
-        result = self.model(torch.concat([a, b], dim=0))
-
+        result = torch.sigmoid(torch.sum(self.model_from(a) * self.model_to(b), dim=0, keepdims=True))
         return result.detach().cpu().numpy() if return_numpy else result
 
     def train(self):
-        self.model.train()
+        self.model_from.train()
+        self.model_to.train()
 
     def eval(self):
-        self.model.eval()
+        self.model_from.eval()
+        self.model_to.eval()
 
     def load_state_dict(self, state_dict):
-        self.model.load_state_dict(state_dict)
+        self.model_from.load_state_dict(state_dict["from"])
+        self.model_to.load_state_dict(state_dict["to"])
 
     def state_dict(self):
-        return self.model.state_dict()
+        state_dict = {
+            "from": self.model_from.state_dict(),
+            "to": self.model_to.state_dict()
+        }
+        return state_dict
 
 
 if __name__ == '__main__':

@@ -9,26 +9,9 @@ import math
 import os
 import numpy as np
 import embeddings
-import metrics
 
 
 log_2PI = math.log(2 * math.pi)
-
-
-def compute_loss_against_pivots(x, masks, P, metric):
-    '''
-        x of shape [dims, length]
-        masks of shape [length, batch]
-        P of shape [dims, batch]
-    '''
-    x = torch.unsqueeze(x, dim=2)
-    P = torch.unsqueeze(P, dim=1)
-
-    return torch.mean(
-        torch.sum(
-            masks * metric.sqr_dist(x, P),
-            dim=0) / torch.sum(masks, dim=0)
-    )
 
 
 def generate_masks(pivots, length, diminishing_factor=0.9):
@@ -46,7 +29,6 @@ class Model:
 
     def __init__(self, dims, diminishing_factor, world_update_prior, lr=0.01, step_size=10, weight_decay=0.99):
         self.model = embeddings.divergence.Model(dims)
-        self.metric = metrics.euclidean.Model(dims)
         self.diminishing_factor = diminishing_factor
         self.new_target_prior = world_update_prior
 
@@ -119,7 +101,7 @@ class Model:
         path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
 
         # learn self
-        divergences = self.model.compute_divergence(path, path, return_numpy=False)
+        divergences = self.model.compute_divergence(path[:, pivots], path[:, pivots], return_numpy=False)
         loss_values = 0.1 * torch.mean(torch.square(divergences - 1.0))
 
         if pivots.size > 0:
@@ -131,7 +113,7 @@ class Model:
             divergences = torch.reshape(self.model.compute_divergence(s, t, return_numpy=False), [path.shape[1], pivots.shape[0]])
 
             targets = torch.where(new_targets < divergences, new_targets, (1 - self.new_target_prior) * divergences + self.new_target_prior * new_targets)
-            loss_values = torch.mean(torch.square(divergences - targets))
+            loss_values = torch.mean(masks * torch.square(divergences - targets))
 
         self.opt.zero_grad()
         loss_values.backward()
@@ -218,7 +200,7 @@ if __name__ == '__main__':
         if i % (explore_steps // 100) == 0:
             print("Training progress: %.2f%% %.8f" % (i * 100 / explore_steps, loss), end="\r", flush=True)
 
-    print(stat_graph, np.argsort(np.argsort(stat_graph)))
+    print("Direct stats:", stat_graph, np.argsort(np.argsort(stat_graph)))
 
     dists = model.dist(all_reps, all_reps[:, pivot_node:pivot_node + 1])
-    print(dists, np.argsort(np.argsort(-dists)))
+    print("Model result:", dists, np.argsort(np.argsort(-dists)))
