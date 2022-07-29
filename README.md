@@ -8,6 +8,7 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 
 ## Run
 * install [docker-ce](https://www.linode.com/docs/guides/installing-and-using-docker-on-ubuntu-and-debian/) 
+* install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#getting-started)
 * adding user to docker group `sudo usermod -aG docker $USER`
 * `./build_docker.sh`
 * `./run_docker.sh` to open a shell

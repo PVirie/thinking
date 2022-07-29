@@ -31,6 +31,7 @@ if __name__ == '__main__':
     import os
     dir_path = os.path.dirname(os.path.realpath(__file__))
     weight_path = os.path.join(dir_path, "..", "weights", "strategy.py.test")
+    os.makedirs(weight_path, exist_ok=True)
 
     graph_shape = 16
 
@@ -45,14 +46,14 @@ if __name__ == '__main__':
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             },
-            {
-                "num_dimensions": graph_shape,
-                "memory_slots": 256,
-                "diminishing_factor": 0.9,
-                "heuristic_model_param": {
-                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-                }
-            },
+            # {
+            #     "num_dimensions": graph_shape,
+            #     "memory_slots": 256,
+            #     "diminishing_factor": 0.9,
+            #     "heuristic_model_param": {
+            #         'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+            #     }
+            # },
             # {
             #     "num_dimensions": graph_shape,
             #     "memory_slots": 128,
