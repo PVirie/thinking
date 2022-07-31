@@ -52,18 +52,17 @@ class Model:
         else:
             return results
 
-    def consolidate(self, candidates, props, target, return_numpy=True):
+    def consolidate(self, start, candidates, props, target, return_numpy=True):
+        # start has shape [dim, batch]
         # candidates has shape [dim, num_memory]
         # props has shape [num_memory]
         # target has shape [dim, batch]
-
-        # print("1 candidate", np.argmax(candidates, axis=0))
-        # print("2 its prop", props)
 
         dim = candidates.shape[0]
         num_mem = props.shape[0]
         batch = target.shape[1]
 
+        start = torch.from_numpy(start) if type(start).__module__ == np.__name__ else start
         candidates = torch.from_numpy(candidates) if type(candidates).__module__ == np.__name__ else candidates
         target = torch.from_numpy(target) if type(target).__module__ == np.__name__ else target
         props = torch.from_numpy(props) if type(props).__module__ == np.__name__ else props
@@ -71,22 +70,24 @@ class Model:
         temp_candidates = torch.tile(torch.unsqueeze(candidates, dim=2), (1, 1, batch))
         temp_target = torch.tile(torch.unsqueeze(target, dim=1), (1, num_mem, 1))
 
-        # print("3 candidates", torch.argmax(temp_candidates, dim=0))
-        # print("3.5 target", torch.argmax(temp_target, dim=0))
+        base_scores = self.model.compute_divergence(
+            torch.reshape(start, [dim, -1]),
+            torch.reshape(target, [dim, -1]),
+            return_numpy=False)
 
         heuristic_scores = self.model.compute_divergence(
             torch.reshape(temp_candidates, [dim, -1]),
             torch.reshape(temp_target, [dim, -1]),
             return_numpy=False)
 
-        # print("4 score", heuristic_scores)
+        scores = torch.reshape(props, [1, -1, 1]) * torch.reshape(heuristic_scores, [1, num_mem, batch])
+        weights = torch.where(scores > torch.reshape(base_scores, [1, 1, batch]), 1.0, 0.0).to(scores.dtype)
 
-        nominators = torch.reshape(props, [1, -1, 1]) * torch.reshape(heuristic_scores, [1, num_mem, batch])
-        weights = nominators / torch.sum(nominators, dim=1, keepdim=True)
+        # print("4 weight", weights)
 
         # can use max here instead of sum for non-generalize scenarios.
         heuristic_rep = torch.reshape(torch.sum(torch.unsqueeze(candidates, dim=2) * weights, dim=1), [dim, batch])
-        heuristic_prop = torch.reshape(torch.mean(nominators, dim=1), [-1])
+        heuristic_prop = torch.reshape(torch.sum(scores * weights, dim=1) / torch.sum(weights, dim=1), [-1])
 
         # print("5 best", torch.argmax(heuristic_rep, dim=0))
 
@@ -166,11 +167,12 @@ if __name__ == '__main__':
 
     model = Model(2, 0.9, 0.1)
 
+    starts = np.array([[0.0], [0.0]], dtype=np.float32)
     candidates = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
     props = np.array([1.0, 1.0], dtype=np.float32)
     targets = np.array([[1.0], [1.0]], dtype=np.float32)
 
-    results = model.consolidate(candidates, props, targets)
+    results = model.consolidate(starts, candidates, props, targets)
     print(results)
 
     #############################################################

@@ -82,7 +82,7 @@ class Layer:
 
         candidates, props = self.hippocampus.get_distinct_next_candidate(s)
 
-        cortex_rep, cortex_prop = self.heuristic_variational_model.consolidate(candidates, np.squeeze(props), t)
+        cortex_rep, cortex_prop = self.heuristic_variational_model.consolidate(s, candidates, np.squeeze(props), t)
         hippocampus_rep, hippocampus_prop = self.hippocampus.infer(s, t)
 
         if pathway_bias < 0:
