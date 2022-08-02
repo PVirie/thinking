@@ -46,14 +46,14 @@ if __name__ == '__main__':
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             },
-            {
-                "num_dimensions": graph_shape,
-                "memory_slots": 256,
-                "diminishing_factor": 0.9,
-                "heuristic_model_param": {
-                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-                }
-            },
+            # {
+            #     "num_dimensions": graph_shape,
+            #     "memory_slots": 256,
+            #     "diminishing_factor": 0.9,
+            #     "heuristic_model_param": {
+            #         'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+            #     }
+            # },
             # {
             #     "num_dimensions": graph_shape,
             #     "memory_slots": 128,
@@ -95,12 +95,22 @@ if __name__ == '__main__':
     for t in goals:
         try:
             p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps)
-            p = list(p)
-            total_length = total_length + len(p)
-            print([np.argmax(n) for n in p], t)
+            for pi, choices in p:
+                max_value = np.argmax(pi)
+                print(max_value, end=' ')
+                print("[", end='')
+                for c in choices:
+                    c_value = np.argmax(c[0])
+                    if c_value == max_value:
+                        print("\033[1m\033[94m", end='')
+                    print("(" + str(c_value) + "," + str(c[1]) + ")", end='')
+                    print("\033[0m", end='')
+                print("]", end=', ')
+                total_length = total_length + 1
         except RecursionError:
-            total_length = total_length + max_steps
             print("fail to find path in time.", t)
+        finally:
+            print()
     print("cognitive planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
     total_length = 0
@@ -110,8 +120,10 @@ if __name__ == '__main__':
             p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=-1)
             p = list(p)
             total_length = total_length + len(p)
+            print([np.argmax(n) for n, _ in p], t)
         except RecursionError:
             total_length = total_length + max_steps
+            print("fail to find path in time.", t)
     print("hippocampus planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
     total_length = 0
@@ -119,7 +131,7 @@ if __name__ == '__main__':
     for t in goals:
         try:
             p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=1)
-            for pi in p:
+            for pi, _ in p:
                 print(np.argmax(pi), end=' ')
                 total_length = total_length + 1
         except RecursionError:

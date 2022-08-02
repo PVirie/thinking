@@ -39,9 +39,14 @@ class Hippocampus:
 
     def match(self, x, match_basis=False):
         H_ = np.transpose(self.H if not match_basis else self.C)
-        # use isometric gaussian now, should be using the metric in the neighbor model for computing entropy.
-        sqr_dist = (np.linalg.norm(H_, ord=2, axis=1, keepdims=True)**2 - 2 * np.matmul(H_, x) + np.linalg.norm(x, ord=2, axis=0, keepdims=True)**2)
+        # match max
+
+        H_ = np.argmax(H_, axis=1, keepdims=True)
+        x = np.argmax(x, axis=0, keepdims=True)
+
+        sqr_dist = np.abs(H_ - x)
         prop = np.exp(-0.5 * sqr_dist / 0.1)
+
         return prop
 
     def access_memory(self, indices):
@@ -66,7 +71,7 @@ class Hippocampus:
         t_indices, t_prop = self.resolve_address(t)
         s_indices, s_prop = self.resolve_address(s, t_indices)
         t_prop[t_indices <= s_indices] = 0
-        hippocampus_prop = np.power(self.diminishing_factor, t_indices - s_indices) * s_prop * t_prop
+        hippocampus_prop = np.power(self.diminishing_factor, t_indices - s_indices - 1) * s_prop * t_prop
         hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
         return hippocampus_rep, hippocampus_prop
 

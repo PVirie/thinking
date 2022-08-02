@@ -87,7 +87,7 @@ class Model:
 
         # can use max here instead of sum for non-generalize scenarios.
         heuristic_rep = torch.reshape(torch.sum(torch.unsqueeze(candidates, dim=2) * weights, dim=1), [dim, batch])
-        heuristic_prop = torch.reshape(torch.sum(scores * weights, dim=1) / torch.sum(weights, dim=1), [-1])
+        heuristic_prop = torch.reshape(torch.sum(scores * weights, dim=1) / (torch.sum(weights, dim=1) + 1e-6), [-1])
 
         # print("5 best", torch.argmax(heuristic_rep, dim=0))
 
@@ -114,7 +114,7 @@ class Model:
             divergences = torch.reshape(self.model.compute_divergence(s, t, return_numpy=False), [path.shape[1], pivots.shape[0]])
 
             targets = torch.where(new_targets < divergences, new_targets, (1 - self.new_target_prior) * divergences + self.new_target_prior * new_targets)
-            loss_values = torch.mean(masks * torch.square(divergences - targets))
+            loss_values += torch.mean(masks * torch.square(divergences - targets))
 
         self.opt.zero_grad()
         loss_values.backward()

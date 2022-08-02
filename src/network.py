@@ -86,13 +86,13 @@ class Layer:
         hippocampus_rep, hippocampus_prop = self.hippocampus.infer(s, t)
 
         if pathway_bias < 0:
-            return hippocampus_rep
+            return hippocampus_rep, []
         if pathway_bias > 0:
-            return cortex_rep
+            return cortex_rep, []
 
         compare_results = hippocampus_prop > cortex_prop
         results = np.where(compare_results, hippocampus_rep, cortex_rep)
-        return results
+        return results, [(cortex_rep, cortex_prop), (hippocampus_rep, hippocampus_prop)]
 
     def find_path(self, c, t, hard_limit=20, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
@@ -102,14 +102,15 @@ class Layer:
             goals = self.next.find_path(self.to_next(c, True), self.to_next(t, False))
 
         count_steps = 0
-        yield c
+        yield c, []
         while True:
             if is_same_node(c, t):
                 break
 
             if self.next is not None:
                 try:
-                    g = self.from_next(next(goals))
+                    ng, _ = next(goals)
+                    g = self.from_next(ng)
                 except StopIteration:
                     g = t
             else:
@@ -129,10 +130,10 @@ class Layer:
                     raise RecursionError
                     break
 
-                c = self.pincer_inference(c, g, pathway_bias)
+                c, supplimentary = self.pincer_inference(c, g, pathway_bias)
                 c = self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
 
-                yield c
+                yield c, supplimentary
 
     def next_step(self, c, t, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
@@ -141,14 +142,14 @@ class Layer:
         if is_same_node(c, t):
             return t
 
-        next_g = self.next.next_step(self.to_next(c), self.to_next(t))
+        next_g, _ = self.next.next_step(self.to_next(c), self.to_next(t))
         g = self.from_next(next_g)
 
         if is_same_node(c, g):
             return g
 
-        c = self.pincer_inference(c, g, pathway_bias)
-        return c
+        c, supplimentary = self.pincer_inference(c, g, pathway_bias)
+        return c, supplimentary
 
 
 @contextmanager
