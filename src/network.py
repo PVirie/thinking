@@ -103,6 +103,7 @@ class Layer:
 
         count_steps = 0
         yield c, []
+
         while True:
             if is_same_node(c, t):
                 break

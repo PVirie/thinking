@@ -41,8 +41,8 @@ class Hippocampus:
         H_ = np.transpose(self.H if not match_basis else self.C)
         # match max
 
-        H_ = np.argmax(H_, axis=1, keepdims=True)
-        x = np.argmax(x, axis=0, keepdims=True)
+        H_ = np.argmax(H_, axis=1, keepdims=True).astype(np.float32)
+        x = np.argmax(x, axis=0, keepdims=True).astype(np.float32)
 
         sqr_dist = np.abs(H_ - x)
         prop = np.exp(-0.5 * sqr_dist / 0.1)
