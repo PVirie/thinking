@@ -14,7 +14,7 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 * `./run_docker.sh` to open a shell
 
 ## To do
-* Fix arbitary divergence for unseen states.
+* Fix hippocampus gap with chunks
 * Fix cortex loop
 * Entropy should be normalized against repetition with bases.
 * Basis learning

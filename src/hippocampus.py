@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import proxy
 
 
 class Hippocampus:
@@ -11,11 +12,7 @@ class Hippocampus:
         self.h_size = hippocampus_size
         self.H = np.zeros([self.dim, self.h_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
 
-        if candidate_size is not None:
-            self.c_size = candidate_size
-        else:
-            self.c_size = self.dim
-        self.C = np.zeros([self.dim, self.c_size], dtype=np.float32)
+        self.bases = proxy.Distinct_item(self.dim, candidate_size)
 
         self.positions = np.reshape(np.arange(self.h_size), [-1, 1])
 
@@ -27,7 +24,7 @@ class Hippocampus:
             print("Creating directory: {}".format(weight_path))
             os.makedirs(weight_path)
         np.save(os.path.join(weight_path, "H.npy"), self.H)
-        np.save(os.path.join(weight_path, "C.npy"), self.C)
+        self.bases.save(weight_path)
 
     def load(self, weight_path):
         if not os.path.exists(weight_path):
@@ -35,10 +32,10 @@ class Hippocampus:
             return
 
         self.H = np.load(os.path.join(weight_path, "H.npy"))
-        self.C = np.load(os.path.join(weight_path, "C.npy"))
+        self.bases.load(weight_path)
 
-    def match(self, x, match_basis=False):
-        H_ = np.transpose(self.H if not match_basis else self.C)
+    def match(self, x):
+        H_ = np.transpose(self.H)
         # match max
 
         H_ = np.argmax(H_, axis=1, keepdims=True).astype(np.float32)
@@ -75,25 +72,19 @@ class Hippocampus:
         hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
         return hippocampus_rep, hippocampus_prop
 
-    def store_memory(self, h, store_basis=False):
+    def store_memory(self, h):
         num_steps = h.shape[1]
-        if not store_basis:
-            self.H = np.roll(self.H, -num_steps)
-            self.H[:, -num_steps:] = h
-        else:
-            self.C = np.roll(self.C, -num_steps)
-            self.C[:, -num_steps:] = h
+        self.H = np.roll(self.H, -num_steps)
+        self.H[:, -num_steps:] = h
 
     def incrementally_learn(self, h):
         batch_size = h.shape[1]
         if batch_size <= 0:
             return
 
-        prop = np.amax(self.match(h, match_basis=True), axis=0, keepdims=False)
-        new_item_mask = prop < 1e-2
-        if np.count_nonzero(new_item_mask) > 0:
-            self.store_memory(h[:, new_item_mask], store_basis=True)
         self.store_memory(h)
+
+        self.bases.incrementally_learn(h)
 
     def get_next(self):
         one_step_forwarded = np.roll(self.H, -1)
@@ -115,12 +106,14 @@ class Hippocampus:
         # q(j, i) = match candidate j to next i + 1
         # candidates' prop = max_i p(i, 1)*q(j, i)
 
+        C = self.bases.get_candidates()
+
         p = self.match(x)
-        q = self.match(self.C)
+        q = self.match(C)
         q = np.roll(q, -1, axis=0)
 
         c_prop = np.amax(p * q, axis=0, keepdims=False)
-        return self.C, c_prop
+        return C, c_prop
 
 
 if __name__ == '__main__':
