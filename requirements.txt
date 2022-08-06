@@ -1,5 +1,5 @@
 git+https://github.com/pvirie/array2gif.git#egg=array2gif
 matplotlib
-numpy
+numpy==1.22.4
 PyYAML
 scipy

@@ -15,9 +15,9 @@ def is_same_node(c, t):
 
 
 class Layer:
-    def __init__(self, num_dimensions, heuristic_variational_model, memory_slots=2048, diminishing_factor=0.9):
+    def __init__(self, num_dimensions, heuristic_variational_model, memory_slots=2048, chunk_size=16, diminishing_factor=0.9):
         self.num_dimensions = num_dimensions
-        self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, memory_slots, diminishing_factor)
+        self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, memory_slots, chunk_size, diminishing_factor)
         self.heuristic_variational_model = heuristic_variational_model
         self.next = None
 
@@ -163,7 +163,7 @@ def build_network(config, weight_path=None, save_on_exit=True):
         heuristic_model_params["world_update_prior"] = config["world_update_prior"]
         heuristic_model_params["dims"] = layer["num_dimensions"]
         heuristic_model = heuristic.Model(**heuristic_model_params)
-        layers.append(Layer(layer["num_dimensions"], heuristic_model, layer["memory_slots"], layer["diminishing_factor"]))
+        layers.append(Layer(layer["num_dimensions"], heuristic_model, layer["memory_slots"], layer["chunk_size"], layer["diminishing_factor"]))
 
     for i in range(len(layers) - 1):
         layers[i].assign_next(layers[i + 1])

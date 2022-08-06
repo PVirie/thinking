@@ -5,16 +5,16 @@ import proxy
 
 class Hippocampus:
 
-    def __init__(self, num_dimensions, hippocampus_size, diminishing_factor, candidate_size=None):
+    def __init__(self, num_dimensions, memory_size, chunk_size, diminishing_factor, candidate_size=None):
         self.dim = num_dimensions
         self.diminishing_factor = diminishing_factor
 
-        self.h_size = hippocampus_size
-        self.H = np.zeros([self.dim, self.h_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
+        self.chunk_size = chunk_size
+        self.h_size = memory_size
+        self.H = np.zeros([self.dim, self.h_size, self.chunk_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
+        self.flat_H = np.reshape(self.H, [self.dim, -1])
 
         self.bases = proxy.Distinct_item(self.dim, candidate_size)
-
-        self.positions = np.reshape(np.arange(self.h_size), [-1, 1])
 
     def __str__(self):
         return str(self.H)
@@ -35,7 +35,7 @@ class Hippocampus:
         self.bases.load(weight_path)
 
     def match(self, x):
-        H_ = np.transpose(self.H)
+        H_ = np.transpose(self.flat_H)
         # match max
 
         H_ = np.argmax(H_, axis=1, keepdims=True).astype(np.float32)
@@ -47,35 +47,44 @@ class Hippocampus:
         return prop
 
     def access_memory(self, indices):
-        return self.H[:, indices]
+        return self.flat_H[:, indices]
 
     def enhance(self, c):
         prop = self.match(c)
         max_indices = np.argmax(prop, axis=0)
         return self.access_memory(max_indices)
 
-    def resolve_address(self, x, last_indices=None):
-        prop = self.match(x)
-        if last_indices is not None:
-            mask = (self.positions < np.reshape(last_indices, [1, -1])).astype(np.float32)
-            prop = prop * mask
-
-        max_indices = np.argmax(prop * self.positions, axis=0)
-        supports = np.arange(x.shape[1])
-        return max_indices, prop[max_indices, supports]
-
     def infer(self, s, t):
-        t_indices, t_prop = self.resolve_address(t)
-        s_indices, s_prop = self.resolve_address(s, t_indices)
-        t_prop[t_indices <= s_indices] = 0
-        hippocampus_prop = np.power(self.diminishing_factor, t_indices - s_indices - 1) * s_prop * t_prop
-        hippocampus_rep = self.access_memory(np.mod(s_indices + 1, self.h_size))
+        s_prop = np.reshape(self.match(s), [self.h_size, self.chunk_size, -1])
+        t_prop = np.reshape(self.match(t), [self.h_size, self.chunk_size, -1])
+
+        s_max_indices = np.argmax(s_prop, axis=1)
+        t_max_indices = np.argmax(t_prop, axis=1)
+        s_max = np.max(s_prop, axis=1)
+        t_max = np.max(t_prop, axis=1)
+
+        causality = (t_max_indices > s_max_indices).astype(np.float32)
+        best = (self.h_size - 1) - np.argmax(np.flip(s_max * t_max * causality, axis=0), axis=0)
+
+        batcher = np.arange(s.shape[1])
+        s_best_indices = s_max_indices[best, batcher]
+        t_best_indices = t_max_indices[best, batcher]
+        s_best_prop = s_max[best, batcher]
+        t_best_prop = t_max[best, batcher]
+
+        # print(best, s_best_indices, t_best_indices)
+
+        hippocampus_prop = np.power(self.diminishing_factor, t_best_indices - s_best_indices - 1) * s_best_prop * t_best_prop
+        hippocampus_rep = self.access_memory(np.mod(s_best_indices + 1, self.h_size))
+
+        hippocampus_prop = np.reshape(hippocampus_prop, [1, -1])
         return hippocampus_rep, hippocampus_prop
 
     def store_memory(self, h):
         num_steps = h.shape[1]
-        self.H = np.roll(self.H, -num_steps)
-        self.H[:, -num_steps:] = h
+        self.H = np.roll(self.H, -1, axis=1)
+        self.H[:, self.h_size - 1, :num_steps] = h
+        self.flat_H = np.reshape(self.H, [self.dim, -1])
 
     def incrementally_learn(self, h):
         batch_size = h.shape[1]
@@ -83,20 +92,19 @@ class Hippocampus:
             return
 
         self.store_memory(h)
-
         self.bases.incrementally_learn(h)
 
-    def get_next(self):
-        one_step_forwarded = np.roll(self.H, -1)
-        return one_step_forwarded
+    # def get_next(self):
+    #     one_step_forwarded = np.roll(self.H, -1)
+    #     return one_step_forwarded
 
-    def get_prev(self):
-        one_step_backwarded = np.roll(self.H, 1)
-        return one_step_backwarded
+    # def get_prev(self):
+    #     one_step_backwarded = np.roll(self.H, 1)
+    #     return one_step_backwarded
 
     def compute_entropy(self, x):
         prop = self.match(x)
-        entropy = np.sum(prop, axis=0, keepdims=False) / self.h_size
+        entropy = np.sum(prop, axis=0, keepdims=False) / (self.h_size * self.chunk_size)
         return entropy
 
     def get_distinct_next_candidate(self, x):
@@ -110,6 +118,7 @@ class Hippocampus:
 
         p = self.match(x)
         q = self.match(C)
+        # the last element of each chunk should be ignored
         q = np.roll(q, -1, axis=0)
 
         c_prop = np.amax(p * q, axis=0, keepdims=False)
@@ -118,21 +127,26 @@ class Hippocampus:
 
 if __name__ == '__main__':
     np.set_printoptions(precision=2)
-    model = Hippocampus(8, 4, 0.9, 2)
-    a = np.random.normal(0, 1, [8, 1])
-    b = np.random.normal(0, 1, [8, 1])
+    model = Hippocampus(8, 4, 5, 0.9)
+    a = np.random.normal(0, 1, [8, 2])
+    b = np.random.normal(0, 1, [8, 3])
     model.incrementally_learn(a)
     model.incrementally_learn(b)
     print("all memories", model)
-    a_record = model.access_memory([2, 3])
-    print("retrieved", a_record)
-    addr = model.resolve_address(a_record)
-    print("address", addr)
-    prop = model.match(a_record)
-    print("match prop", prop)
-    entropy = model.compute_entropy(a_record)
-    print("entropy", entropy)
-    next_records = model.get_next()
-    print("next memories", next_records)
-    candidates, props = model.get_distinct_next_candidate(a)
-    print("candidate props", props)
+
+    rep, prop = model.infer(b[:, 0:1], b[:, 2:3])
+    print(prop)
+
+    # prop = model.match(a)
+    # print("match prop", prop)
+
+    # a_record = model.access_memory([2, 3])
+    # print("retrieved", a_record)
+    # addr = model.resolve_address(a_record)
+    # print("address", addr)
+    # entropy = model.compute_entropy(a_record)
+    # print("entropy", entropy)
+    # next_records = model.get_next()
+    # print("next memories", next_records)
+    # candidates, props = model.get_distinct_next_candidate(a)
+    # print("candidate props", props)
