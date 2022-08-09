@@ -56,6 +56,9 @@ def random_walk(graph, s, max_steps):
 
 
 def shortest_path(graph, s, d):
+    if s == d:
+        return [s]
+
     inf = graph.shape[0] * 2
     dist = np.ones([graph.shape[0]]) * inf
     dist[s] = 0

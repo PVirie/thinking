@@ -47,19 +47,19 @@ if __name__ == '__main__':
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             },
+            {
+                "num_dimensions": graph_shape,
+                "memory_slots": 64,
+                "chunk_size": 12,
+                "diminishing_factor": 0.9,
+                "heuristic_model_param": {
+                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+                }
+            },
             # {
             #     "num_dimensions": graph_shape,
             #     "memory_slots": 64,
             #     "chunk_size": 8,
-            #     "diminishing_factor": 0.9,
-            #     "heuristic_model_param": {
-            #         'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-            #     }
-            # },
-            # {
-            #     "num_dimensions": graph_shape,
-            #     "memory_slots": 64,
-            #     "chunk_size": 4,
             #     "diminishing_factor": 0.9,
             #     "heuristic_model_param": {
             #         'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99

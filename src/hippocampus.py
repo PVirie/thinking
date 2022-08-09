@@ -93,20 +93,12 @@ class Hippocampus:
         self.store_memory(h)
         self.bases.incrementally_learn(h)
 
-    # def get_next(self):
-    #     one_step_forwarded = np.roll(self.H, -1)
-    #     return one_step_forwarded
-
-    # def get_prev(self):
-    #     one_step_backwarded = np.roll(self.H, 1)
-    #     return one_step_backwarded
-
     def compute_entropy(self, x):
         prop = self.match(x)
         entropy = np.sum(prop, axis=0, keepdims=False) / (self.h_size * self.chunk_size)
         return entropy
 
-    def get_distinct_next_candidate(self, x):
+    def get_distinct_next_candidate(self, x, forward=True):
         # x has shape [dim, 1]
         # keep a small set of distinct candidates
         # p(i, 1) = match x to hippocampus
@@ -114,24 +106,21 @@ class Hippocampus:
         # candidates' prop = max_i p(i, 1)*q(j, i)
 
         C = self.bases.get_candidates()
-
         p = self.match(x)
         q = self.match(C)
 
-        # print(p[:, 0])
-
         q = np.reshape(q, [self.h_size, self.chunk_size, C.shape[1]])
-        q = np.roll(q, -1, axis=1)
-        # the last element of each chunk should be ignored
-        q[:, -1, :] = 0
+        if forward:
+            # the last element of each chunk should be ignored
+            q = np.roll(q, -1, axis=1)
+            q[:, -1, :] = 0
+        else:
+            # the first element of each chunk should be ignored
+            q = np.roll(q, 1, axis=1)
+            q[:, 0, :] = 0
         q = np.reshape(q, [self.h_size * self.chunk_size, C.shape[1]])
 
-        # print(q[:, 1])
         c_prop = np.max(p * q, axis=0, keepdims=False)
-
-        # if np.argmax(x[:, 0]) == 1:
-        #     temp = C[:, c_prop > 0.9]
-        #     print([np.argmax(temp[:, i]) for i in range(temp.shape[1])])
 
         return C, c_prop
 

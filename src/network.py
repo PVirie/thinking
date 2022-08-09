@@ -62,17 +62,29 @@ class Layer:
     def to_next(self, c, forward=True):
         # not just enhance, but select the closest with highest entropy
         # c has shape [dimensions, 1]
-        if forward:
-            next_candidates = self.hippocampus.get_next()
-        else:
-            next_candidates = self.hippocampus.get_prev()
+
+        entropy = self.hippocampus.compute_entropy(c)
         for i in range(1000):
-            prev_c = c
-            props = self.hippocampus.match(c)
-            c = np.sum(np.squeeze(props) * next_candidates / np.sum(props), axis=1, keepdims=True)
-            if self.hippocampus.compute_entropy(c) < self.hippocampus.compute_entropy(prev_c):
-                return prev_c
-        return None
+            C, c_prop = self.hippocampus.get_distinct_next_candidate(c, forward)
+            ent_scores = self.hippocampus.compute_entropy(C)
+
+            scores = c_prop * ent_scores
+            next_index = np.argmax(scores, axis=0)
+            next_c = C[:, next_index:next_index + 1]
+            next_entropy = np.max(scores, axis=0)
+
+            # alternative sum method for generalization
+            # weights = np.where(scores > entropy, 1.0, 0.0)
+            # next_c = np.sum(C * np.reshape(weights, [self.num_dimensions, -1]), axis=1, keepdims=True)
+            # next_c = self.hippocampus.enhance(next_c)
+            # next_entropy = self.hippocampus.compute_entropy(next_c)
+
+            if entropy >= next_entropy:
+                return c
+            c = next_c
+            entropy = next_entropy
+
+        raise ValueError('Cannot find a top node in time.')
 
     def from_next(self, c):
         return c

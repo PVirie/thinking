@@ -14,7 +14,10 @@ class Distinct_item:
         self.C = np.zeros([self.dim, self.c_size], dtype=np.float32)
 
     def __str__(self):
-        return str(self.C)
+        line = ""
+        for r in range(self.C.shape[1]):
+            line += str(np.argmax(self.C[:, r])) + " "
+        return line
 
     def save(self, weight_path):
         if not os.path.exists(weight_path):
@@ -27,6 +30,7 @@ class Distinct_item:
             print("Cannot load memories: the path do not exist.")
             return
         self.C = np.load(os.path.join(weight_path, "C.npy"))
+        print("Proxy:", self)
 
     def get_candidates(self):
         return self.C

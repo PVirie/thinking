@@ -87,6 +87,7 @@ class Model:
 
         # can use max here instead of sum for non-generalize scenarios.
         heuristic_rep = torch.reshape(torch.sum(torch.unsqueeze(candidates, dim=2) * weights, dim=1), [dim, batch])
+        # should we recompute score by feeding it back to the nextwork instead of haphazard mean?
         heuristic_prop = torch.reshape(torch.sum(scores * weights, dim=1) / (torch.sum(weights, dim=1) + 1e-6), [-1])
 
         # print("5 best", torch.argmax(heuristic_rep, dim=0))

@@ -14,10 +14,13 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 * `./run_docker.sh` to open a shell
 
 ## To do
-* Fix cortex loop
-* Basis learning
-* Rewrite to next hierarchy function
-* Test: one step find path
+* Proper hierarchy debug
+* Fix cortex loop (caused by unseen pair over estimation.)
+* Generalization
+  * vector field representation
+  * Basis learning
+  * Test: one step find path without enhancement
+* ~Rewrite to next hierarchy function~
 * ~Fix cortex does not obey neighbor~
 * ~Fix hippocampus gap with chunks~
 * ~Fix why cognitive planner is not the min of either hippocampus or cortex.~
@@ -31,4 +34,3 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 * ~Isolate diminising parameter~
 * ~Entropy should be computed from the heuristic model not the hippocampus? (No)~
 * ~Clear weight on retrain~
-
