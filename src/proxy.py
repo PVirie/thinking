@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import utilities
 
 
 class Distinct_item:
@@ -31,16 +32,7 @@ class Distinct_item:
         return self.C
 
     def match(self, x):
-        C_ = np.transpose(self.C)
-        # match max
-
-        C_ = np.argmax(C_, axis=1, keepdims=True).astype(np.float32)
-        x = np.argmax(x, axis=0, keepdims=True).astype(np.float32)
-
-        sqr_dist = np.abs(C_ - x)
-        prop = np.exp(-0.5 * sqr_dist / 0.1)
-
-        return prop
+        return utilities.max_match(x, self.C)
 
     def store_memory(self, h):
         num_steps = h.shape[1]
@@ -52,7 +44,7 @@ class Distinct_item:
         if batch_size <= 0:
             return
 
-        prop = np.amax(self.match(h), axis=0, keepdims=False)
-        new_item_mask = prop < 1e-2
+        prop = np.max(self.match(h), axis=0, keepdims=False)
+        new_item_mask = prop < 1e-4
         if np.count_nonzero(new_item_mask) > 0:
             self.store_memory(h[:, new_item_mask])

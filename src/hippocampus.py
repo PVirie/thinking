@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import proxy
+import utilities
 
 
 class Hippocampus:
@@ -32,19 +33,11 @@ class Hippocampus:
             return
 
         self.H = np.load(os.path.join(weight_path, "H.npy"))
+        self.flat_H = np.reshape(self.H, [self.dim, -1])
         self.bases.load(weight_path)
 
     def match(self, x):
-        H_ = np.transpose(self.flat_H)
-        # match max
-
-        H_ = np.argmax(H_, axis=1, keepdims=True).astype(np.float32)
-        x = np.argmax(x, axis=0, keepdims=True).astype(np.float32)
-
-        sqr_dist = np.abs(H_ - x)
-        prop = np.exp(-0.5 * sqr_dist / 0.1)
-
-        return prop
+        return utilities.max_match(x, self.flat_H)
 
     def access_memory(self, indices):
         return self.flat_H[:, indices]
@@ -75,7 +68,7 @@ class Hippocampus:
         # print(best, s_best_indices, t_best_indices)
 
         hippocampus_prop = np.power(self.diminishing_factor, t_best_indices - s_best_indices - 1) * s_best_prop * t_best_prop
-        hippocampus_rep = self.access_memory(np.mod(s_best_indices + 1, self.h_size))
+        hippocampus_rep = self.access_memory(best * self.chunk_size + np.mod(s_best_indices + 1, self.chunk_size))
 
         hippocampus_prop = np.reshape(hippocampus_prop, [1, -1])
         return hippocampus_rep, hippocampus_prop
@@ -118,24 +111,39 @@ class Hippocampus:
 
         p = self.match(x)
         q = self.match(C)
-        # the last element of each chunk should be ignored
-        q = np.roll(q, -1, axis=0)
 
-        c_prop = np.amax(p * q, axis=0, keepdims=False)
+        # print(p[:, 0])
+
+        q = np.reshape(q, [self.h_size, self.chunk_size, C.shape[1]])
+        q = np.roll(q, -1, axis=1)
+        # the last element of each chunk should be ignored
+        q[:, -1, :] = 0
+        q = np.reshape(q, [self.h_size * self.chunk_size, C.shape[1]])
+
+        # print(q[:, 1])
+        c_prop = np.max(p * q, axis=0, keepdims=False)
         return C, c_prop
 
 
 if __name__ == '__main__':
+
+    representations = utilities.generate_onehot_representation(np.arange(8), 8)
+
     np.set_printoptions(precision=2)
-    model = Hippocampus(8, 4, 5, 0.9)
-    a = np.random.normal(0, 1, [8, 2])
-    b = np.random.normal(0, 1, [8, 3])
+    model = Hippocampus(8, 4, 6, 0.9)
+    a = representations[:, [0, 1, 2]]
+    b = representations[:, [3, 4, 5, 6]]
+    c = representations[:, [7, 1, 0, 4]]
     model.incrementally_learn(a)
     model.incrementally_learn(b)
+    model.incrementally_learn(c)
     print("all memories", model)
 
-    rep, prop = model.infer(b[:, 0:1], b[:, 2:3])
-    print(prop)
+    C, c_prop = model.get_distinct_next_candidate(representations[:, 1:2])
+    print([(np.argmax(C[:, i]), c_prop[i]) for i in range(8)])
+
+    # rep, prop = model.infer(b[:, 0:1], b[:, 2:3])
+    # print(prop)
 
     # prop = model.match(a)
     # print("match prop", prop)

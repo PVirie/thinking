@@ -14,11 +14,11 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 * `./run_docker.sh` to open a shell
 
 ## To do
+* Fix cortex does not obey neighbor
 * Fix cortex loop
-* Entropy should be normalized against repetition with bases.
 * Basis learning
-* Test: one step find path
 * Rewrite to next hierarchy function
+* Test: one step find path
 * ~Fix hippocampus gap with chunks~
 * ~Fix why cognitive planner is not the min of either hippocampus or cortex.~
 * ~Inner product divergence model.~

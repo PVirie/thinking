@@ -82,3 +82,17 @@ def shortest_path(graph, s, d):
                     c = trace[c]
             else:
                 return []
+
+
+def max_match(x, H):
+    H_ = np.transpose(H)
+
+    p = (np.linalg.norm(H_, ord=1, axis=1, keepdims=True) > 1e-4).astype(np.float32)
+    q = (np.linalg.norm(x, ord=1, axis=0, keepdims=True) > 1e-4).astype(np.float32)
+
+    H_ = np.argmax(H_, axis=1, keepdims=True)
+    x = np.argmax(x, axis=0, keepdims=True)
+
+    prop = (H_ == x).astype(np.float32) * p * q
+
+    return prop
