@@ -18,7 +18,12 @@ class Hippocampus:
         self.bases = proxy.Distinct_item(self.dim, candidate_size)
 
     def __str__(self):
-        return str(self.H)
+        line = ""
+        for r in range(self.H.shape[1]):
+            for c in range(self.H.shape[2]):
+                line += str(np.argmax(self.H[:, r, c])) + " "
+            line += "\n"
+        return line
 
     def save(self, weight_path):
         if not os.path.exists(weight_path):
@@ -77,6 +82,7 @@ class Hippocampus:
         num_steps = h.shape[1]
         self.H = np.roll(self.H, -1, axis=1)
         self.H[:, self.h_size - 1, :num_steps] = h
+        self.H[:, self.h_size - 1, num_steps:] = 0
         self.flat_H = np.reshape(self.H, [self.dim, -1])
 
     def incrementally_learn(self, h):
@@ -122,6 +128,11 @@ class Hippocampus:
 
         # print(q[:, 1])
         c_prop = np.max(p * q, axis=0, keepdims=False)
+
+        # if np.argmax(x[:, 0]) == 1:
+        #     temp = C[:, c_prop > 0.9]
+        #     print([np.argmax(temp[:, i]) for i in range(temp.shape[1])])
+
         return C, c_prop
 
 
@@ -133,13 +144,13 @@ if __name__ == '__main__':
     model = Hippocampus(8, 4, 6, 0.9)
     a = representations[:, [0, 1, 2]]
     b = representations[:, [3, 4, 5, 6]]
-    c = representations[:, [7, 1, 0, 4]]
+    c = representations[:, [7, 0, 3, 4, 0, 2]]
     model.incrementally_learn(a)
     model.incrementally_learn(b)
     model.incrementally_learn(c)
     print("all memories", model)
 
-    C, c_prop = model.get_distinct_next_candidate(representations[:, 1:2])
+    C, c_prop = model.get_distinct_next_candidate(representations[:, 0:1])
     print([(np.argmax(C[:, i]), c_prop[i]) for i in range(8)])
 
     # rep, prop = model.infer(b[:, 0:1], b[:, 2:3])

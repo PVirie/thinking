@@ -96,3 +96,12 @@ def max_match(x, H):
     prop = (H_ == x).astype(np.float32) * p * q
 
     return prop
+
+
+if __name__ == '__main__':
+    graph_shape = 16
+    g = random_graph(graph_shape, 0.2)
+    print(g)
+    for i in range(10):
+        path = random_walk(g, 0, 10)
+        print(path)

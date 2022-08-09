@@ -24,6 +24,7 @@ class Layer:
     def load(self, weight_path):
         self.heuristic_variational_model.load(os.path.join(weight_path, "heuristic"))
         self.hippocampus.load(os.path.join(weight_path, "hippocampus"))
+        # print(self.hippocampus)
 
     def save(self, weight_path):
         self.heuristic_variational_model.save(os.path.join(weight_path, "heuristic"))
