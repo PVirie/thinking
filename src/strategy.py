@@ -11,8 +11,8 @@ def load_cognitive_map(config, weight_path=None, logger=None):
     return root
 
 
-def build_cognitive_map(graph, all_reps, config, explore_steps=2000, weight_path=None):
-    with network.build_network(config, weight_path, save_on_exit=train) as root:
+def build_cognitive_map(graph, all_reps, config, explore_steps=2000, weight_path=None, logger=None):
+    with network.build_network(config, weight_path, save_on_exit=train, logger=logger) as root:
         print("Training a cognitive map:")
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
@@ -23,10 +23,6 @@ def build_cognitive_map(graph, all_reps, config, explore_steps=2000, weight_path
         print("Finish learning.")
 
     return root
-
-
-def logger(data):
-    pass
 
 
 if __name__ == '__main__':
@@ -40,6 +36,28 @@ if __name__ == '__main__':
     import json
     artifact_path = os.path.join(dir_path, "..", "artifacts")
     os.makedirs(artifact_path, exist_ok=True)
+
+    log_data = []
+    path_details = None
+
+    def logger(data):
+        global path_details
+        if "s" in data:
+            if path_details is not None:
+                log_data.append(path_details)
+
+            path_details = {
+                "s": int(np.argmax(data["s"], axis=0)[0]),
+                "t": int(np.argmax(data["t"], axis=0)[0]),
+                "path": []
+            }
+        else:
+            layer = data["layer"]
+            choices = [(int(np.argmax(rep, axis=0)[0]), float(prop[0])) for rep, prop in data["choices"]]
+            path_details["path"].append({
+                "layer": layer,
+                "choices": choices
+            })
 
     graph_shape = 16
 
@@ -159,3 +177,6 @@ if __name__ == '__main__':
             print()
 
     print("optimal planner:", time.time() - stamp, " average length:", total_length / len(goals))
+
+    with open(os.path.join(artifact_path, "strategy_results.json"), "w") as file:
+        json.dump(log_data, file)

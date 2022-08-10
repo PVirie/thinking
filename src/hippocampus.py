@@ -75,7 +75,7 @@ class Hippocampus:
         hippocampus_prop = np.power(self.diminishing_factor, t_best_indices - s_best_indices - 1) * s_best_prop * t_best_prop
         hippocampus_rep = self.access_memory(best * self.chunk_size + np.mod(s_best_indices + 1, self.chunk_size))
 
-        hippocampus_prop = np.reshape(hippocampus_prop, [1, -1])
+        hippocampus_prop = np.reshape(hippocampus_prop, [-1])
         return hippocampus_rep, hippocampus_prop
 
     def store_memory(self, h):

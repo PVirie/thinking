@@ -124,6 +124,7 @@ class Layer:
         # pathway_bias > 0 : use cortex
 
         self.log({
+            "layer": self.name,
             "s": c,
             "t": t
         })
