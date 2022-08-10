@@ -15,7 +15,9 @@ def is_same_node(c, t):
 
 
 class Layer:
-    def __init__(self, num_dimensions, heuristic_variational_model, memory_slots=2048, chunk_size=16, diminishing_factor=0.9):
+    def __init__(self, num_dimensions, heuristic_variational_model, memory_slots=2048, chunk_size=16, diminishing_factor=0.9, name=None, logger=None):
+        self.name = name
+        self.logger = logger
         self.num_dimensions = num_dimensions
         self.hippocampus = hippocampus.Hippocampus(self.num_dimensions, memory_slots, chunk_size, diminishing_factor)
         self.heuristic_variational_model = heuristic_variational_model
@@ -34,6 +36,10 @@ class Layer:
         if self.next is not None:
             return "Num dims: " + str(self.num_dimensions) + "\n" + str(self.next)
         return "Num dims: " + str(self.num_dimensions)
+
+    def log(self, data):
+        if self.logger is not None:
+            self.logger(data)
 
     def assign_next(self, next_layer):
         self.next = next_layer
@@ -99,23 +105,34 @@ class Layer:
         hippocampus_rep, hippocampus_prop = self.hippocampus.infer(s, t)
 
         if pathway_bias < 0:
-            return hippocampus_rep, []
+            return hippocampus_rep
         if pathway_bias > 0:
-            return cortex_rep, []
+            return cortex_rep
 
         compare_results = hippocampus_prop > cortex_prop
         results = np.where(compare_results, hippocampus_rep, cortex_rep)
-        return results, [(cortex_rep, cortex_prop), (hippocampus_rep, hippocampus_prop)]
+
+        self.log({
+            "layer": self.name,
+            "choices": [(cortex_rep, cortex_prop), (hippocampus_rep, hippocampus_prop)]
+        })
+
+        return results
 
     def find_path(self, c, t, hard_limit=20, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
+        self.log({
+            "s": c,
+            "t": t
+        })
+
         if self.next is not None:
             goals = self.next.find_path(self.to_next(c, True), self.to_next(t, False))
 
         count_steps = 0
-        yield c, []
+        yield c
 
         while True:
             if is_same_node(c, t):
@@ -123,8 +140,7 @@ class Layer:
 
             if self.next is not None:
                 try:
-                    ng, _ = next(goals)
-                    g = self.from_next(ng)
+                    g = self.from_next(next(goals))
                 except StopIteration:
                     g = t
             else:
@@ -144,10 +160,10 @@ class Layer:
                     raise RecursionError
                     break
 
-                c, supplimentary = self.pincer_inference(c, g, pathway_bias)
+                c = self.pincer_inference(c, g, pathway_bias)
                 c = self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
 
-                yield c, supplimentary
+                yield c
 
     def next_step(self, c, t, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
@@ -162,21 +178,21 @@ class Layer:
         if is_same_node(c, g):
             return g
 
-        c, supplimentary = self.pincer_inference(c, g, pathway_bias)
-        return c, supplimentary
+        c, supplementary = self.pincer_inference(c, g, pathway_bias)
+        return c, supplementary
 
 
 @contextmanager
-def build_network(config, weight_path=None, save_on_exit=True):
+def build_network(config, weight_path=None, save_on_exit=True, logger=None):
     # The following runs BEFORE with block.
     layers = []
-    for layer in config["layers"]:
+    for i, layer in enumerate(config["layers"]):
         heuristic_model_params = layer["heuristic_model_param"]
         heuristic_model_params["diminishing_factor"] = layer["diminishing_factor"]
         heuristic_model_params["world_update_prior"] = config["world_update_prior"]
         heuristic_model_params["dims"] = layer["num_dimensions"]
         heuristic_model = heuristic.Model(**heuristic_model_params)
-        layers.append(Layer(layer["num_dimensions"], heuristic_model, layer["memory_slots"], layer["chunk_size"], layer["diminishing_factor"]))
+        layers.append(Layer(layer["num_dimensions"], heuristic_model, layer["memory_slots"], layer["chunk_size"], layer["diminishing_factor"], name=i, logger=logger))
 
     for i in range(len(layers) - 1):
         layers[i].assign_next(layers[i + 1])

@@ -5,8 +5,8 @@ import network
 from utilities import *
 
 
-def load_cognitive_map(config, weight_path=None):
-    with network.build_network(config, weight_path, save_on_exit=train) as root:
+def load_cognitive_map(config, weight_path=None, logger=None):
+    with network.build_network(config, weight_path, save_on_exit=train, logger=logger) as root:
         pass
     return root
 
@@ -25,6 +25,10 @@ def build_cognitive_map(graph, all_reps, config, explore_steps=2000, weight_path
     return root
 
 
+def logger(data):
+    pass
+
+
 if __name__ == '__main__':
     np.set_printoptions(precision=2)
 
@@ -32,6 +36,10 @@ if __name__ == '__main__':
     dir_path = os.path.dirname(os.path.realpath(__file__))
     weight_path = os.path.join(dir_path, "..", "weights", "strategy.py.test")
     os.makedirs(weight_path, exist_ok=True)
+
+    import json
+    artifact_path = os.path.join(dir_path, "..", "artifacts")
+    os.makedirs(artifact_path, exist_ok=True)
 
     graph_shape = 16
 
@@ -80,14 +88,14 @@ if __name__ == '__main__':
         np.save(os.path.join(weight_path, "graph.npy"), g)
         print(g)
 
-        cognitive_map = build_cognitive_map(g, representations, config, 2000, weight_path=weight_path)
+        cognitive_map = build_cognitive_map(g, representations, config, 2000, weight_path=weight_path, logger=logger)
         print(cognitive_map)
     else:
 
         g = np.load(os.path.join(weight_path, "graph.npy"))
         print(g)
 
-        cognitive_map = load_cognitive_map(config, weight_path=weight_path)
+        cognitive_map = load_cognitive_map(config, weight_path=weight_path, logger=logger)
         print(cognitive_map)
 
     goals = range(graph_shape)
@@ -98,20 +106,11 @@ if __name__ == '__main__':
     for t in goals:
         try:
             p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps)
-            for pi, choices in p:
-                max_value = np.argmax(pi)
-                print(max_value, end=' ')
-                print("[", end='')
-                for c in choices:
-                    c_value = np.argmax(c[0])
-                    if c_value == max_value:
-                        print("\033[1m\033[94m", end='')
-                    print("(" + str(c_value) + "," + str(c[1]) + ")", end='')
-                    print("\033[0m", end='')
-                print("]", end=', ')
+            for pi in p:
+                print(np.argmax(pi), end=' ')
                 total_length = total_length + 1
         except RecursionError:
-            print("fail to find path in time.", t)
+            print("fail to find path in time.", t, end=' ')
         finally:
             print()
     print("cognitive planner:", time.time() - stamp, " average length:", total_length / len(goals))
@@ -122,11 +121,13 @@ if __name__ == '__main__':
         try:
             p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=-1)
             p = list(p)
-            total_length = total_length + len(p)
-            print([np.argmax(n) for n, _ in p], t)
+            for pi in p:
+                print(np.argmax(pi), end=' ')
+                total_length = total_length + 1
         except RecursionError:
-            total_length = total_length + max_steps
-            print("fail to find path in time.", t)
+            print("fail to find path in time.", t, end=' ')
+        finally:
+            print()
     print("hippocampus planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
     total_length = 0
@@ -134,11 +135,11 @@ if __name__ == '__main__':
     for t in goals:
         try:
             p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=1)
-            for pi, _ in p:
+            for pi in p:
                 print(np.argmax(pi), end=' ')
                 total_length = total_length + 1
         except RecursionError:
-            print("fail to find path in time.", t)
+            print("fail to find path in time.", t, end=' ')
         finally:
             print()
     print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
@@ -149,10 +150,12 @@ if __name__ == '__main__':
         try:
             p = shortest_path(g, 0, t)
             p = list(reversed(p))
-            total_length = total_length + len(p)
-            print(p)
-        except Exception:
-            total_length = total_length + max_steps
-            print("fail to find path in time.", t)
+            for pi in p:
+                print(pi, end=' ')
+                total_length = total_length + 1
+        except RecursionError:
+            print("fail to find path in time.", t, end=' ')
+        finally:
+            print()
 
     print("optimal planner:", time.time() - stamp, " average length:", total_length / len(goals))
