@@ -53,9 +53,11 @@ if __name__ == '__main__':
             }
         else:
             layer = data["layer"]
+            selected = int(np.argmax(data["selected"], axis=0)[0])
             choices = [(int(np.argmax(rep, axis=0)[0]), float(prop[0])) for rep, prop in data["choices"]]
             path_details["path"].append({
                 "layer": layer,
+                "selected": selected,
                 "choices": choices
             })
 

@@ -1,13 +1,13 @@
 import argparse
 import os
-import sys
-import shutil
 import yaml
-import utilities as util
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+import uvicorn
 
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-config_path = os.path.join(dir_path, "..", "configurations")
+config_path = os.path.join(dir_path, "configurations")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--resume', action="store_true")
@@ -19,6 +19,13 @@ def get_config(config):
         return yaml.load(stream)
 
 
+app = FastAPI()
+
+app.mount("/view", StaticFiles(directory="view"), name="web")
+app.mount("/artifacts", StaticFiles(directory="artifacts"), name="artifacts")
+
+
 if __name__ == '__main__':
     config = get_config("prototype.yaml")
     print(config)
+    uvicorn.run("main:app", port=8000, log_level="info")
