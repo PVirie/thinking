@@ -47,8 +47,9 @@ if __name__ == '__main__':
             path_details = []
 
         if "success" in data:
-            log_data.append(path_details)
-            path_details = None
+            if data["layer"] == 0:
+                log_data.append(path_details)
+                path_details = None
             return
         elif "s" in data:
             path_details.append({

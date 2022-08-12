@@ -4,7 +4,7 @@ class Node {
         this.parts = new Konva.Group();
 
         const rad = 12;
-        const x = col * 48;
+        const x = col * 84;
         const y = row * 36;
 
         const icon = new Konva.Circle({
@@ -12,32 +12,79 @@ class Node {
             y: y,
             radius: rad,
             fill: "#fff",
-            strokeWidth: 0,
+            stroke: "black",
+            strokeWidth: 2,
             shadowBlur: 2,
             shadowOffset: { x: 2, y: 2 },
             shadowOpacity: 0.9,
         });
 
         const text = new Konva.Text({
-            x: x - 9,
-            y: y - 9,
+            x: x - rad,
+            y: y - rad,
             text: "" + property["selected"],
             fontSize: 18,
             fontFamily: "Calibri",
             fill: "#000",
-            width: rad*2,
+            width: rad * 2,
+            height: rad * 2,
             padding: 0,
-            align: "left",
+            align: "center",
+            verticalAlign: "middle",
             visible: true,
         });
 
         this.parts.add(icon);
         this.parts.add(text);
+
+        this.info = new Konva.Group();
+
+        let offset_x = x;
+        let offset_y = y + icon.height();
+        for (const choice of property["choices"]) {
+
+            const icon = new Konva.Rect({
+                x: offset_x,
+                y: offset_y,
+                width: 60,
+                height: rad * 2,
+                fill: (property["selected"] === choice[0] ? "rgba(0, 255, 255, 1.0)" : "#fff"),
+                stroke: "black",
+                strokeWidth: 2,
+                shadowBlur: 2,
+                shadowOffset: { x: 2, y: 2 },
+                shadowOpacity: 0.9,
+            });
+
+            const text = new Konva.Text({
+                x: offset_x,
+                y: offset_y,
+                text: "" + choice[0] + ":" + choice[1].toFixed(2),
+                fontSize: 18,
+                fontFamily: "Calibri",
+                fill: "#000",
+                width: icon.width(),
+                height: icon.height(),
+                padding: 4,
+                align: "left",
+                verticalAlign: "middle",
+                visible: true,
+            });
+
+            offset_y = offset_y + icon.height();
+
+            this.info.add(icon);
+            this.info.add(text);
+
+        }
+
         parent.add(this.parts);
+        parent.add(this.info);
     }
 
     destroy() {
         this.parts.destroy();
+        this.info.destroy();
     }
 }
 

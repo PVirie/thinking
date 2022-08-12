@@ -114,8 +114,8 @@ class Layer:
 
         self.log({
             "layer": self.name,
-            "selected": results,
-            "choices": [(cortex_rep, cortex_prop), (hippocampus_rep, hippocampus_prop)]
+            "selected": self.hippocampus.enhance(results),
+            "choices": [(self.hippocampus.enhance(cortex_rep), cortex_prop), (self.hippocampus.enhance(hippocampus_rep), hippocampus_prop)]
         })
 
         return results
