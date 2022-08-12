@@ -42,20 +42,25 @@ if __name__ == '__main__':
 
     def logger(data):
         global path_details
-        if "s" in data:
-            if path_details is not None:
-                log_data.append(path_details)
 
-            path_details = {
+        if path_details is None:
+            path_details = []
+
+        if "success" in data:
+            log_data.append(path_details)
+            path_details = None
+            return
+        elif "s" in data:
+            path_details.append({
+                "layer": data["layer"],
                 "s": int(np.argmax(data["s"], axis=0)[0]),
                 "t": int(np.argmax(data["t"], axis=0)[0]),
-                "path": []
-            }
+            })
         else:
             layer = data["layer"]
             selected = int(np.argmax(data["selected"], axis=0)[0])
             choices = [(int(np.argmax(rep, axis=0)[0]), float(prop[0])) for rep, prop in data["choices"]]
-            path_details["path"].append({
+            path_details.append({
                 "layer": layer,
                 "selected": selected,
                 "choices": choices

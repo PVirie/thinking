@@ -146,7 +146,7 @@ screen = function() {
 
         start_width = startWidth;
 
-        stage.container().style.backgroundColor = '#333';
+        stage.container().style.backgroundColor = '#EEE';
 
         fitStageIntoParentContainer();
 
@@ -154,7 +154,10 @@ screen = function() {
         const canvas_layer = new Konva.Layer();
         const ui_layer = new Konva.Layer();
 
-        const work_group = new Konva.Group();
+        const work_group = new Konva.Group({
+            x: stage.width()/2,
+            y: stage.height()/2,
+        });
         work_group.draggable(!is_touch_device);
 
         const work_group_ui = new Konva.Group();

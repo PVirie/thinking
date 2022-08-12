@@ -159,6 +159,10 @@ class Layer:
 
                 count_steps = count_steps + 1
                 if count_steps >= hard_limit:
+                    self.log({
+                        "layer": self.name,
+                        "success": False,
+                    })
                     raise RecursionError
                     break
 
@@ -166,6 +170,11 @@ class Layer:
                 c = self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
 
                 yield c
+
+        self.log({
+            "layer": self.name,
+            "success": True,
+        })
 
     def next_step(self, c, t, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
