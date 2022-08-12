@@ -18,6 +18,7 @@ class Node {
             shadowOffset: { x: 2, y: 2 },
             shadowOpacity: 0.9,
         });
+        this.icon = icon;
 
         const text = new Konva.Text({
             x: x - rad,
@@ -80,6 +81,10 @@ class Node {
 
         parent.add(this.parts);
         parent.add(this.info);
+
+        this.start_point = {"x": this.icon.x() - rad, "y": this.icon.y()};
+        this.end_point = {"x": this.icon.x() + rad, "y": this.icon.y()};
+        this.layer = property["layer"];
     }
 
     destroy() {
@@ -95,57 +100,67 @@ class Path_hierarchy {
         console.log(path_data);
         this.handle_selection = handle_selection;
 
-        this.nodes = new Konva.Group();
+        this.nodes = [];
+        this.arrow_group = new Konva.Group();
+        this.draw_group = new Konva.Group();
 
         this.step = 0;
         this.layers = {};
-        this.stack = [];
 
         for (const item of path_data) {
             if (item["s"] != null) {
                 this.layers[item["layer"]] = item;
                 continue;
             }
-
-            this._build(item);
-            this.stack.push(item);
         }
 
-        while (this.stack.length > 0) {
-            const last = this.stack.pop();
-            this._place(last);
+        for (const item of path_data) {
+            if (item["s"] != null) {
+                continue;
+            }
+            this._place(item);
         }
 
-
-        parent_bg.add(this.nodes);
+        parent_bg.add(this.arrow_group);
+        parent_bg.add(this.draw_group);
     }
 
     _place(item) {
         const item_layer = item["layer"];
-        const node = new Node(this.nodes, item, this.step++, (Object.keys(this.layers).length - 1) - item_layer);
+        const node = new Node(this.draw_group, item, this.step++, (Object.keys(this.layers).length - 1) - item_layer);
+        
+        this._link(node);
+        this.nodes.push(node);
     }
 
-    _build(item) {
-        if (this.stack.length > 0) {
-            const last = this.stack[this.stack.length - 1];
 
-            const last_layer = last["layer"];
-            const item_layer = item["layer"];
-
-            if (last_layer == item_layer) {
-                this.stack.pop();
-                this._place(last);
-            } else if (last_layer < item_layer) {
-                this.stack.pop();
-                this._place(last);
-                this._build(item);
+    _link(node) {
+        
+        let start = null;
+        for(let i = this.nodes.length - 1;i>=0;--i) {
+            if(this.nodes[i].layer === node.layer) {
+                start = this.nodes[i].end_point;
+                break;
             }
-
         }
+        if(start == null) return;
+        
+        const end = node.start_point;
+
+        const arrow = new Konva.Arrow({
+            points: [start["x"], start["y"], end["x"], end["y"]],
+            pointerLength: 6,
+            pointerWidth: 6,
+            stroke: 'black',
+            strokeWidth: 4,
+        });
+        this.arrow_group.add(arrow);
     }
 
     destroy() {
-        this.nodes.destroy();
+        this.arrow_group.destroy();
+        this.draw_group.destroy();
+        this.nodes = [];
     }
 
 }

@@ -95,7 +95,7 @@ class Layer:
     def from_next(self, c):
         return c
 
-    def pincer_inference(self, s, t, pathway_bias=0):
+    def pincer_inference(self, s, t, pathway_bias=0, with_info=False):
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
@@ -104,21 +104,17 @@ class Layer:
         cortex_rep, cortex_prop = self.heuristic_variational_model.consolidate(s, candidates, np.squeeze(props), t)
         hippocampus_rep, hippocampus_prop = self.hippocampus.infer(s, t)
 
+        info = None if not with_info else [(self.hippocampus.enhance(cortex_rep), cortex_prop), (self.hippocampus.enhance(hippocampus_rep), hippocampus_prop)]
+
         if pathway_bias < 0:
-            return hippocampus_rep
+            return hippocampus_rep, info
         if pathway_bias > 0:
-            return cortex_rep
+            return cortex_rep, info
 
         compare_results = hippocampus_prop > cortex_prop
         results = np.where(compare_results, hippocampus_rep, cortex_rep)
 
-        self.log({
-            "layer": self.name,
-            "selected": self.hippocampus.enhance(results),
-            "choices": [(self.hippocampus.enhance(cortex_rep), cortex_prop), (self.hippocampus.enhance(hippocampus_rep), hippocampus_prop)]
-        })
-
-        return results
+        return results, info
 
     def find_path(self, c, t, hard_limit=20, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
@@ -133,6 +129,12 @@ class Layer:
         if self.next is not None:
             goals = self.next.find_path(self.to_next(c, True), self.to_next(t, False))
 
+        self.log({
+            "layer": self.name,
+            "selected": c,
+            "choices": []
+        })
+
         count_steps = 0
         yield c
 
@@ -144,6 +146,11 @@ class Layer:
                 try:
                     g = self.from_next(next(goals))
                 except StopIteration:
+                    self.log({
+                        "layer": self.name + 1,
+                        "selected": t,
+                        "choices": []
+                    })
                     g = t
             else:
                 g = t
@@ -166,9 +173,14 @@ class Layer:
                     raise RecursionError
                     break
 
-                c = self.pincer_inference(c, g, pathway_bias)
+                c, supplementary = self.pincer_inference(c, g, pathway_bias, with_info=True)
                 c = self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
 
+                self.log({
+                    "layer": self.name,
+                    "selected": c,
+                    "choices": [(self.hippocampus.enhance(r), p) for r, p in supplementary]
+                })
                 yield c
 
         self.log({
@@ -190,7 +202,7 @@ class Layer:
             return g
 
         c, supplementary = self.pincer_inference(c, g, pathway_bias)
-        return c, supplementary
+        return c
 
 
 @contextmanager
