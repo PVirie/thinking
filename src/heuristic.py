@@ -14,10 +14,12 @@ import embeddings
 log_2PI = math.log(2 * math.pi)
 
 
-def generate_masks(pivots, length, diminishing_factor=0.9):
+def generate_masks(pivots, length, diminishing_factor=0.9, pre_steps=1):
     pos = torch.unsqueeze(torch.arange(0, length, dtype=torch.int32), dim=1)
-    pre_pivots = torch.roll(pivots, 1, 0)
-    pre_pivots[0] = -1
+    pre_pivots = pivots
+    for i in range(pre_steps):
+        pre_pivots = torch.roll(pre_pivots, 1, 0)
+        pre_pivots[0] = -1
     masks = torch.logical_and(pos > torch.unsqueeze(pre_pivots, dim=0), pos <= torch.unsqueeze(pivots, dim=0)).float()
 
     order = torch.reshape(torch.arange(0, -length, -1), [-1, 1]) + torch.unsqueeze(pivots, dim=0)
@@ -27,10 +29,12 @@ def generate_masks(pivots, length, diminishing_factor=0.9):
 
 class Model:
 
-    def __init__(self, dims, diminishing_factor, world_update_prior, lr=0.01, step_size=10, weight_decay=0.99):
+    def __init__(self, dims, diminishing_factor, world_update_prior, pre_steps=1, all_pairs=False, lr=0.01, step_size=10, weight_decay=0.99):
         self.model = embeddings.divergence.Model(dims)
         self.diminishing_factor = diminishing_factor
         self.new_target_prior = world_update_prior
+        self.pre_steps = pre_steps  # how many pivots to reach. the larger the coverage, the longer the training.
+        self.no_pivot = all_pairs  # extreme training condition all node to all nodes
 
         # Setup the optimizers
         parameters = list(self.model.parameters())
@@ -101,15 +105,20 @@ class Model:
         self.model.train()
 
         path = torch.from_numpy(path) if type(path).__module__ == np.__name__ else path
+        pre_steps = self.pre_steps
 
         # learn self
         divergences = self.model.compute_divergence(path[:, pivots], path[:, pivots], return_numpy=False)
         loss_values = 0.1 * torch.mean(torch.square(divergences - 1.0))
 
-        if pivots.size > 0:
+        if self.no_pivot:
+            pivots = torch.arange(path.shape[1])
+            pre_steps = path.shape[1]
+        elif pivots.size > 0:
             pivots = torch.from_numpy(pivots) if type(pivots).__module__ == np.__name__ else pivots
 
-            masks, new_targets = generate_masks(pivots, path.shape[1], self.diminishing_factor)
+        if pivots.shape[0] > 0:
+            masks, new_targets = generate_masks(pivots, path.shape[1], self.diminishing_factor, pre_steps)
             s = torch.reshape(torch.tile(torch.unsqueeze(path, dim=2), (1, 1, pivots.shape[0])), [path.shape[0], -1])
             t = torch.reshape(torch.tile(torch.unsqueeze(path[:, pivots], dim=1), (1, path.shape[1], 1)), [path.shape[0], -1])
             divergences = torch.reshape(self.model.compute_divergence(s, t, return_numpy=False), [path.shape[1], pivots.shape[0]])
@@ -163,7 +172,7 @@ class Model:
 
 
 if __name__ == '__main__':
-    masks = generate_masks(torch.from_numpy(np.array([3, 5, 8])), 10)
+    masks = generate_masks(torch.from_numpy(np.array([3, 5, 8])), 10, pre_steps=1)
     print(masks)
 
     #############################################################

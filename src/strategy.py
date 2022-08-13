@@ -78,6 +78,7 @@ if __name__ == '__main__':
                 "chunk_size": 16,
                 "diminishing_factor": 0.9,
                 "heuristic_model_param": {
+                    'pre_steps': 2, 'all_pairs': False,
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             },
@@ -87,6 +88,7 @@ if __name__ == '__main__':
                 "chunk_size": 12,
                 "diminishing_factor": 0.9,
                 "heuristic_model_param": {
+                    'pre_steps': 2, 'all_pairs': False,
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             },
@@ -96,6 +98,7 @@ if __name__ == '__main__':
                 "chunk_size": 8,
                 "diminishing_factor": 0.9,
                 "heuristic_model_param": {
+                    'pre_steps': 2, 'all_pairs': False,
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             }
@@ -146,7 +149,6 @@ if __name__ == '__main__':
     for t in goals:
         try:
             p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=-1)
-            p = list(p)
             for pi in p:
                 print(np.argmax(pi), end=' ')
                 total_length = total_length + 1
