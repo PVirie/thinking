@@ -207,7 +207,7 @@ class Layer:
 
 
 @contextmanager
-def build_network(config, weight_path=None, save_on_exit=True, logger=None):
+def build_network(config, weight_path=None, save_on_exit=True, load_exists=True, logger=None):
     # The following runs BEFORE with block.
     layers = []
     for i, layer in enumerate(config["layers"]):
@@ -221,8 +221,9 @@ def build_network(config, weight_path=None, save_on_exit=True, logger=None):
     for i in range(len(layers) - 1):
         layers[i].assign_next(layers[i + 1])
 
-    for i, layer in enumerate(layers):
-        layer.load(os.path.join(weight_path, str(i)))
+    if load_exists:
+        for i, layer in enumerate(layers):
+            layer.load(os.path.join(weight_path, str(i)))
 
     # The following returns into the with block.
     yield layers[0]

@@ -78,7 +78,7 @@ if __name__ == '__main__':
                 "chunk_size": 16,
                 "diminishing_factor": 0.9,
                 "heuristic_model_param": {
-                    'pre_steps': 2, 'all_pairs': False,
+                    'pre_steps': 4, 'all_pairs': False,
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             },
@@ -88,7 +88,7 @@ if __name__ == '__main__':
                 "chunk_size": 12,
                 "diminishing_factor": 0.9,
                 "heuristic_model_param": {
-                    'pre_steps': 2, 'all_pairs': False,
+                    'pre_steps': 4, 'all_pairs': False,
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             },
@@ -98,7 +98,7 @@ if __name__ == '__main__':
                 "chunk_size": 8,
                 "diminishing_factor": 0.9,
                 "heuristic_model_param": {
-                    'pre_steps': 2, 'all_pairs': False,
+                    'pre_steps': 4, 'all_pairs': False,
                     'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
                 }
             }
