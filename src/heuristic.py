@@ -166,6 +166,8 @@ if __name__ == '__main__':
     masks = generate_masks(torch.from_numpy(np.array([3, 5, 8])), 10)
     print(masks)
 
+    #############################################################
+
     model = Model(2, 0.9, 0.1)
 
     starts = np.array([[0.0], [0.0]], dtype=np.float32)

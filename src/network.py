@@ -120,6 +120,8 @@ class Layer:
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
+        count_steps = 0
+
         self.log({
             "layer": self.name,
             "s": c,
@@ -135,7 +137,6 @@ class Layer:
             "choices": []
         })
 
-        count_steps = 0
         yield c
 
         while True:
