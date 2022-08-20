@@ -22,6 +22,7 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 
 
 ## To do
+* Use invertible embedding might help generalization?
 * Jax
 * vector field representation
 * Basis learning
