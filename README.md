@@ -24,7 +24,8 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 ## To do
 * Use invertible embedding might help generalization?
 * Jax
-* vector field representation
+* Vector field representation
+* Test the algorithm with many elaborate example environments.
 * Basis learning
 * Test: one step find path without enhancement
 * ~Cannot be fixed (need repeatative prevention mechanism): Fix cortex loop (caused by unseen pair on estimation.)~
