@@ -1,0 +1,40 @@
+version: "3"
+services:
+    embedding-service:
+        build: ./services/embedding
+        container_name: thinking_embedding
+        restart: always
+        environment:
+            ERROR_LOG: /app/log/error.log
+            LOG_LEVEL: info
+            PYTHONUNBUFFERED: "TRUE"
+        volumes:
+            - ./artifacts/log/embedding:/app/log
+            - ./services/embedding:/app
+    hippocampus-service:
+        build: ./services/hippocampus
+        container_name: thinking_hippocampus
+        restart: always
+        environment:
+            ERROR_LOG: /app/log/error.log
+            LOG_LEVEL: info
+            PYTHONUNBUFFERED: "TRUE"
+        volumes:
+            - ./artifacts/log/hippocampus:/app/log
+            - ./services/hippocampus:/app
+    entry-service:
+        build: ./services/entrypoint
+        container_name: thinking_entrypoint
+        restart: always
+        depends_on:
+            - embedding-service
+            - hippocampus-service
+        environment:
+            ERROR_LOG: /app/log/error.log
+            LOG_LEVEL: info
+            PYTHONUNBUFFERED: "TRUE"
+        ports:
+            - 8000:8000
+        volumes:
+            - ./artifacts/log/entrypoint:/app/log
+            - ./services/entrypoint:/app
