@@ -11,6 +11,19 @@ services:
         volumes:
             - ./artifacts/log/embedding:/app/log
             - ./services/embedding:/app
+            - ./src:/app/src
+    heuristics-service:
+        build: ./services/heuristics
+        container_name: thinking_heuristics
+        restart: always
+        environment:
+            ERROR_LOG: /app/log/error.log
+            LOG_LEVEL: info
+            PYTHONUNBUFFERED: "TRUE"
+        volumes:
+            - ./artifacts/log/heuristics:/app/log
+            - ./services/heuristics:/app
+            - ./src:/app/src
     hippocampus-service:
         build: ./services/hippocampus
         container_name: thinking_hippocampus
@@ -22,6 +35,7 @@ services:
         volumes:
             - ./artifacts/log/hippocampus:/app/log
             - ./services/hippocampus:/app
+            - ./src:/app/src
     entry-service:
         build: ./services/entrypoint
         container_name: thinking_entrypoint
@@ -38,3 +52,4 @@ services:
         volumes:
             - ./artifacts/log/entrypoint:/app/log
             - ./services/entrypoint:/app
+            - ./src:/app/src

@@ -5,8 +5,6 @@ from pydantic import BaseModel
 import os
 import json
 import requests
-import aiohttp
-import asyncio
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -23,15 +21,7 @@ router = APIRouter(prefix="/api/v1")
 
 @ router.get("/test")
 async def test():
-    out_text = ""
-    async with aiohttp.ClientSession() as session:
-        async with session.get("http://heuristics-service:8000/api/v1/test") as r:
-            if r.status == 200:
-                out_text = await r.json()
-        async with session.get("http://hippocampus-service:8000/api/v1/test") as r:
-            if r.status == 200:
-                out_text += await r.json()
-    return out_text
+    return "hello, "
 
 
 @ app.on_event("startup")
