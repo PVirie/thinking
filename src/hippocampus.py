@@ -2,9 +2,11 @@ import numpy as np
 import os
 import proxy
 import utilities
+import asyncio
+from loguru import logger
 
 
-class Hippocampus:
+class Model:
 
     def __init__(self, num_dimensions, memory_size, chunk_size, diminishing_factor, candidate_size=None):
         self.dim = num_dimensions
@@ -130,7 +132,7 @@ if __name__ == '__main__':
     representations = utilities.generate_onehot_representation(np.arange(8), 8)
 
     np.set_printoptions(precision=2)
-    model = Hippocampus(8, 4, 6, 0.9)
+    model = Model(8, 4, 6, 0.9)
     a = representations[:, [0, 1, 2]]
     b = representations[:, [3, 4, 5, 6]]
     c = representations[:, [7, 0, 3, 4, 0, 2]]

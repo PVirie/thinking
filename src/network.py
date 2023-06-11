@@ -4,20 +4,9 @@ import heuristic
 import hippocampus
 import os
 import asyncio
+from typing import List
+from node import Node
 from loguru import logger
-
-
-class Node:
-    def __init__(self, data):
-        self.data = data
-    # is same node
-    async def is_same_node(self, another):
-        '''
-        c start node as shape: [vector length, 1]
-        t target node as shape: [vector length, 1]
-        '''
-        dist = np.linalg.norm(self.data - another.data)
-        return dist < 1e-4
 
 
 def compute_pivot_indices(entropies):
@@ -28,6 +17,7 @@ def compute_pivot_indices(entropies):
     all_pvs.append(entropies.shape[0] - 1)
     return all_pvs
 
+
 class Layer:
     def __init__(self, heuristics, hippocampus):
         self.heuristics = heuristics
@@ -37,7 +27,7 @@ class Layer:
     def assign_next(self, next_layer):
         self.next = next_layer
 
-    async def incrementally_learn(self, path):
+    async def incrementally_learn(self, path: List[Node]):
         if len(path) < 2:
             return
 
@@ -52,9 +42,8 @@ class Layer:
         if self.next is not None and len(pivots) > 1:
             await self.next.incrementally_learn(pivots)
 
-    async def to_next(self, c, forward=True):
+    async def to_next(self, c: Node, forward=True):
         # not just enhance, but select the closest with highest entropy
-        # c has shape [dimensions, 1]
 
         entropy = await self.hippocampus.compute_entropy(c)
         for i in range(1000):
@@ -79,10 +68,10 @@ class Layer:
 
         raise ValueError('Cannot find a top node in time.')
 
-    async def from_next(self, c):
+    async def from_next(self, c: Node):
         return c
 
-    async def pincer_inference(self, s, t, pathway_bias=0):
+    async def pincer_inference(self, s: Node, t: Node, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
@@ -100,7 +89,7 @@ class Layer:
 
         return hippocampus_rep if hippocampus_prop > cortex_prop else cortex_rep
 
-    async def find_path(self, c, t, hard_limit=20, pathway_bias=0):
+    async def find_path(self, c: Node, t: Node, hard_limit=20, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
@@ -173,7 +162,7 @@ class Layer:
             "success": True,
         })
 
-    async def next_step(self, c, t, pathway_bias=0):
+    async def next_step(self, c: Node, t: Node, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
