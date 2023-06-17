@@ -2,6 +2,7 @@ import math
 import os
 import numpy as np
 import asyncio
+from base import Pathway
 from typing import List
 from node import Node
 from loguru import logger
@@ -23,7 +24,7 @@ def generate_masks(pivots, length, diminishing_factor=0.9, pre_steps=1):
     return masks, diminishing
 
 
-class Model:
+class Model(Pathway):
 
     def __init__(self, metric_network, diminishing_factor, world_update_prior, reach=1, all_pairs=False):
         self.metric_network = metric_network
@@ -33,7 +34,7 @@ class Model:
         self.no_pivot = all_pairs  # extreme training condition all node to all nodes
 
 
-    async def consolidate(self, start: Node, candidates: List[Node], props: List[float], target: Node, return_numpy=True):
+    async def consolidate(self, start: Node, candidates: List[Node], props: List[float], target: Node):
         # candidates has shape [num_memory]
         # props has shape [num_memory]
 

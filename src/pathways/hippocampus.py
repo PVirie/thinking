@@ -1,56 +1,24 @@
-import numpy as np
+import math
 import os
-import proxy
-import utilities
+import numpy as np
 import asyncio
+from typing import List
+from node import Node
 from loguru import logger
 
 
 class Model:
 
-    def __init__(self, num_dimensions, memory_size, chunk_size, diminishing_factor, candidate_size=None):
-        self.dim = num_dimensions
+    def __init__(self, memory_size, chunk_size, diminishing_factor):
         self.diminishing_factor = diminishing_factor
 
         self.chunk_size = chunk_size
         self.h_size = memory_size
-        self.H = np.zeros([self.dim, self.h_size, self.chunk_size], dtype=np.float32)  # [oldest, ..., new, newer, newest ]
-        self.flat_H = np.reshape(self.H, [self.dim, -1])
-
-        self.bases = proxy.Distinct_item(self.dim, candidate_size)
-
-    def __str__(self):
-        line = ""
-        for r in range(self.H.shape[1]):
-            for c in range(self.H.shape[2]):
-                line += str(np.argmax(self.H[:, r, c])) + " "
-            line += "\n"
-        return line
-
-    def save(self, weight_path):
-        if not os.path.exists(weight_path):
-            print("Creating directory: {}".format(weight_path))
-            os.makedirs(weight_path)
-        np.save(os.path.join(weight_path, "H.npy"), self.H)
-        self.bases.save(weight_path)
-
-    def load(self, weight_path):
-        if not os.path.exists(weight_path):
-            print("Cannot load memories: the path do not exist.")
-            return
-
-        self.H = np.load(os.path.join(weight_path, "H.npy"))
-        self.flat_H = np.reshape(self.H, [self.dim, -1])
-        self.bases.load(weight_path)
-
-    def match(self, x):
-        return utilities.max_match(x, self.flat_H)
-
-    def access_memory(self, indices):
-        return self.flat_H[:, indices]
-
+        self.H = []  # [[oldest, ..., new, newer, newest ], ...]
+        
     def enhance(self, c):
-        prop = self.match(c)
+        # flatten self.H, preserve indices
+        prop = Node.match(c, self.H)
         max_indices = np.argmax(prop, axis=0)
         return self.access_memory(max_indices)
 
@@ -79,13 +47,6 @@ class Model:
 
         hippocampus_prop = np.reshape(hippocampus_prop, [-1])
         return hippocampus_rep, hippocampus_prop
-
-    def store_memory(self, h):
-        num_steps = h.shape[1]
-        self.H = np.roll(self.H, -1, axis=1)
-        self.H[:, self.h_size - 1, :num_steps] = h
-        self.H[:, self.h_size - 1, num_steps:] = 0
-        self.flat_H = np.reshape(self.H, [self.dim, -1])
 
     def incrementally_learn(self, h):
         batch_size = h.shape[1]
@@ -126,6 +87,18 @@ class Model:
 
         return C, c_prop
 
+    def match(self, x):
+        return utilities.max_match(x, self.flat_H)
+
+    def access_memory(self, indices):
+        return self.flat_H[:, indices]
+    
+    def store_memory(self, h):
+        num_steps = h.shape[1]
+        self.H = np.roll(self.H, -1, axis=1)
+        self.H[:, self.h_size - 1, :num_steps] = h
+        self.H[:, self.h_size - 1, num_steps:] = 0
+        self.flat_H = np.reshape(self.H, [self.dim, -1])
 
 if __name__ == '__main__':
 

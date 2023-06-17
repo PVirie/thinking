@@ -1,11 +1,11 @@
 import numpy as np
 from contextlib import contextmanager
-import heuristic
-import hippocampus
+from pathways import heuristic
+from pathways import hippocampus
 import os
 import asyncio
 from typing import List
-from node import Node
+from pathways.node import Node
 from loguru import logger
 
 
