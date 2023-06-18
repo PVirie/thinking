@@ -88,46 +88,4 @@ if __name__ == '__main__':
     masks = generate_masks(np.array([3, 5, 8]), 10, pre_steps=1)
     print(masks)
 
-    # #############################################################
-
-    # model = Model(2, 0.9, 0.1)
-
-    # starts = np.array([[0.0], [0.0]], dtype=np.float32)
-    # candidates = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
-    # props = np.array([1.0, 1.0], dtype=np.float32)
-    # targets = np.array([[1.0], [1.0]], dtype=np.float32)
-
-    # results = model.consolidate(starts, candidates, props, targets)
-    # print(results)
-
-    # #############################################################
-
-    # from utilities import *
-
-    # model = Model(8, 0.9, 0.1, lr=0.01, step_size=100, weight_decay=0.99)
-
-    # graph = random_graph(8, 0.5)
-    # print(graph)
-    # all_reps = generate_onehot_representation(np.arange(graph.shape[0]), graph.shape[0])
-    # explore_steps = 1000
-
-    # stat_graph = np.zeros([graph.shape[0]], dtype=np.float32)
-    # position = (np.power(0.9, np.arange(graph.shape[0], 0, -1) - 1))
-
-    # pivot_node = 0
-
-    # for i in range(explore_steps):
-    #     path = random_walk(graph, pivot_node, graph.shape[0] - 1)
-    #     path.reverse()
-
-    #     stat_graph[path] = stat_graph[path] - position[:len(path)]
-
-    #     encoded = all_reps[:, path]
-    #     loss, _ = model.incrementally_learn(encoded, np.array([encoded.shape[1] - 1], dtype=np.int64))
-    #     if i % (explore_steps // 100) == 0:
-    #         print("Training progress: %.2f%% %.8f" % (i * 100 / explore_steps, loss), end="\r", flush=True)
-
-    # print("Direct stats:", stat_graph, np.argsort(np.argsort(stat_graph)))
-
-    # dists = model.dist(all_reps, all_reps[:, pivot_node:pivot_node + 1])
-    # print("Model result:", dists, np.argsort(np.argsort(-dists)))
+    # To do: write test

@@ -19,4 +19,9 @@ class Pathway:
     async def compute_entropy(self, path: List[Node]):
         pass
 
-        
+    async def enhance(self, input: Node):
+        pass
+
+    async def sample(self, x: Node, forward=True):
+        pass
+    

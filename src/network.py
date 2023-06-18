@@ -19,9 +19,10 @@ def compute_pivot_indices(entropies):
 
 
 class Layer:
-    def __init__(self, heuristics, hippocampus):
+    def __init__(self, heuristics, hippocampus, proxy):
         self.heuristics = heuristics
         self.hippocampus = hippocampus
+        self.proxy = proxy
         self.next = None
 
     def assign_next(self, next_layer):
@@ -47,19 +48,8 @@ class Layer:
 
         entropy = await self.hippocampus.compute_entropy(c)
         for i in range(1000):
-            C, c_prop = await self.hippocampus.get_distinct_next_candidate(c, forward)
-            ent_scores = await self.hippocampus.compute_entropy(C)
-
-            scores = c_prop * ent_scores
-            next_index = np.argmax(scores, axis=0)
-            next_c = C[next_index]
-            next_entropy = scores[next_index]
-
-            # alternative sum method for generalization
-            # weights = np.where(scores > entropy, 1.0, 0.0)
-            # next_c = np.sum(C * np.reshape(weights, [self.num_dimensions, -1]), axis=1, keepdims=True)
-            # next_c = self.hippocampus.enhance(next_c)
-            # next_entropy = self.hippocampus.compute_entropy(next_c)
+            next_c = await self.hippocampus.sample(c, forward)
+            next_entropy = await self.hippocampus.compute_entropy(c)
 
             if entropy >= next_entropy:
                 return c
@@ -75,7 +65,7 @@ class Layer:
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
-        candidates, props = await self.hippocampus.get_distinct_next_candidate(s)
+        candidates, props = await self.proxy.get_distinct_next_candidate(s)
 
         cortex_rep, cortex_prop = await self.heuristics.consolidate(s, candidates, props, t)
         hippocampus_rep, hippocampus_prop = await self.hippocampus.infer(s, t)

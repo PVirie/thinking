@@ -1,28 +1,72 @@
 import numpy as np
 import asyncio
+from typing import List
+
+
+# global constants
+node_dim = 3
 
 class Node:
     def __init__(self, data):
-        self.data = data
+        self.data = np.array(data)
     # is same node
     async def is_same_node(self, another):
         dist = np.linalg.norm(self.data - another.data)
         return dist < 1e-4
 
-    # static method
-    @staticmethod
-    async def match(node, templates):
+
+class Node_tensor_2D:
+    def __init__(self, max_rows, max_cols, data=None):
+        self.max_rows = max_rows
+        self.max_cols = max_cols
+        if data is not None:
+            self.data = np.array(data)
+        else:
+            self.data = np.zeros([max_rows, max_cols, node_dim])
+
+    async def match(self, node):
         '''
-        node.data as shape: [vector length]
-        templates as a list of nodes
+        node.data as shape: [node_dim]
+        self.data as shape: [max_rows, max_cols, node_dim]
         '''
-        templates = np.array([t.data for t in templates])
-        # first flatten shape
-        flatten = np.reshape(templates, [-1, templates.shape[-1]])
-        results = np.linalg.norm(flatten - node.data, axis=1)
-        # then reshape the result back to [...]
-        return np.exp(-np.reshape(results, templates.shape[:-1]))
+
+        # first flatten template
+        flatten = np.reshape(self.data, [-1, node_dim])
+        results = np.exp(-np.linalg.norm(flatten - node.data, axis=1))
+
+        # need to filter where self.H is invalid (i.e. where the chunk is not full)
+        results = np.where(np.linalg.norm(flatten, axis=1) < 1e-8, 0, results)
+
+        # then reshape the result back to list of list of list
+        return np.reshape(results, [self.max_rows, self.max_cols])
+
+
+    async def append(self, hs: List[Node]):
+        num_steps = len(hs)
+        self.data = np.roll(self.data, -1, axis=0)
+        self.data[self.max_rows - 1, :num_steps, :] = np.array([h.data for h in hs])
+        self.data[self.max_rows - 1, num_steps:, :] = 0
+
+
+    async def access(self, row, col):
+        return Node(self.data[row, col, :])
+
+
+    async def roll(self, axis, shift):
+        new_tensor = Node_tensor_2D(self.max_rows, self.max_cols, np.roll(self.data, shift, axis=axis))
+        return new_tensor
     
+
+    async def consolidate(self, prop):
+        '''
+        prop as shape: [max_row, max_cols]
+        '''
+        # first flatten template
+        augmented = np.reshape(prop, [-1, 1])
+        flatten = np.reshape(self.data, [-1, node_dim])
+        # then reshape the result back to list of list of list
+        return Node(np.reshape(np.sum(augmented * flatten, axis=0) / np.sum(prop), [node_dim]))
+
 
 async def test():
     node1 = Node(np.array([1, 2, 3]))
@@ -30,7 +74,17 @@ async def test():
     node3 = Node(np.array([1, 2, 4]))
     print(await node1.is_same_node(node2))
     print(await node1.is_same_node(node3))
-    print(await Node.match(node1, [[1, 2, 3], [1, 2, 4]]))
+
+    nodes = Node_tensor_2D(2, 2)
+    await nodes.append([node2, node3])
+    await nodes.append(np.array([[0, 0, 0], [1, 2, 3]]))
+    print(await nodes.match(node1))
+
+    rolled = await nodes.roll(0, 1)
+    print(await rolled.match(node1))
+
+    new_node = await nodes.consolidate(np.array([[1, 0], [0, 1]]))
+    assert(await new_node.is_same_node(node1))
 
 
 if __name__ == '__main__':

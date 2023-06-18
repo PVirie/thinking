@@ -3,7 +3,7 @@ import os
 import numpy as np
 import asyncio
 from typing import List
-from node import Node
+from node import Node, Node_tensor_2D
 from loguru import logger
 
 
@@ -14,17 +14,24 @@ class Model:
 
         self.chunk_size = chunk_size
         self.h_size = memory_size
-        self.H = []  # [[oldest, ..., new, newer, newest ], ...]
+        self.H = Node_tensor_2D(self.h_size, self.chunk_size)  # [[oldest, ..., new, newer, newest ], ...]
         
-    def enhance(self, c):
+    async def enhance(self, c: Node):
         # flatten self.H, preserve indices
-        prop = Node.match(c, self.H)
-        max_indices = np.argmax(prop, axis=0)
-        return self.access_memory(max_indices)
+        prop = await self.H.match(c)
 
-    def infer(self, s, t):
-        s_prop = np.reshape(self.match(s), [self.h_size, self.chunk_size, -1])
-        t_prop = np.reshape(self.match(t), [self.h_size, self.chunk_size, -1])
+        # find max row and column
+        max_indices = np.argmax(prop, axis=1)
+        max_prop = np.max(prop, axis=1)
+        # find max row
+        max_row = np.argmax(max_prop, axis=0)
+        # find max column
+        max_col = max_indices[max_row]
+        return await self.H.access(max_row, max_col)
+
+    async def infer(self, s: Node, t: Node):
+        s_prop = await self.H.match(s)
+        t_prop = await self.H.match(t)
 
         s_max_indices = np.argmax(s_prop, axis=1)
         t_max_indices = np.argmax(t_prop, axis=1)
@@ -32,104 +39,43 @@ class Model:
         t_max = np.max(t_prop, axis=1)
 
         causality = (t_max_indices > s_max_indices).astype(np.float32)
+        # flip to take the last occurrence
         best = (self.h_size - 1) - np.argmax(np.flip(s_max * t_max * causality, axis=0), axis=0)
 
-        batcher = np.arange(s.shape[1])
-        s_best_indices = s_max_indices[best, batcher]
-        t_best_indices = t_max_indices[best, batcher]
-        s_best_prop = s_max[best, batcher]
-        t_best_prop = t_max[best, batcher]
+        s_best_index = s_max_indices[best]
+        t_best_index = t_max_indices[best]
+        s_best_prop = s_max[best]
+        t_best_prop = t_max[best]
 
         # print(best, s_best_indices, t_best_indices)
 
-        hippocampus_prop = np.power(self.diminishing_factor, t_best_indices - s_best_indices - 1) * s_best_prop * t_best_prop
-        hippocampus_rep = self.access_memory(best * self.chunk_size + np.mod(s_best_indices + 1, self.chunk_size))
+        if s_best_index >= self.chunk_size:
+            return None, None
 
-        hippocampus_prop = np.reshape(hippocampus_prop, [-1])
+        hippocampus_prop = pow(self.diminishing_factor, t_best_index - s_best_index - 1) * s_best_prop * t_best_prop
+        hippocampus_rep = self.H.access(best, s_best_index + 1)
+        
         return hippocampus_rep, hippocampus_prop
 
-    def incrementally_learn(self, h):
-        batch_size = h.shape[1]
-        if batch_size <= 0:
-            return
+    async def incrementally_learn(self, hs: List[Node]):
+        self.H.append(hs)
 
-        self.store_memory(h)
-        self.bases.incrementally_learn(h)
-
-    def compute_entropy(self, x):
-        prop = self.match(x)
-        entropy = np.sum(prop, axis=0, keepdims=False) / (self.h_size * self.chunk_size)
+        
+    async def compute_entropy(self, x: Node):
+        prop = await self.H.match(x)
+        entropy = np.mean(prop)
         return entropy
 
-    def get_distinct_next_candidate(self, x, forward=True):
-        # x has shape [dim, 1]
-        # keep a small set of distinct candidates
-        # p(i, 1) = match x to hippocampus
-        # q(j, i) = match candidate j to next i + 1
-        # candidates' prop = max_i p(i, 1)*q(j, i)
 
-        C = self.bases.get_candidates()
-        p = self.match(x)
-        q = self.match(C)
-
-        q = np.reshape(q, [self.h_size, self.chunk_size, C.shape[1]])
+    async def sample(self, x: Node, forward=True):
+        prop = await self.H.match(x)
         if forward:
-            # the last element of each chunk should be ignored
-            q = np.roll(q, -1, axis=1)
-            q[:, -1, :] = 0
+            return self.H.roll(1, -1).consolidate(prop)
         else:
-            # the first element of each chunk should be ignored
-            q = np.roll(q, 1, axis=1)
-            q[:, 0, :] = 0
-        q = np.reshape(q, [self.h_size * self.chunk_size, C.shape[1]])
+            return self.H.roll(1, 1).consolidate(prop)
 
-        c_prop = np.max(p * q, axis=0, keepdims=False)
 
-        return C, c_prop
 
-    def match(self, x):
-        return utilities.max_match(x, self.flat_H)
-
-    def access_memory(self, indices):
-        return self.flat_H[:, indices]
-    
-    def store_memory(self, h):
-        num_steps = h.shape[1]
-        self.H = np.roll(self.H, -1, axis=1)
-        self.H[:, self.h_size - 1, :num_steps] = h
-        self.H[:, self.h_size - 1, num_steps:] = 0
-        self.flat_H = np.reshape(self.H, [self.dim, -1])
 
 if __name__ == '__main__':
-
-    representations = utilities.generate_onehot_representation(np.arange(8), 8)
-
-    np.set_printoptions(precision=2)
-    model = Model(8, 4, 6, 0.9)
-    a = representations[:, [0, 1, 2]]
-    b = representations[:, [3, 4, 5, 6]]
-    c = representations[:, [7, 0, 3, 4, 0, 2]]
-    model.incrementally_learn(a)
-    model.incrementally_learn(b)
-    model.incrementally_learn(c)
-    print("all memories", model)
-
-    C, c_prop = model.get_distinct_next_candidate(representations[:, 0:1])
-    print([(np.argmax(C[:, i]), c_prop[i]) for i in range(8)])
-
-    # rep, prop = model.infer(b[:, 0:1], b[:, 2:3])
-    # print(prop)
-
-    # prop = model.match(a)
-    # print("match prop", prop)
-
-    # a_record = model.access_memory([2, 3])
-    # print("retrieved", a_record)
-    # addr = model.resolve_address(a_record)
-    # print("address", addr)
-    # entropy = model.compute_entropy(a_record)
-    # print("entropy", entropy)
-    # next_records = model.get_next()
-    # print("next memories", next_records)
-    # candidates, props = model.get_distinct_next_candidate(a)
-    # print("candidate props", props)
+    # To do: write test

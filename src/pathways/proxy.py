@@ -34,3 +34,29 @@ class Distinct_item:
         num_steps = h.shape[1]
         self.C = np.roll(self.C, -num_steps)
         self.C[:, -num_steps:] = h
+
+    def get_distinct_next_candidate(self, x, forward=True):
+        # x has shape [dim, 1]
+        # keep a small set of distinct candidates
+        # p(i, 1) = match x to hippocampus
+        # q(j, i) = match candidate j to next i + 1
+        # candidates' prop = max_i p(i, 1)*q(j, i)
+
+        C = self.bases.get_candidates()
+        p = self.match(x)
+        q = self.match(C)
+
+        q = np.reshape(q, [self.h_size, self.chunk_size, C.shape[1]])
+        if forward:
+            # the last element of each chunk should be ignored
+            q = np.roll(q, -1, axis=1)
+            q[:, -1, :] = 0
+        else:
+            # the first element of each chunk should be ignored
+            q = np.roll(q, 1, axis=1)
+            q[:, 0, :] = 0
+        q = np.reshape(q, [self.h_size * self.chunk_size, C.shape[1]])
+
+        c_prop = np.max(p * q, axis=0, keepdims=False)
+
+        return C, c_prop
