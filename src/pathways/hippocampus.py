@@ -57,6 +57,7 @@ class Model:
         
         return hippocampus_rep, hippocampus_prop
 
+
     async def incrementally_learn(self, hs: List[Node]):
         self.H.append(hs)
 
@@ -68,6 +69,7 @@ class Model:
 
 
     async def sample(self, x: Node, forward=True):
+        # To do normalize distinct?
         prop = await self.H.match(x)
         if forward:
             return self.H.roll(1, -1).consolidate(prop)
@@ -76,6 +78,6 @@ class Model:
 
 
 
-
 if __name__ == '__main__':
+    pass
     # To do: write test
