@@ -57,7 +57,7 @@ class Node_tensor_2D:
         return new_tensor
     
 
-    async def consolidate(self, prop):
+    async def consolidate(self, prop, use_max=False):
         '''
         prop as shape: [max_row, max_cols]
         '''
@@ -65,7 +65,10 @@ class Node_tensor_2D:
         augmented = np.reshape(prop, [-1, 1])
         flatten = np.reshape(self.data, [-1, node_dim])
         # then reshape the result back to list of list of list
-        return Node(np.reshape(np.sum(augmented * flatten, axis=0) / np.sum(prop), [node_dim]))
+        if use_max:
+            return Node(flatten[np.argmax(augmented), :])
+        else:
+            return Node(np.reshape(np.sum(augmented * flatten, axis=0) / np.sum(prop), [node_dim]))
 
 
 async def test():
@@ -83,7 +86,8 @@ async def test():
     rolled = await nodes.roll(0, 1)
     print(await rolled.match(node1))
 
-    new_node = await nodes.consolidate(np.array([[1, 0], [0, 1]]))
+    new_node = await nodes.consolidate(np.array([[1, 0], [0, 1]]), use_max=False)
+    print(new_node.data)
     assert(await new_node.is_same_node(node1))
 
 

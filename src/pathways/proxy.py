@@ -1,62 +1,47 @@
-import numpy as np
+import math
 import os
-import utilities
+import numpy as np
+import asyncio
+from base import Pathway
+from typing import List
+from node import Node, Node_tensor_2D
+from loguru import logger
+
+import hippocampus
+
+class Model(hippocampus.Model):
+
+    def __init__(self, memory_size, chunk_size, candidate_count):
+        # call super method
+        super().__init__(memory_size, chunk_size, 1.0)
+        self.candidate_count = candidate_count
 
 
-class Distinct_item:
-
-    def __init__(self, num_dimensions, candidate_size=None):
-        self.dim = num_dimensions
-        if candidate_size is not None:
-            self.c_size = candidate_size
-        else:
-            self.c_size = self.dim
-        self.C = np.zeros([self.dim, self.c_size], dtype=np.float32)
-
-    def incrementally_learn(self, h):
-        batch_size = h.shape[1]
-        if batch_size <= 0:
-            return
-
-        prop = np.max(self.match(h), axis=0, keepdims=False)
-        new_item_mask = prop < 1e-4
-        if np.count_nonzero(new_item_mask) > 0:
-            self.store_memory(h[:, new_item_mask])
+    def incrementally_learn(self, hs: List[Node]):
+        super().incrementally_learn(hs)
 
 
-    def get_candidates(self):
-        return self.C
+    async def get_candidates(self, x: Node, forward=True):
 
-    def match(self, x):
-        return utilities.max_match(x, self.C)
+        C = []
+        c_prop = np.zeros(self.candidate_count, dtype=np.float32)
+        p = await self.H.match(x)
 
-    def store_memory(self, h):
-        num_steps = h.shape[1]
-        self.C = np.roll(self.C, -num_steps)
-        self.C[:, -num_steps:] = h
-
-    def get_distinct_next_candidate(self, x, forward=True):
-        # x has shape [dim, 1]
-        # keep a small set of distinct candidates
-        # p(i, 1) = match x to hippocampus
-        # q(j, i) = match candidate j to next i + 1
-        # candidates' prop = max_i p(i, 1)*q(j, i)
-
-        C = self.bases.get_candidates()
-        p = self.match(x)
-        q = self.match(C)
-
-        q = np.reshape(q, [self.h_size, self.chunk_size, C.shape[1]])
         if forward:
-            # the last element of each chunk should be ignored
-            q = np.roll(q, -1, axis=1)
-            q[:, -1, :] = 0
+            kernel = self.H.roll(1, -1)
         else:
-            # the first element of each chunk should be ignored
-            q = np.roll(q, 1, axis=1)
-            q[:, 0, :] = 0
-        q = np.reshape(q, [self.h_size * self.chunk_size, C.shape[1]])
+            kernel = self.H.roll(1, 1)
 
-        c_prop = np.max(p * q, axis=0, keepdims=False)
+        for i in range(self.candidate_count):
+            c = kernel.consolidate(p, use_max=True)
+            C.append(c)
+            c_prop[i] = np.max(p, axis=0, keepdims=False)
+            m = kernel.match(c)
+            p = p * (1-m)
 
         return C, c_prop
+    
+
+if __name__ == '__main__':
+    # To do: test
+    pass

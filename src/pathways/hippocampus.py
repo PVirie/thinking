@@ -2,12 +2,13 @@ import math
 import os
 import numpy as np
 import asyncio
+from base import Pathway
 from typing import List
 from node import Node, Node_tensor_2D
 from loguru import logger
 
 
-class Model:
+class Model(Pathway):
 
     def __init__(self, memory_size, chunk_size, diminishing_factor):
         self.diminishing_factor = diminishing_factor

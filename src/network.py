@@ -33,6 +33,7 @@ class Layer:
             return
 
         await self.hippocampus.incrementally_learn(path)
+        await self.proxy.incrementally_learn(path)
 
         entropies = await self.hippocampus.compute_entropy(path)
         pivots_indices = compute_pivot_indices(entropies)
@@ -65,7 +66,7 @@ class Layer:
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
-        candidates, props = await self.proxy.get_distinct_next_candidate(s)
+        candidates, props = await self.proxy.get_candidates(s)
 
         cortex_rep, cortex_prop = await self.heuristics.consolidate(s, candidates, props, t)
         hippocampus_rep, hippocampus_prop = await self.hippocampus.infer(s, t)
