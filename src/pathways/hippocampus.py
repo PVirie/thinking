@@ -1,11 +1,15 @@
-import math
+import sys
 import os
+import math
 import numpy as np
 import asyncio
-from base import Pathway
 from typing import List
-from node import Node, Node_tensor_2D
 from loguru import logger
+from base import Pathway
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(dir_path, '..'))
+from metric import Node, Node_tensor_2D
 
 
 class Model(Pathway):
