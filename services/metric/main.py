@@ -7,8 +7,7 @@ import json
 from loguru import logger
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-logfile = os.path.join(dir_path, "..", "log", "log.log")
-logger.add(logfile, rotation="500 MB")
+logfile = os.path.join(dir_path, "log", "log.log")
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -30,12 +29,13 @@ async def test():
 
 @ app.on_event("startup")
 async def startup_event():
-    logger.info("Test is starting up.")
+    logger.add(logfile, rotation="500 MB")
+    logger.info("Service is starting up.")
 
 
 @ app.on_event("shutdown")
 def shutdown_event():
-    logger.info("Test is exiting.", "Wait a moment until completely exits.")
+    logger.info("Service is exiting.", "Wait a moment until completely exits.")
 
 
 app.include_router(router)
@@ -44,4 +44,4 @@ app.mount("/", StaticFiles(directory="."))
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=9000)
+    uvicorn.run("main:app", host="0.0.0.0", port=9000, workers=1)
