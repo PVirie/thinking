@@ -80,7 +80,7 @@ class Model(Pathway):
         if len(pivots) > 0:
             masks, new_targets = generate_masks(pivots, path_length, self.diminishing_factor, reach)
             s = path
-            t = path[:, pivots]
+            t = path[pivots]
             divergences = self.metric_network.distance(s, t) 
             # divergence is a matrix of shape [len(t), len(s)]
             targets = np.where(new_targets < divergences, new_targets, (1 - self.new_target_prior) * divergences + self.new_target_prior * new_targets)
