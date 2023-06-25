@@ -1,45 +1,28 @@
 version: "3"
 services:
-    embedding-service:
-        build: ./services/embedding
-        container_name: thinking_embedding
-        restart: always
+    metric-service:
+        profiles: ["with_gpu"]
+        build: ./services/metric
+        container_name: thinking_metric
+        restart: no
         environment:
             ERROR_LOG: /app/log/error.log
             LOG_LEVEL: info
             PYTHONUNBUFFERED: "TRUE"
         volumes:
-            - ./artifacts/log/embedding:/app/log
-            - ./services/embedding:/app
+            - ./artifacts/log/metric:/app/log
+            - ./services/metric:/app
             - ./src:/app/src
-    heuristics-service:
-        build: ./services/heuristics
-        container_name: thinking_heuristics
-        restart: always
-        environment:
-            ERROR_LOG: /app/log/error.log
-            LOG_LEVEL: info
-            PYTHONUNBUFFERED: "TRUE"
-        volumes:
-            - ./artifacts/log/heuristics:/app/log
-            - ./services/heuristics:/app
-            - ./src:/app/src
-    hippocampus-service:
-        build: ./services/hippocampus
-        container_name: thinking_hippocampus
-        restart: always
-        environment:
-            ERROR_LOG: /app/log/error.log
-            LOG_LEVEL: info
-            PYTHONUNBUFFERED: "TRUE"
-        volumes:
-            - ./artifacts/log/hippocampus:/app/log
-            - ./services/hippocampus:/app
-            - ./src:/app/src
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          capabilities: [gpu]
     entry-service:
         build: ./services/entrypoint
         container_name: thinking_entrypoint
-        restart: always
+        restart: no
         depends_on:
             - embedding-service
             - hippocampus-service

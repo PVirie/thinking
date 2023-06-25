@@ -6,4 +6,4 @@ if [ "$(docker ps -q -a | wc -l)" -gt 0 ]; then
 fi
 
 docker compose -f docker_compose.yaml down
-docker compose -f docker_compose.yaml up -d --build --force-recreate
+docker compose -f docker_compose.yaml up --profile with_gpu -d --build --force-recreate

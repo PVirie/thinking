@@ -25,12 +25,9 @@ router = APIRouter(prefix="/api/v1")
 async def test():
     out_text = ""
     async with aiohttp.ClientSession() as session:
-        async with session.get("http://heuristics-service:8000/api/v1/test") as r:
+        async with session.get("http://metric-service:8000/api/v1/test") as r:
             if r.status == 200:
                 out_text = await r.json()
-        async with session.get("http://hippocampus-service:8000/api/v1/test") as r:
-            if r.status == 200:
-                out_text += await r.json()
     return out_text
 
 
