@@ -4,9 +4,13 @@ from typing import Optional, List, Any
 from pydantic import BaseModel
 import os
 import json
-import requests
 import aiohttp
 import asyncio
+from loguru import logger
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+logfile = os.path.join(dir_path, "..", "log", "log.log")
+logger.add(logfile, rotation="500 MB")
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -23,22 +27,22 @@ router = APIRouter(prefix="/api/v1")
 
 @ router.get("/test")
 async def test():
-    out_text = ""
+    out_text = "Hello, "
     async with aiohttp.ClientSession() as session:
-        async with session.get("http://metric-service:8000/api/v1/test") as r:
+        async with session.get("http://metric-host:9000/api/v1/test") as r:
             if r.status == 200:
-                out_text = await r.json()
+                out_text += await r.json()
     return out_text
 
 
 @ app.on_event("startup")
 async def startup_event():
-    print("Test is starting up.")
+    logger.info("Test is starting up.")
 
 
 @ app.on_event("shutdown")
 def shutdown_event():
-    print("Test is exiting.", "Wait a moment until completely exits.")
+    logger.info("Test is exiting.", "Wait a moment until completely exits.")
 
 
 app.include_router(router)
@@ -47,4 +51,4 @@ app.mount("/", StaticFiles(directory="."))
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run("mock_server:app", host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)

@@ -46,18 +46,18 @@ class Model(Pathway):
 
         num_mem = len(candidates)
 
-        base_scores = self.metric_network.distance(start, target)
         heuristic_scores = self.metric_network.distance(candidates, target)
 
         scores = props * heuristic_scores
-        weights = np.where(scores > base_scores, 1.0, 0.0).astype(scores.dtype)
+        max_candidate = np.argmax(scores)
 
-        # print("4 weight", weights)
+        heuristic_rep = candidates[max_candidate]
+        # should we recompute score by feeding it back to the nextwork instead of haphazard method?
+        heuristic_prop = scores[max_candidate]
 
-        # can use max here instead of sum for non-generalize scenarios.
-        heuristic_rep = np.sum(candidates * weights)
-        # should we recompute score by feeding it back to the nextwork instead of haphazard mean?
-        heuristic_prop = np.sum(scores * weights) / np.sum(weights)
+        base_scores = self.metric_network.distance(start, target)
+        if heuristic_prop < base_scores:
+            heuristic_prop = 0
 
         # print("5 best", torch.argmax(heuristic_rep, dim=0))
         return heuristic_rep, heuristic_prop

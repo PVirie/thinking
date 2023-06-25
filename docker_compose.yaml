@@ -1,5 +1,24 @@
 version: "3"
 services:
+    metric-service-no-gpu:
+        profiles: ["no_gpu"]
+        build:
+            context: ./services/metric
+            dockerfile: dockerfile.nogpu
+        container_name: thinking_metric_no_gpu
+        restart: no
+        environment:
+            ERROR_LOG: /app/log/error.log
+            LOG_LEVEL: info
+            PYTHONUNBUFFERED: "TRUE"
+        volumes:
+            - ./artifacts/log/metric:/app/log
+            - ./services/metric:/app
+            - ./src:/app/src
+        networks:
+            app_network:
+                aliases:
+                    - metric-host
     metric-service:
         profiles: ["with_gpu"]
         build: ./services/metric
@@ -19,13 +38,14 @@ services:
                     devices:
                         - driver: nvidia
                           capabilities: [gpu]
+        networks:
+            app_network:
+                aliases:
+                    - metric-host
     entry-service:
         build: ./services/entrypoint
         container_name: thinking_entrypoint
         restart: no
-        depends_on:
-            - embedding-service
-            - hippocampus-service
         environment:
             ERROR_LOG: /app/log/error.log
             LOG_LEVEL: info
@@ -36,3 +56,8 @@ services:
             - ./artifacts/log/entrypoint:/app/log
             - ./services/entrypoint:/app
             - ./src:/app/src
+        networks:
+            - app_network
+networks:
+    app_network:
+        driver: bridge
