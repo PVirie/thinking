@@ -5,6 +5,7 @@ from pydantic import BaseModel
 import os
 import json
 from loguru import logger
+import src.metric.resnet as resnet
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 logfile = os.path.join(dir_path, "log", "log.log")
