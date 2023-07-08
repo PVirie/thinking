@@ -5,13 +5,8 @@ import numpy as np
 import asyncio
 from typing import List
 from loguru import logger
-from base import Pathway
+from base import Pathway, Node, Node_tensor_2D
 import hippocampus
-
-dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(dir_path, '..'))
-
-from metric import Node, Node_tensor_2D
 
 
 class Model(hippocampus.Model):

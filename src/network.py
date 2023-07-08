@@ -1,6 +1,4 @@
 import numpy as np
-from contextlib import contextmanager
-from pathways import heuristic, hippocampus
 import os
 import asyncio
 from typing import List
@@ -177,3 +175,142 @@ class Layer:
 
 if __name__ == '__main__':
     print("assert that probabilistic network works.")
+    from pathways import heuristic, hippocampus, proxy
+    from utilities import *
+
+    np.set_printoptions(precision=2)
+
+    graph_shape = 16
+
+    representations = generate_onehot_representation(np.arange(graph_shape), graph_shape)
+
+    config = {
+        "world_update_prior": 0.1,
+        "layers": [
+            {
+                "num_dimensions": graph_shape,
+                "memory_slots": 64,
+                "chunk_size": 16,
+                "diminishing_factor": 0.9,
+                "heuristic_model_param": {
+                    'pre_steps': 4, 'all_pairs': False,
+                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+                }
+            },
+            {
+                "num_dimensions": graph_shape,
+                "memory_slots": 64,
+                "chunk_size": 12,
+                "diminishing_factor": 0.9,
+                "heuristic_model_param": {
+                    'pre_steps': 4, 'all_pairs': False,
+                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+                }
+            },
+            {
+                "num_dimensions": graph_shape,
+                "memory_slots": 64,
+                "chunk_size": 8,
+                "diminishing_factor": 0.9,
+                "heuristic_model_param": {
+                    'pre_steps': 4, 'all_pairs': False,
+                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
+                }
+            }
+        ]
+    }
+
+
+    answer = input("Do you want to retrain? (y/n): ").lower().strip()
+    train = answer == "y"
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    weight_path = os.path.join(dir_path, "..", "artifacts", "weights", "network.py.test")
+
+    if train:
+        empty_directory(weight_path)
+
+        g = random_graph(graph_shape, 0.4)
+        np.save(os.path.join(weight_path, "graph.npy"), g)
+        print(g)
+
+        # cognitive_map = build_cognitive_map(config)
+        # print(cognitive_map)
+    else:
+        g = np.load(os.path.join(weight_path, "graph.npy"))
+        print(g)
+
+        # cognitive_map = load_cognitive_map(config, weight_path)
+        # print(cognitive_map)
+
+
+    # with network.build_network(config, weight_path, save_on_exit=train, logger=logger) as root:
+    #     print("Training a cognitive map:")
+    #     for i in range(explore_steps):
+    #         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+    #         path = all_reps[:, path]
+    #         root.incrementally_learn(path)
+    #         if i % (explore_steps // 100) == 0:
+    #             print("Training progress: %.2f%%" % (i * 100 / explore_steps), end="\r", flush=True)
+    #     print("Finish learning.")
+
+    # goals = range(graph_shape)
+    # max_steps = 40
+
+    # total_length = 0
+    # stamp = time.time()
+    # for t in goals:
+    #     try:
+    #         p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps)
+    #         for pi in p:
+    #             print(np.argmax(pi), end=' ')
+    #             total_length = total_length + 1
+    #     except RecursionError:
+    #         print("fail to find path in time.", t, end=' ')
+    #     finally:
+    #         print()
+    # print("cognitive planner:", time.time() - stamp, " average length:", total_length / len(goals))
+
+    # total_length = 0
+    # stamp = time.time()
+    # for t in goals:
+    #     try:
+    #         p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=-1)
+    #         for pi in p:
+    #             print(np.argmax(pi), end=' ')
+    #             total_length = total_length + 1
+    #     except RecursionError:
+    #         print("fail to find path in time.", t, end=' ')
+    #     finally:
+    #         print()
+    # print("hippocampus planner:", time.time() - stamp, " average length:", total_length / len(goals))
+
+    # total_length = 0
+    # stamp = time.time()
+    # for t in goals:
+    #     try:
+    #         p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=1)
+    #         for pi in p:
+    #             print(np.argmax(pi), end=' ')
+    #             total_length = total_length + 1
+    #     except RecursionError:
+    #         print("fail to find path in time.", t, end=' ')
+    #     finally:
+    #         print()
+    # print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
+
+    # total_length = 0
+    # stamp = time.time()
+    # for t in goals:
+    #     try:
+    #         p = shortest_path(g, 0, t)
+    #         p = list(reversed(p))
+    #         for pi in p:
+    #             print(pi, end=' ')
+    #             total_length = total_length + 1
+    #     except RecursionError:
+    #         print("fail to find path in time.", t, end=' ')
+    #     finally:
+    #         print()
+
+    # print("optimal planner:", time.time() - stamp, " average length:", total_length / len(goals))
