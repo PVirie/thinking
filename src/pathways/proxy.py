@@ -17,8 +17,8 @@ class Model(hippocampus.Model):
         self.candidate_count = candidate_count
 
 
-    def incrementally_learn(self, hs: List[Node]):
-        super().incrementally_learn(hs)
+    async def incrementally_learn(self, hs: List[Node]):
+        await super().incrementally_learn(hs)
 
 
     async def get_candidates(self, x: Node, forward=True):

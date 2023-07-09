@@ -8,10 +8,10 @@ from loguru import logger
 
 def compute_pivot_indices(entropies):
     all_pvs = []
-    for j in range(0, entropies.shape[0] - 1):
+    for j in range(0, len(entropies) - 1):
         if j > 0 and entropies[j] < entropies[j - 1]:
             all_pvs.append(j - 1)
-    all_pvs.append(entropies.shape[0] - 1)
+    all_pvs.append(len(entropies) - 1)
     return all_pvs
 
 
@@ -34,9 +34,9 @@ class Layer:
 
         entropies = await self.hippocampus.compute_entropy(path)
         pivots_indices = compute_pivot_indices(entropies)
-        pivots = path[pivots_indices]
+        pivots = [path[i] for i in pivots_indices]
 
-        await self.heuristics.incrementally_learn(path, pivots)
+        await self.heuristics.incrementally_learn(path, pivots_indices)
 
         if self.next is not None and len(pivots) > 1:
             await self.next.incrementally_learn(pivots)
@@ -44,10 +44,10 @@ class Layer:
     async def to_next(self, c: Node, forward=True):
         # not just enhance, but select the closest with highest entropy
 
-        entropy = await self.hippocampus.compute_entropy(c)
+        entropy = (await self.hippocampus.compute_entropy([c]))[0]
         for i in range(1000):
             next_c = await self.hippocampus.sample(c, forward)
-            next_entropy = await self.hippocampus.compute_entropy(c)
+            next_entropy = (await self.hippocampus.compute_entropy([c]))[0]
 
             if entropy >= next_entropy:
                 return c
@@ -173,86 +173,81 @@ class Layer:
         return c
 
 
-if __name__ == '__main__':
+
+async def build_cognitive_map(layers):
+    hierarchy = []
+    for layer_data in layers:
+        hierarchy.append(Layer(layer_data["heuristics"], layer_data["hippocampus"], layer_data["proxy"]))
+    for i in range(len(hierarchy) - 1):
+        hierarchy[i].assign_next(hierarchy[i + 1])
+    return hierarchy[0]
+
+
+async def test():
     print("assert that probabilistic network works.")
-    from pathways import heuristic, hippocampus, proxy
-    from utilities import *
 
     np.set_printoptions(precision=2)
 
     graph_shape = 16
-
-    representations = generate_onehot_representation(np.arange(graph_shape), graph_shape)
+    set_node_dim(graph_shape)
+    one_hot = generate_onehot_representation(np.arange(graph_shape), graph_shape)
+    representations = [Node(one_hot[i, :]) for i in range(16)]
 
     config = {
-        "world_update_prior": 0.1,
         "layers": [
             {
-                "num_dimensions": graph_shape,
-                "memory_slots": 64,
-                "chunk_size": 16,
-                "diminishing_factor": 0.9,
-                "heuristic_model_param": {
-                    'pre_steps': 4, 'all_pairs': False,
-                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-                }
+                "heuristics": heuristic.Model(metric_network=resnet.Model(), diminishing_factor=0.9, world_update_prior=0.1, reach=1, all_pairs=False),
+                "hippocampus": hippocampus.Model(memory_size=128, chunk_size=graph_shape, diminishing_factor=0.9),
+                "proxy": proxy.Model(memory_size=128, chunk_size=graph_shape, candidate_count=graph_shape)
             },
             {
-                "num_dimensions": graph_shape,
-                "memory_slots": 64,
-                "chunk_size": 12,
-                "diminishing_factor": 0.9,
-                "heuristic_model_param": {
-                    'pre_steps': 4, 'all_pairs': False,
-                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-                }
+                "heuristics": heuristic.Model(metric_network=resnet.Model(), diminishing_factor=0.9, world_update_prior=0.1, reach=1, all_pairs=False),
+                "hippocampus": hippocampus.Model(memory_size=128, chunk_size=graph_shape, diminishing_factor=0.9),
+                "proxy": proxy.Model(memory_size=128, chunk_size=graph_shape, candidate_count=graph_shape)
             },
             {
-                "num_dimensions": graph_shape,
-                "memory_slots": 64,
-                "chunk_size": 8,
-                "diminishing_factor": 0.9,
-                "heuristic_model_param": {
-                    'pre_steps': 4, 'all_pairs': False,
-                    'lr': 0.01, 'step_size': 1000, 'weight_decay': 0.99
-                }
+                "heuristics": heuristic.Model(metric_network=resnet.Model(), diminishing_factor=0.9, world_update_prior=0.1, reach=1, all_pairs=False),
+                "hippocampus": hippocampus.Model(memory_size=128, chunk_size=graph_shape, diminishing_factor=0.9),
+                "proxy": proxy.Model(memory_size=128, chunk_size=graph_shape, candidate_count=graph_shape)
             }
         ]
     }
 
+    cognitive_map = await build_cognitive_map(**config)
+    print(cognitive_map)
 
     answer = input("Do you want to retrain? (y/n): ").lower().strip()
     train = answer == "y"
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
     weight_path = os.path.join(dir_path, "..", "artifacts", "weights", "network.py.test")
+    os.makedirs(weight_path, exist_ok=True)
 
     if train:
         empty_directory(weight_path)
 
-        g = random_graph(graph_shape, 0.4)
-        np.save(os.path.join(weight_path, "graph.npy"), g)
-        print(g)
+        graph = random_graph(graph_shape, 0.4)
+        np.save(os.path.join(weight_path, "graph.npy"), graph)
+        print(graph)
 
-        # cognitive_map = build_cognitive_map(config)
-        # print(cognitive_map)
+        explore_steps = 10000
+        print("Training a cognitive map:")
+        for i in range(explore_steps):
+            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+            path = [representations[p] for p in path]
+            await cognitive_map.incrementally_learn(path)
+            if i % (explore_steps // 100) == 0:
+                print("Training progress: %.2f%%" % (i * 100 / explore_steps), end="\r", flush=True)
+        print("\nFinish learning.")
+    
     else:
-        g = np.load(os.path.join(weight_path, "graph.npy"))
-        print(g)
+        graph = np.load(os.path.join(weight_path, "graph.npy"))
+        print(graph)
 
         # cognitive_map = load_cognitive_map(config, weight_path)
         # print(cognitive_map)
 
 
-    # with network.build_network(config, weight_path, save_on_exit=train, logger=logger) as root:
-    #     print("Training a cognitive map:")
-    #     for i in range(explore_steps):
-    #         path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-    #         path = all_reps[:, path]
-    #         root.incrementally_learn(path)
-    #         if i % (explore_steps // 100) == 0:
-    #             print("Training progress: %.2f%%" % (i * 100 / explore_steps), end="\r", flush=True)
-    #     print("Finish learning.")
 
     # goals = range(graph_shape)
     # max_steps = 40
@@ -261,7 +256,7 @@ if __name__ == '__main__':
     # stamp = time.time()
     # for t in goals:
     #     try:
-    #         p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps)
+    #         p = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps)
     #         for pi in p:
     #             print(np.argmax(pi), end=' ')
     #             total_length = total_length + 1
@@ -275,7 +270,7 @@ if __name__ == '__main__':
     # stamp = time.time()
     # for t in goals:
     #     try:
-    #         p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=-1)
+    #         p = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=-1)
     #         for pi in p:
     #             print(np.argmax(pi), end=' ')
     #             total_length = total_length + 1
@@ -289,7 +284,7 @@ if __name__ == '__main__':
     # stamp = time.time()
     # for t in goals:
     #     try:
-    #         p = cognitive_map.find_path(representations[:, 0:1], representations[:, t:(t + 1)], hard_limit=max_steps, pathway_bias=1)
+    #         p = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=1)
     #         for pi in p:
     #             print(np.argmax(pi), end=' ')
     #             total_length = total_length + 1
@@ -314,3 +309,13 @@ if __name__ == '__main__':
     #         print()
 
     # print("optimal planner:", time.time() - stamp, " average length:", total_length / len(goals))
+
+
+
+
+if __name__ == '__main__':
+    from pathways import heuristic, hippocampus, proxy
+    from metric import resnet, set_node_dim
+    from utilities import *
+    import random
+    asyncio.run(test())

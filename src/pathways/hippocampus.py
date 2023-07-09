@@ -60,13 +60,15 @@ class Model(Pathway):
 
 
     async def incrementally_learn(self, hs: List[Node]):
-        self.H.append(hs)
+        await self.H.append(hs)
 
         
-    async def compute_entropy(self, x: Node):
-        prop = await self.H.match(x)
-        entropy = np.mean(prop)
-        return entropy
+    async def compute_entropy(self, xs: List[Node]):
+        entropies = []
+        for x in xs:
+            prop = await self.H.match(x)
+            entropies.append(np.mean(prop))
+        return entropies
 
 
     async def sample(self, x: Node, forward=True):

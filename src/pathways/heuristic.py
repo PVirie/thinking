@@ -66,16 +66,16 @@ class Model(Pathway):
         # self_divergences = self.metric_network.distance(path[pivots], path[pivots])
         self_target = 1.0
         self_weight = 0.1
-        self.metric_network.learn(path[pivots], path[pivots], self_target, self_weight)
+        self.metric_network.learn([path[p] for p in pivots], [path[p] for p in pivots], self_target, self_weight)
 
         if self.no_pivot:
-            pivots = np.arange(path_length)
+            pivots = range(path_length)
             reach = path_length
 
         if len(pivots) > 0:
             masks, new_targets = generate_masks(pivots, path_length, self.diminishing_factor, reach)
             s = path
-            t = path[pivots]
+            t = [path[p] for p in pivots]
             divergences = self.metric_network.distance(s, t) 
             # divergence is a matrix of shape [len(t), len(s)]
             targets = np.where(new_targets < divergences, new_targets, (1 - self.new_target_prior) * divergences + self.new_target_prior * new_targets)
@@ -86,7 +86,7 @@ class Model(Pathway):
 
 
 if __name__ == '__main__':
-    masks = generate_masks(np.array([3, 5, 8]), 10, pre_steps=1)
+    masks = generate_masks([3, 5, 8], 10, pre_steps=1)
     print(masks)
 
     # To do: write test

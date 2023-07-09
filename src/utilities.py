@@ -26,8 +26,8 @@ class Timer:
 
 
 def generate_onehot_representation(d, max_digits=8):
-    b = np.zeros((max_digits, d.size), dtype=np.float32)
-    b[d, np.arange(d.size)] = 1
+    b = np.zeros((d.size, max_digits), dtype=np.float32)
+    b[np.arange(d.size), d] = 1
     return b
 
 

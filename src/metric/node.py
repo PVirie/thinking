@@ -4,7 +4,11 @@ from typing import List
 
 
 # global constants
-node_dim = 3
+node_dim = 8
+
+def set_node_dim(dim):
+    global node_dim
+    node_dim = dim
 
 class Node:
     def __init__(self, data):
@@ -24,7 +28,7 @@ class Node_tensor_2D:
         else:
             self.data = np.zeros([max_rows, max_cols, node_dim])
 
-    async def match(self, node):
+    async def match(self, node: Node):
         '''
         node.data as shape: [node_dim]
         self.data as shape: [max_rows, max_cols, node_dim]
