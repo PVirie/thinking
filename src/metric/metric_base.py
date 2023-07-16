@@ -7,7 +7,7 @@ class Model:
     def __init__(self, dims):
         pass
 
-    def learn(self, s: Union[Node, List[Node]], t: Node, targets, masks):
+    def learn(self, s: Union[Node, List[Node]], t: Node, labels, masks):
         pass
 
     def distance(self, s: Union[Node, List[Node]], t: Node):

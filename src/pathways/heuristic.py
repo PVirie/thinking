@@ -30,7 +30,7 @@ class Model(Pathway):
     def __init__(self, metric_network, diminishing_factor, world_update_prior, reach=1, all_pairs=False):
         self.metric_network = metric_network
         self.diminishing_factor = diminishing_factor
-        self.new_target_prior = world_update_prior
+        self.world_update_prior = world_update_prior
         self.reach = reach  # how many pivots to reach. the larger the coverage, the longer the training.
         self.no_pivot = all_pairs  # extreme training condition all node to all nodes
 
@@ -64,24 +64,24 @@ class Model(Pathway):
 
         # learn self
         # self_divergences = self.metric_network.distance(path[pivots], path[pivots])
-        self_target = 1.0
+        self_label = 1.0
         self_weight = 0.1
-        self.metric_network.learn([path[p] for p in pivots], [path[p] for p in pivots], self_target, self_weight)
+        self.metric_network.learn([path[p] for p in pivots], [path[p] for p in pivots], self_label, self_weight)
 
         if self.no_pivot:
             pivots = range(path_length)
             reach = path_length
 
         if len(pivots) > 0:
-            masks, new_targets = generate_masks(pivots, path_length, self.diminishing_factor, reach)
+            masks, new_labels = generate_masks(pivots, path_length, self.diminishing_factor, reach)
             s = path
             t = [path[p] for p in pivots]
             divergences = self.metric_network.distance(s, t) 
             # divergence is a matrix of shape [len(t), len(s)]
-            targets = np.where(new_targets < divergences, new_targets, (1 - self.new_target_prior) * divergences + self.new_target_prior * new_targets)
+            labels = np.where(new_labels < divergences, new_labels, (1 - self.world_update_prior) * divergences + self.world_update_prior * new_labels)
             
             # loss_values += torch.mean(masks * torch.square(divergences - targets))
-            self.metric_network.learn(s, t, targets, masks)
+            self.metric_network.learn(s, t, labels, masks)
 
 
 
