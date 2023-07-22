@@ -189,26 +189,25 @@ async def test():
     np.set_printoptions(precision=2)
 
     graph_shape = 16
-    set_node_dim(graph_shape)
     one_hot = generate_onehot_representation(np.arange(graph_shape), graph_shape)
     representations = [Node(one_hot[i, :]) for i in range(16)]
 
     config = {
         "layers": [
             {
-                "heuristics": heuristic.Model(metric_network=resnet.Model(), diminishing_factor=0.9, world_update_prior=0.1, reach=1, all_pairs=False),
-                "hippocampus": hippocampus.Model(memory_size=128, chunk_size=graph_shape, diminishing_factor=0.9),
-                "proxy": proxy.Model(memory_size=128, chunk_size=graph_shape, candidate_count=graph_shape)
+                "heuristics": heuristic.Model(metric_network=resnet.Model(graph_shape), diminishing_factor=0.9, world_update_prior=0.1, reach=1, all_pairs=False),
+                "hippocampus": hippocampus.Model(memory_size=128, chunk_size=graph_shape, diminishing_factor=0.9, embedding_dim=graph_shape),
+                "proxy": proxy.Model(memory_size=128, chunk_size=graph_shape, candidate_count=graph_shape, embedding_dim=graph_shape)
             },
             {
-                "heuristics": heuristic.Model(metric_network=resnet.Model(), diminishing_factor=0.9, world_update_prior=0.1, reach=1, all_pairs=False),
-                "hippocampus": hippocampus.Model(memory_size=128, chunk_size=graph_shape, diminishing_factor=0.9),
-                "proxy": proxy.Model(memory_size=128, chunk_size=graph_shape, candidate_count=graph_shape)
+                "heuristics": heuristic.Model(metric_network=resnet.Model(graph_shape), diminishing_factor=0.9, world_update_prior=0.1, reach=1, all_pairs=False),
+                "hippocampus": hippocampus.Model(memory_size=128, chunk_size=graph_shape, diminishing_factor=0.9, embedding_dim=graph_shape),
+                "proxy": proxy.Model(memory_size=128, chunk_size=graph_shape, candidate_count=graph_shape, embedding_dim=graph_shape)
             },
             {
-                "heuristics": heuristic.Model(metric_network=resnet.Model(), diminishing_factor=0.9, world_update_prior=0.1, reach=1, all_pairs=False),
-                "hippocampus": hippocampus.Model(memory_size=128, chunk_size=graph_shape, diminishing_factor=0.9),
-                "proxy": proxy.Model(memory_size=128, chunk_size=graph_shape, candidate_count=graph_shape)
+                "heuristics": heuristic.Model(metric_network=resnet.Model(graph_shape), diminishing_factor=0.9, world_update_prior=0.1, reach=1, all_pairs=False),
+                "hippocampus": hippocampus.Model(memory_size=128, chunk_size=graph_shape, diminishing_factor=0.9, embedding_dim=graph_shape),
+                "proxy": proxy.Model(memory_size=128, chunk_size=graph_shape, candidate_count=graph_shape, embedding_dim=graph_shape)
             }
         ]
     }
@@ -315,7 +314,7 @@ async def test():
 
 if __name__ == '__main__':
     from pathways import heuristic, hippocampus, proxy
-    from metric import resnet, set_node_dim
+    from metric import resnet
     from utilities import *
     import random
     asyncio.run(test())

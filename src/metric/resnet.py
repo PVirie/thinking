@@ -106,8 +106,17 @@ class Model(metric_base.Model):
 
 
     def learn(self, s: Union[Node, List[Node]], t: Node, labels, masks):
-        # Todo: hard coded for testing
-        batch = jax.random.normal(self.rng, (32, self.input_dims))
+        # if s is a list of nodes, then the labels must be broadcasted
+        # To do: now we use simple t - start as the feature, we can use more complex features
+        # To do: implement mask
+        if isinstance(s, list):
+            labels = jnp.ones((len(s), 1)) * labels
+            start = jnp.stack([node.data for node in s], axis=0)
+            batch = t.data - start
+        else:
+            start = jnp.expand_dims(s.data, axis=0)
+            batch = t.data - start
+
         self.state, loss = train_step(self.state, batch, labels)
         
 
@@ -127,5 +136,7 @@ if __name__ == '__main__':
     print(output)
 
     resnet = Model(16)
-    labels = jax.random.normal(key, (32, 1))
-    resnet.learn(None, None, labels, None)
+    s = [Node(np.random.rand(16)), Node(np.random.rand(16))]
+    t = Node(np.ones(16))
+    labels = 1.0
+    resnet.learn(s, t, labels, None)

@@ -10,12 +10,12 @@ from base import Pathway, Node, Node_tensor_2D
 
 class Model(Pathway):
 
-    def __init__(self, memory_size, chunk_size, diminishing_factor):
+    def __init__(self, memory_size, chunk_size, diminishing_factor, embedding_dim):
         self.diminishing_factor = diminishing_factor
 
         self.chunk_size = chunk_size
         self.h_size = memory_size
-        self.H = Node_tensor_2D(self.h_size, self.chunk_size)  # [[oldest, ..., new, newer, newest ], ...]
+        self.H = Node_tensor_2D(self.h_size, self.chunk_size, node_dim=embedding_dim)  # [[oldest, ..., new, newer, newest ], ...]
         
     async def enhance(self, c: Node):
         # flatten self.H, preserve indices

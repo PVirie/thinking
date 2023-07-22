@@ -11,9 +11,9 @@ import hippocampus
 
 class Model(hippocampus.Model):
 
-    def __init__(self, memory_size, chunk_size, candidate_count):
+    def __init__(self, memory_size, chunk_size, candidate_count, embedding_dim):
         # call super method
-        super().__init__(memory_size, chunk_size, 1.0)
+        super().__init__(memory_size, chunk_size, 1.0, embedding_dim)
         self.candidate_count = candidate_count
 
 

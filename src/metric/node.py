@@ -3,12 +3,6 @@ import asyncio
 from typing import List
 
 
-# global constants
-node_dim = 8
-
-def set_node_dim(dim):
-    global node_dim
-    node_dim = dim
 
 class Node:
     def __init__(self, data):
@@ -20,13 +14,15 @@ class Node:
 
 
 class Node_tensor_2D:
-    def __init__(self, max_rows, max_cols, data=None):
+    def __init__(self, max_rows, max_cols, data=None, node_dim=16):
         self.max_rows = max_rows
         self.max_cols = max_cols
         if data is not None:
             self.data = np.array(data)
+            self.node_dim = self.data.shape[-1]
         else:
             self.data = np.zeros([max_rows, max_cols, node_dim])
+            self.node_dim = node_dim
 
     async def match(self, node: Node):
         '''
@@ -35,7 +31,7 @@ class Node_tensor_2D:
         '''
 
         # first flatten template
-        flatten = np.reshape(self.data, [-1, node_dim])
+        flatten = np.reshape(self.data, [-1, self.node_dim])
         results = np.exp(-np.linalg.norm(flatten - node.data, axis=1))
 
         # need to filter where self.H is invalid (i.e. where the chunk is not full)
@@ -67,12 +63,12 @@ class Node_tensor_2D:
         '''
         # first flatten template
         augmented = np.reshape(prop, [-1, 1])
-        flatten = np.reshape(self.data, [-1, node_dim])
+        flatten = np.reshape(self.data, [-1, self.node_dim])
         # then reshape the result back to list of list of list
         if use_max:
             return Node(flatten[np.argmax(augmented), :])
         else:
-            return Node(np.reshape(np.sum(augmented * flatten, axis=0) / np.sum(prop), [node_dim]))
+            return Node(np.reshape(np.sum(augmented * flatten, axis=0) / np.sum(prop), [self.node_dim]))
 
 
 async def test():
@@ -82,7 +78,7 @@ async def test():
     print(await node1.is_same_node(node2))
     print(await node1.is_same_node(node3))
 
-    nodes = Node_tensor_2D(2, 2)
+    nodes = Node_tensor_2D(2, 2, node_dim=3)
     await nodes.append([node2, node3])
     await nodes.append(np.array([[0, 0, 0], [1, 2, 3]]))
     print(await nodes.match(node1))
