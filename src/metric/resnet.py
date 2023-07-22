@@ -67,11 +67,11 @@ class TrainState(train_state.TrainState):
 
 
 @jax.jit
-def train_step(state, batch, labels):
+def train_step(state, batch, labels, masks):
 
     def loss_fn(params):
         logits, new_model_state = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, batch, mutable=['batch_stats'])
-        loss = jnp.mean(mse_loss(logits, labels))
+        loss = jnp.mean(mse_loss(logits, labels)*masks)
         return loss, new_model_state
     
     (loss, new_model_state), grads = jax.value_and_grad(
@@ -88,12 +88,21 @@ def mse_loss(logit, label):
     return (logit - label) ** 2
 
 
+def deep_get_data(x):
+    # if x is a node, return data
+    if isinstance(x, Node):
+        return x.data
+    elif isinstance(x, list):
+        return [deep_get_data(y) for y in x]
+
+
 class Model(metric_base.Model):
 
     def __init__(self, input_dims):
         self.rng = jax.random.PRNGKey(42)
         self.input_dims = input_dims
         self.model = Resnet(layers=[16, 8, 4], output_dim=1, training=True)
+        self.predict_model = Resnet(layers=[16, 8, 4], output_dim=1, training=False)
 
         learning_rate = 1e-4
         momentum = 0.9
@@ -105,23 +114,45 @@ class Model(metric_base.Model):
             metrics=Metrics.empty(), batch_stats=variables["batch_stats"])
 
 
-    def learn(self, s: Union[Node, List[Node]], t: Node, labels, masks):
-        # if s is a list of nodes, then the labels must be broadcasted
-        # To do: now we use simple t - start as the feature, we can use more complex features
-        # To do: implement mask
-        if isinstance(s, list):
-            labels = jnp.ones((len(s), 1)) * labels
-            start = jnp.stack([node.data for node in s], axis=0)
-            batch = t.data - start
-        else:
-            start = jnp.expand_dims(s.data, axis=0)
-            batch = t.data - start
+    def learn(self, s, t, labels, masks):
+        s = jnp.array(deep_get_data(s))
+        t = jnp.array(deep_get_data(t))
 
-        self.state, loss = train_step(self.state, batch, labels)
+        # To do: now we use simple t - start as the feature, we can use more complex features
+        features = t - s
+
+        batch = jnp.reshape(features, (-1, self.input_dims))
+        # if labels is a float, we need to reshape it to (batch, 1)
+        if isinstance(labels, float):
+            labels = jnp.ones((batch.shape[0], 1)) * labels
+        else:
+            labels = jnp.reshape(labels, (-1, 1))
+            
+        # if masks is a float, we need to reshape it to (batch, 1)
+        if isinstance(masks, float):
+            masks = jnp.ones((batch.shape[0], 1)) * masks
+        else:
+            masks = jnp.reshape(masks, (-1, 1))
+
+        self.state, loss = train_step(self.state, batch, labels, masks)
         
 
-    def distance(self, s: Union[Node, List[Node]], t: Node):
-        return 0
+    def distance(self, s, t, to_numpy=True):
+        s = jnp.array(deep_get_data(s))
+        t = jnp.array(deep_get_data(t))
+        
+        features = t - s
+        batch = jnp.reshape(features, (-1, self.input_dims))
+
+        logits = self.predict_model.apply({'params': self.state.params, 'batch_stats': self.state.batch_stats}, batch, mutable=False)
+
+        # reshape logits back to features shape except the last dimension
+        unflatten = jnp.reshape(logits, features.shape[:-1])
+        
+        if to_numpy:
+            return unflatten
+        else:
+            return unflatten
     
 # Todo: added metric computation and plot https://flax.readthedocs.io/en/latest/getting_started.html
 
@@ -139,4 +170,6 @@ if __name__ == '__main__':
     s = [Node(np.random.rand(16)), Node(np.random.rand(16))]
     t = Node(np.ones(16))
     labels = 1.0
-    resnet.learn(s, t, labels, None)
+    resnet.learn(s, t, labels, jnp.array([1.0, 2.0]))
+    distance = resnet.distance(s, t)
+    print(distance)

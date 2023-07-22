@@ -22,7 +22,7 @@ def generate_masks(pivots, length, diminishing_factor=0.9, pre_steps=1):
 
     order = np.reshape(np.arange(0, -length, -1), [-1, 1]) + np.expand_dims(pivots, axis=0)
     diminishing = np.power(diminishing_factor, order)
-    return masks, diminishing
+    return np.transpose(masks), np.transpose(diminishing)
 
 
 class Model(Pathway):
@@ -74,8 +74,8 @@ class Model(Pathway):
 
         if len(pivots) > 0:
             masks, new_labels = generate_masks(pivots, path_length, self.diminishing_factor, reach)
-            s = path
-            t = [path[p] for p in pivots]
+            s = [path]
+            t = [[path[p]] for p in pivots]
             divergences = self.metric_network.distance(s, t) 
             # divergence is a matrix of shape [len(t), len(s)]
             labels = np.where(new_labels < divergences, new_labels, (1 - self.world_update_prior) * divergences + self.world_update_prior * new_labels)
