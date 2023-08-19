@@ -25,6 +25,25 @@ class Layer:
     def assign_next(self, next_layer):
         self.next = next_layer
 
+    def save(self, weight_path, index=0):
+        layer_path = os.path.join(weight_path, f"layer_{index}")
+        os.makedirs(layer_path, exist_ok=True)
+        self.heuristics.save(layer_path)
+        self.hippocampus.save(layer_path)
+        self.proxy.save(layer_path)
+        
+        if self.next is not None:
+            self.next.save(weight_path, index + 1)
+
+    def load(self, weight_path, index=0):
+        layer_path = os.path.join(weight_path, f"layer_{index}")
+        self.heuristics.load(layer_path)
+        self.hippocampus.load(layer_path)
+        self.proxy.load(layer_path)
+
+        if self.next is not None:
+            self.next.load(weight_path, index + 1)
+
     async def incrementally_learn(self, path: List[Node]):
         if len(path) < 2:
             return
@@ -229,41 +248,38 @@ async def test():
         np.save(os.path.join(weight_path, "graph.npy"), graph)
         print(graph)
 
-        explore_steps = 10000
+        explore_steps = 1
         print("Training a cognitive map:")
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
             path = [representations[p] for p in path]
             await cognitive_map.incrementally_learn(path)
-            if i % (explore_steps // 100) == 0:
+            if i % 100 == 0:
                 print("Training progress: %.2f%%" % (i * 100 / explore_steps), end="\r", flush=True)
         print("\nFinish learning.")
+        cognitive_map.save(weight_path)
     
     else:
         graph = np.load(os.path.join(weight_path, "graph.npy"))
-        print(graph)
-
-        # cognitive_map = load_cognitive_map(config, weight_path)
-        # print(cognitive_map)
+        cognitive_map.load(weight_path)
 
 
+    goals = range(graph_shape)
+    max_steps = 40
 
-    # goals = range(graph_shape)
-    # max_steps = 40
-
-    # total_length = 0
-    # stamp = time.time()
-    # for t in goals:
-    #     try:
-    #         p = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps)
-    #         for pi in p:
-    #             print(np.argmax(pi), end=' ')
-    #             total_length = total_length + 1
-    #     except RecursionError:
-    #         print("fail to find path in time.", t, end=' ')
-    #     finally:
-    #         print()
-    # print("cognitive planner:", time.time() - stamp, " average length:", total_length / len(goals))
+    total_length = 0
+    stamp = time.time()
+    for t in goals:
+        try:
+            p = await cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps)
+            for pi in p:
+                print(np.argmax(pi), end=' ')
+                total_length = total_length + 1
+        except RecursionError:
+            print("fail to find path in time.", t, end=' ')
+        finally:
+            print()
+    print("cognitive planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
     # total_length = 0
     # stamp = time.time()

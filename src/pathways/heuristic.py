@@ -35,6 +35,17 @@ class Model(Pathway):
         self.no_pivot = all_pairs  # extreme training condition all node to all nodes
 
 
+    def save(self, path):
+        weight_path = os.path.join(path, "heuristic")
+        os.makedirs(weight_path, exist_ok=True)
+        self.metric_network.save(weight_path)
+
+
+    def load(self, path):
+        weight_path = os.path.join(path, "heuristic")
+        self.metric_network.load(weight_path)
+
+
     async def consolidate(self, start: Node, candidates: List[Node], props: List[float], target: Node):
         # candidates has shape [num_memory]
         # props has shape [num_memory]

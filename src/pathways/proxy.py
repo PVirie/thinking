@@ -17,6 +17,17 @@ class Model(hippocampus.Model):
         self.candidate_count = candidate_count
 
 
+    def save(self, path):
+        weight_path = os.path.join(path, "proxy")
+        os.makedirs(weight_path, exist_ok=True)
+        # self.H.data is an np array
+        np.save(os.path.join(weight_path, "H.npy"), self.H.data)
+
+    def load(self, path):
+        weight_path = os.path.join(path, "proxy")
+        self.H.data = np.load(os.path.join(weight_path, "H.npy"))
+
+        
     async def incrementally_learn(self, hs: List[Node]):
         await super().incrementally_learn(hs)
 

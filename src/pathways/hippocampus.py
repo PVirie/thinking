@@ -17,6 +17,17 @@ class Model(Pathway):
         self.h_size = memory_size
         self.H = Node_tensor_2D(self.h_size, self.chunk_size, node_dim=embedding_dim)  # [[oldest, ..., new, newer, newest ], ...]
         
+
+    def save(self, path):
+        weight_path = os.path.join(path, "hippocampus")
+        os.makedirs(weight_path, exist_ok=True)
+        # self.H.data is an np array
+        np.save(os.path.join(weight_path, "H.npy"), self.H.data)
+
+    def load(self, path):
+        weight_path = os.path.join(path, "hippocampus")
+        self.H.data = np.load(os.path.join(weight_path, "H.npy"))
+
     async def enhance(self, c: Node):
         # flatten self.H, preserve indices
         prop = await self.H.match(c)

@@ -1,3 +1,5 @@
+import os
+
 import metric_base
 from node import Node, Node_tensor_2D
 from typing import Sequence, Union, List, Any
@@ -12,6 +14,8 @@ import flax
 from flax.training import train_state  # Useful dataclass to keep train state
 from flax import struct                # Flax dataclasses
 import optax  
+
+from flax import serialization
 
 
 class ResnetBlock(nn.Module):
@@ -113,6 +117,19 @@ class Model(metric_base.Model):
             apply_fn=self.model.apply, params=variables["params"], tx=tx,
             metrics=Metrics.empty(), batch_stats=variables["batch_stats"])
 
+    def save(self, path):
+        bytes_output = serialization.to_bytes(self.state)
+        with open(os.path.join(path, "resnet.bin"), 'wb') as f:
+            f.write(bytes_output)
+        # print(serialization.to_state_dict(self.state))
+
+
+    def load(self, path):
+        with open(os.path.join(path, "resnet.bin"), 'rb') as f:
+            bytes_output = f.read()
+        serialization.from_bytes(self.state, bytes_output)
+        # print(serialization.to_state_dict(self.state))
+
 
     def learn(self, s, t, labels, masks):
         s = jnp.array(deep_get_data(s))
@@ -154,7 +171,7 @@ class Model(metric_base.Model):
         else:
             return unflatten
     
-# Todo: added metric computation and plot https://flax.readthedocs.io/en/latest/getting_started.html
+# To do: added metric computation and plot https://flax.readthedocs.io/en/latest/getting_started.html
 
 
 if __name__ == '__main__':
