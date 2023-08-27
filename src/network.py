@@ -16,7 +16,8 @@ def compute_pivot_indices(entropies):
 
 
 class Layer:
-    def __init__(self, heuristics, hippocampus, proxy):
+    def __init__(self, name, heuristics, hippocampus, proxy):
+        self.name = name
         self.heuristics = heuristics
         self.hippocampus = hippocampus
         self.proxy = proxy
@@ -87,7 +88,7 @@ class Layer:
         cortex_rep, cortex_prop = await self.heuristics.consolidate(s, candidates, props, t)
         hippocampus_rep, hippocampus_prop = await self.hippocampus.infer(s, t)
 
-        sup_info = [(self.hippocampus.enhance(cortex_rep), cortex_prop), (self.hippocampus.enhance(hippocampus_rep), hippocampus_prop)]
+        sup_info = [(await self.hippocampus.enhance(cortex_rep), cortex_prop), (await self.hippocampus.enhance(hippocampus_rep), hippocampus_prop)]
 
         if pathway_bias < 0:
             return hippocampus_rep, sup_info
@@ -109,7 +110,7 @@ class Layer:
         }
 
         if self.next is not None:
-            goals = await self.next.find_path(self.to_next(c, True), self.to_next(t, False))
+            goals = self.next.find_path(await self.to_next(c, True), await self.to_next(t, False))
 
         yield False, {
             "layer": self.name,
@@ -127,11 +128,11 @@ class Layer:
                 try:
                     while True:
                         # pop the next goal
-                        is_result, result = await anext(goals)
-                        if is_result:
-                            yield False, result
+                        result, data = await anext(goals)
+                        if result:
+                            yield False, data
                             break
-                    g = await self.from_next(result)
+                    g = await self.from_next(data)
                 except StopIteration:
                     yield False,{
                         "layer": self.name + 1,
@@ -160,7 +161,7 @@ class Layer:
                     }
                     raise RecursionError
 
-                c, supplementary = await self.pincer_inference(c, g, pathway_bias, with_info=True)
+                c, supplementary = await self.pincer_inference(c, g, pathway_bias)
                 c = await self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
 
                 yield False, {
@@ -195,8 +196,8 @@ class Layer:
 
 async def build_cognitive_map(layers):
     hierarchy = []
-    for layer_data in layers:
-        hierarchy.append(Layer(layer_data["heuristics"], layer_data["hippocampus"], layer_data["proxy"]))
+    for i, layer_data in enumerate(layers):
+        hierarchy.append(Layer(f"layer-{i}", layer_data["heuristics"], layer_data["hippocampus"], layer_data["proxy"]))
     for i in range(len(hierarchy) - 1):
         hierarchy[i].assign_next(hierarchy[i + 1])
     return hierarchy[0]
@@ -248,7 +249,7 @@ async def test():
         np.save(os.path.join(weight_path, "graph.npy"), graph)
         print(graph)
 
-        explore_steps = 1
+        explore_steps = 10000
         print("Training a cognitive map:")
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
@@ -271,10 +272,13 @@ async def test():
     stamp = time.time()
     for t in goals:
         try:
-            p = await cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps)
-            for pi in p:
-                print(np.argmax(pi), end=' ')
-                total_length = total_length + 1
+            path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps)
+            async for result, pi in path_generator:
+                if not result:
+                    print(pi)
+                else:
+                    print(np.argmax(pi), end=' ')
+                    total_length = total_length + 1
         except RecursionError:
             print("fail to find path in time.", t, end=' ')
         finally:

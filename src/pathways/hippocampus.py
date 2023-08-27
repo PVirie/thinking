@@ -65,7 +65,7 @@ class Model(Pathway):
             return None, None
 
         hippocampus_prop = pow(self.diminishing_factor, t_best_index - s_best_index - 1) * s_best_prop * t_best_prop
-        hippocampus_rep = self.H.access(best, s_best_index + 1)
+        hippocampus_rep = await self.H.access(best, s_best_index + 1)
         
         return hippocampus_rep, hippocampus_prop
 
@@ -85,10 +85,8 @@ class Model(Pathway):
     async def sample(self, x: Node, forward=True):
         # To do normalize distinct?
         prop = await self.H.match(x)
-        if forward:
-            return self.H.roll(1, -1).consolidate(prop)
-        else:
-            return self.H.roll(1, 1).consolidate(prop)
+        res = await self.H.roll(1, -1 if forward else 1)
+        return await res.consolidate(prop)
 
 
 

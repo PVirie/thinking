@@ -38,16 +38,12 @@ class Model(hippocampus.Model):
         c_prop = np.zeros(self.candidate_count, dtype=np.float32)
         p = await self.H.match(x)
 
-        if forward:
-            kernel = self.H.roll(1, -1)
-        else:
-            kernel = self.H.roll(1, 1)
-
+        kernel = await self.H.roll(1, -1 if forward else 1)
         for i in range(self.candidate_count):
-            c = kernel.consolidate(p, use_max=True)
+            c = await kernel.consolidate(p, use_max=True)
             C.append(c)
-            c_prop[i] = np.max(p, axis=0, keepdims=False)
-            m = kernel.match(c)
+            c_prop[i] = np.max(p, keepdims=False)
+            m = await kernel.match(c)
             p = p * (1-m)
 
         return C, c_prop
