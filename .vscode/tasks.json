@@ -1,0 +1,87 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "docker-build",
+            "label": "docker-build",
+            "platform": "python",
+            "dockerBuild": {
+                "tag": "thinking:latest",
+                "dockerfile": "${workspaceFolder}/Dockerfile",
+                "context": "${workspaceFolder}",
+                "pull": true
+            }
+        },
+        {
+            "type": "docker-run",
+            "label": "docker-run: debug",
+            "dependsOn": ["docker-build"],
+            "python": {
+                "file": "src/network.py"
+            },
+            "dockerRun": {
+                "env": {
+                    "ERROR_LOG": "/app/log/error.log",
+                    "LOG_LEVEL": "info",
+                    "PYTHONUNBUFFERED": "TRUE",
+                    "TF_CPP_MIN_LOG_LEVEL": "0"
+                },
+                "volumes": [
+                    {
+                        "localPath": "${workspaceFolder}/artifacts/log/metric",
+                        "containerPath": "/app/log"
+                    },
+                    {
+                        "localPath": "${workspaceFolder}/src",
+                        "containerPath": "/app/src"
+                    },
+                    {
+                        "localPath": "${workspaceFolder}/artifacts/weights",
+                        "containerPath": "/app/weights"
+                    }
+                ],
+                "customOptions": "--gpus all"
+            }
+        },
+        {
+            "type": "docker-build",
+            "label": "docker-build-nogpu",
+            "platform": "python",
+            "dockerBuild": {
+                "tag": "thinking:latest",
+                "dockerfile": "${workspaceFolder}/Dockerfile.nogpu",
+                "context": "${workspaceFolder}",
+                "pull": true
+            }
+        },
+        {
+            "type": "docker-run",
+            "label": "docker-run-nogpu: debug",
+            "dependsOn": ["docker-build-nogpu"],
+            "python": {
+                "file": "src/network.py"
+            },
+            "dockerRun": {
+                "env": {
+                    "ERROR_LOG": "/app/log/error.log",
+                    "LOG_LEVEL": "info",
+                    "PYTHONUNBUFFERED": "TRUE"
+                },
+                "volumes": [
+                    {
+                        "localPath": "${workspaceFolder}/artifacts/log/metric",
+                        "containerPath": "/app/log"
+                    },
+                    {
+                        "localPath": "${workspaceFolder}/src",
+                        "containerPath": "/app/src"
+                    },
+                    {
+                        "localPath": "${workspaceFolder}/artifacts/weights",
+                        "containerPath": "/app/weights"
+                    }
+                ]
+            }
+        }
+    ]
+}

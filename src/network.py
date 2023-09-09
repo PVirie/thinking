@@ -235,12 +235,18 @@ async def test():
     cognitive_map = await build_cognitive_map(**config)
     print(cognitive_map)
 
-    answer = input("Do you want to retrain? (y/n): ").lower().strip()
-    train = answer == "y"
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    weight_path = os.path.join(dir_path, "..", "artifacts", "weights", "network.py.test")
+    weight_path = os.path.join(dir_path, "..", "weights", "network.py.test")
     os.makedirs(weight_path, exist_ok=True)
+
+    # answer = input("Do you want to retrain? (y/n): ").lower().strip()
+    # train = answer == "y"
+    if os.path.exists(weight_path): 
+        train = False
+    else:
+        train = True
+    train = True
 
     if train:
         empty_directory(weight_path)

@@ -1,0 +1,34 @@
+{
+    "configurations": [
+        {
+            "name": "Docker: Python - GPU",
+            "type": "docker",
+            "request": "launch",
+            "preLaunchTask": "docker-run: debug",
+            "python": {
+                "pathMappings": [
+                    {
+                        "localRoot": "${workspaceFolder}",
+                        "remoteRoot": "/app"
+                    }
+                ],
+                "projectType": "general"
+            }
+        },
+        {
+            "name": "Docker: Python - NOGPU",
+            "type": "docker",
+            "request": "launch",
+            "preLaunchTask": "docker-run-nogpu: debug",
+            "python": {
+                "pathMappings": [
+                    {
+                        "localRoot": "${workspaceFolder}",
+                        "remoteRoot": "/app"
+                    }
+                ],
+                "projectType": "general"
+            }
+        }
+    ]
+}
