@@ -9,4 +9,4 @@ COPY ./requirements.txt /app/requirements.txt
 
 WORKDIR /app
 RUN pip3 install --no-cache-dir --upgrade -r requirements.txt
-CMD ["python", "src/network.py"]
+ENTRYPOINT ["python3", "src/network.py"]

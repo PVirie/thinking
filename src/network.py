@@ -4,6 +4,12 @@ import asyncio
 from typing import List
 from metric import Node
 from loguru import logger
+import argparse
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--retrain", action="store_true")
+args = parser.parse_args()
 
 
 def compute_pivot_indices(entropies):
@@ -240,13 +246,15 @@ async def test():
     weight_path = os.path.join(dir_path, "..", "weights", "network.py.test")
     os.makedirs(weight_path, exist_ok=True)
 
-    # answer = input("Do you want to retrain? (y/n): ").lower().strip()
-    # train = answer == "y"
     if os.path.exists(weight_path): 
         train = False
     else:
         train = True
-    train = True
+
+    # read train from args
+    train = args.retrain
+
+    print("train:", train)
 
     if train:
         empty_directory(weight_path)
@@ -291,33 +299,39 @@ async def test():
             print()
     print("cognitive planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
-    # total_length = 0
-    # stamp = time.time()
-    # for t in goals:
-    #     try:
-    #         p = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=-1)
-    #         for pi in p:
-    #             print(np.argmax(pi), end=' ')
-    #             total_length = total_length + 1
-    #     except RecursionError:
-    #         print("fail to find path in time.", t, end=' ')
-    #     finally:
-    #         print()
-    # print("hippocampus planner:", time.time() - stamp, " average length:", total_length / len(goals))
+    total_length = 0
+    stamp = time.time()
+    for t in goals:
+        try:
+            path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=-1)
+            async for result, pi in path_generator:
+                if not result:
+                    print(pi)
+                else:
+                    print(np.argmax(pi), end=' ')
+                    total_length = total_length + 1
+        except RecursionError:
+            print("fail to find path in time.", t, end=' ')
+        finally:
+            print()
+    print("hippocampus planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
-    # total_length = 0
-    # stamp = time.time()
-    # for t in goals:
-    #     try:
-    #         p = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=1)
-    #         for pi in p:
-    #             print(np.argmax(pi), end=' ')
-    #             total_length = total_length + 1
-    #     except RecursionError:
-    #         print("fail to find path in time.", t, end=' ')
-    #     finally:
-    #         print()
-    # print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
+    total_length = 0
+    stamp = time.time()
+    for t in goals:
+        try:
+            path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=1)
+            async for result, pi in path_generator:
+                if not result:
+                    print(pi)
+                else:
+                    print(np.argmax(pi), end=' ')
+                    total_length = total_length + 1
+        except RecursionError:
+            print("fail to find path in time.", t, end=' ')
+        finally:
+            print()
+    print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
     # total_length = 0
     # stamp = time.time()

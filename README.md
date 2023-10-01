@@ -9,29 +9,22 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 ## Prerequisites
 
 -   install [docker-ce](https://www.linode.com/docs/guides/installing-and-using-docker-on-ubuntu-and-debian/)
--   install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#getting-started)
+-   (Optional) install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#getting-started)
 -   adding user to docker group `sudo usermod -aG docker $USER`
--   `./build_docker.sh`
 
 ### Run experiments
 
--   `./run_docker.sh` to open a shell
-    -   `python3 src/strategy.py` for a single run experiment
-    -   `python3 tasks/exp_onehot.py` for batch experiments
-
-### Run web view
-
--   `python3 main.py` to start a web server
-    -   `http://localhost:8000/view/index.html`
+-   `./run_manual.sh` The program will automatically random graph and train the parameter. If you want to retrain the parameter, you can run simply delete the weight direction in `./artifacts`.
+-   For VSCode, launch `Docker: Python - GPU` configuration. (Docker: Python - NOGPU) for no gpu environment.
 
 ## To do
 
--   Use invertible embedding might help generalization?
--   ~Jax
--   ~Vector field representation
 -   Test the algorithm with many elaborate example environments.
--   ~Basis learning
--   ~Test: one step find path without enhancement
+-   Use invertible embedding might help generalization?
+-   ~Jax~
+-   ~Vector field representation~
+-   ~Basis learning~
+-   ~Test: one step find path without enhancement~
 -   ~Cannot be fixed (need repeatative prevention mechanism): Fix cortex loop (caused by unseen pair on estimation.)~
 -   ~Proper hierarchy debug~
 -   ~Rewrite to next hierarchy function~

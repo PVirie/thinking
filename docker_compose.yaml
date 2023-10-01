@@ -1,0 +1,47 @@
+version: "3"
+services:
+    main-gpu:
+        profiles: ["gpu"]
+        build:
+            dockerfile: ./Dockerfile
+            context: .
+        container_name: thinking-gpu
+        restart: no
+        volumes:
+            - ./artifacts/log/metric:/app/log
+            - ./artifacts/weights:/app/weights
+            - ./src:/app/src
+        environment:
+            - ERROR_LOG=/app/log/error.log
+            - LOG_LEVEL=info
+            - PYTHONUNBUFFERED=TRUE
+            - TF_CPP_MIN_LOG_LEVEL=0
+        networks:
+            - app_network
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          capabilities: [gpu]
+    main:
+        profiles: ["cpu"]
+        build:
+            dockerfile: ./Dockerfile
+            context: .
+        container_name: thinking-cpu
+        restart: no
+        volumes:
+            - ./artifacts/log/metric:/app/log
+            - ./artifacts/weights:/app/weights
+            - ./src:/app/src
+        environment:
+            - ERROR_LOG=/app/log/error.log
+            - LOG_LEVEL=info
+            - PYTHONUNBUFFERED=TRUE
+            - TF_CPP_MIN_LOG_LEVEL=0
+        networks:
+            - app_network
+networks:
+    app_network:
+        driver: bridge
