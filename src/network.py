@@ -2,7 +2,7 @@ import numpy as np
 import os
 import asyncio
 from typing import List
-from metric import Node
+from metric import Node, Node_tensor_2D, Metric_Printer
 from loguru import logger
 import argparse
 
@@ -19,6 +19,7 @@ def compute_pivot_indices(entropies):
             all_pvs.append(j - 1)
     all_pvs.append(len(entropies) - 1)
     return all_pvs
+
 
 
 class Layer:
@@ -278,6 +279,7 @@ async def test():
         graph = np.load(os.path.join(weight_path, "graph.npy"))
         cognitive_map.load(weight_path)
 
+    printer = Metric_Printer(Node_tensor_2D(graph_shape, 1, np.array([r.data for r in representations])))
 
     goals = range(graph_shape)
     max_steps = 40
@@ -289,15 +291,16 @@ async def test():
             path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps)
             async for result, pi in path_generator:
                 if not result:
-                    print(pi)
+                    await printer.print(pi)
                 else:
-                    print(np.argmax(pi), end=' ')
+                    await printer.print(np.argmax(pi), end=' ')
                     total_length = total_length + 1
         except RecursionError:
-            print("fail to find path in time.", t, end=' ')
+            await printer.print("fail to find path in time.", t, end=' ')
         finally:
             print()
     print("cognitive planner:", time.time() - stamp, " average length:", total_length / len(goals))
+    print("======================================================")
 
     total_length = 0
     stamp = time.time()
@@ -306,15 +309,16 @@ async def test():
             path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=-1)
             async for result, pi in path_generator:
                 if not result:
-                    print(pi)
+                    await printer.print(pi)
                 else:
-                    print(np.argmax(pi), end=' ')
+                    await printer.print(np.argmax(pi), end=' ')
                     total_length = total_length + 1
         except RecursionError:
-            print("fail to find path in time.", t, end=' ')
+            await printer.print("fail to find path in time.", t, end=' ')
         finally:
             print()
     print("hippocampus planner:", time.time() - stamp, " average length:", total_length / len(goals))
+    print("======================================================")
 
     total_length = 0
     stamp = time.time()
@@ -323,14 +327,14 @@ async def test():
             path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=1)
             async for result, pi in path_generator:
                 if not result:
-                    print(pi)
+                    await printer.print(pi)
                 else:
-                    print(np.argmax(pi), end=' ')
+                    await printer.print(np.argmax(pi), end=' ')
                     total_length = total_length + 1
         except RecursionError:
-            print("fail to find path in time.", t, end=' ')
+            await printer.print("fail to find path in time.", t, end=' ')
         finally:
-            print()
+            await printer.print()
     print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
     # total_length = 0

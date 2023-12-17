@@ -71,6 +71,38 @@ class Node_tensor_2D:
             return Node(np.reshape(np.sum(augmented * flatten, axis=0) / np.sum(prop), [self.node_dim]))
 
 
+class Metric_Printer:
+    def __init__(self, supports: Node_tensor_2D):
+        self.supports = supports
+
+    async def replace(self, x):
+        if isinstance(x, Node):
+            logits = await self.supports.match(x)
+            return np.argmax(logits)
+        elif isinstance(x, list):
+            return [await self.replace(y) for y in x]
+        elif isinstance(x, tuple):
+            return tuple([await self.replace(y) for y in x])
+        elif isinstance(x, dict):
+            return {await self.replace(k): await self.replace(v) for k, v in x.items()}
+        elif isinstance(x, set):
+            return {await self.replace(y) for y in x}
+        else:
+            return x
+
+
+    # accept args and kwargs
+    async def print(self, *args, **kwargs):
+        # replace args that are Node with the corresponding max support's logit
+        new_args = []
+        for arg in args:
+            new_args.append(await self.replace(arg))
+            
+        print(*new_args, **kwargs)
+        
+
+
+
 async def test():
     node1 = Node(np.array([1, 2, 3]))
     node2 = Node(np.array([1, 2, 3]))
