@@ -16,6 +16,8 @@ services:
             - LOG_LEVEL=info
             - PYTHONUNBUFFERED=TRUE
             - TF_CPP_MIN_LOG_LEVEL=0
+        ports:
+            - "127.0.0.1:5678:5678"
         networks:
             - app_network
         deploy:
@@ -27,7 +29,7 @@ services:
     main:
         profiles: ["cpu"]
         build:
-            dockerfile: ./Dockerfile
+            dockerfile: ./Dockerfile.nogpu
             context: .
         container_name: thinking-cpu
         restart: no
@@ -40,6 +42,8 @@ services:
             - LOG_LEVEL=info
             - PYTHONUNBUFFERED=TRUE
             - TF_CPP_MIN_LOG_LEVEL=0
+        ports:
+            - "127.0.0.1:5678:5678"
         networks:
             - app_network
 networks:

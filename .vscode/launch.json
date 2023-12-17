@@ -2,33 +2,31 @@
     "configurations": [
         {
             "name": "Docker: Python - GPU",
-            "type": "docker",
-            "request": "launch",
-            "preLaunchTask": "docker-run: debug",
-            "python": {
-                "pathMappings": [
-                    {
-                        "localRoot": "${workspaceFolder}",
-                        "remoteRoot": "/app"
-                    }
-                ],
-                "projectType": "general"
-            }
+            "type": "python",
+            "request": "attach",
+            "preLaunchTask": "docker-compose-start: gpu",
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/src",
+                    "remoteRoot": "/app/src"
+                }
+            ],
+            "port": 5678,
+            "host": "127.0.0.1"
         },
         {
             "name": "Docker: Python - NOGPU",
-            "type": "docker",
-            "request": "launch",
-            "preLaunchTask": "docker-run-nogpu: debug",
-            "python": {
-                "pathMappings": [
-                    {
-                        "localRoot": "${workspaceFolder}",
-                        "remoteRoot": "/app"
-                    }
-                ],
-                "projectType": "general"
-            }
+            "type": "python",
+            "request": "attach",
+            "preLaunchTask": "docker-compose-start: cpu",
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/src",
+                    "remoteRoot": "/app/src"
+                }
+            ],
+            "port": 5678,
+            "host": "127.0.0.1"
         }
     ]
 }
