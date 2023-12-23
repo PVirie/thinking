@@ -40,6 +40,23 @@
                     }
                 }
             ]
+        },
+        {
+            "label": "docker-compose-start: current file",
+            "type": "shell",
+            "command": "docker compose -f docker_compose.yaml --profile cpu run --rm -d --build --service-ports main python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ${relativeFile}",
+            "dependsOn": ["docker-compose-stop"],
+            "isBackground": true,
+            "problemMatcher": [
+                {
+                    "pattern": [{ "regexp": ".", "file": 1, "location": 2, "message": 3 }],
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": "^(Building py-service)$",
+                        "endsPattern": "^(Creating|Recreating|Starting) (py-container) ... (done)$"
+                    }
+                }
+            ]
         }
     ]
 }

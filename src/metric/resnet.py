@@ -154,11 +154,19 @@ class Model(metric_base.Model):
         self.state, loss = train_step(self.state, batch, labels, masks)
         
 
-    def distance(self, s, t, to_numpy=True):
+    def distance(self, s, t, to_numpy=True, cartesian=False):
         s = jnp.array(deep_get_data(s))
         t = jnp.array(deep_get_data(t))
         
-        features = t - s
+        if cartesian:
+            # expand dim to (batch, 1, dim) and (1, batch, dim)
+            s_ = jnp.expand_dims(s, axis=1)
+            t_ = jnp.expand_dims(t, axis=0)
+            # the output has shape (s.shape[0], t.shape[0], dim)
+            features = t_ - s_
+        else:
+            features = t - s
+        
         batch = jnp.reshape(features, (-1, self.input_dims))
 
         logits = self.predict_model.apply({'params': self.state.params, 'batch_stats': self.state.batch_stats}, batch, mutable=False)

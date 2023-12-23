@@ -35,6 +35,24 @@
             ],
             "port": 5678,
             "host": "127.0.0.1"
+        },
+        {
+            "name": "Docker: Python - Currentfile NOGPU",
+            "type": "python",
+            "request": "attach",
+            "preLaunchTask": "docker-compose-start: current file",
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/src",
+                    "remoteRoot": "/app/src"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/tasks",
+                    "remoteRoot": "/app/tasks"
+                }
+            ],
+            "port": 5678,
+            "host": "127.0.0.1"
         }
     ]
 }
