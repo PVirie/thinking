@@ -9,6 +9,10 @@
                 {
                     "localRoot": "${workspaceFolder}/src",
                     "remoteRoot": "/app/src"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/tasks",
+                    "remoteRoot": "/app/tasks"
                 }
             ],
             "port": 5678,
@@ -23,6 +27,10 @@
                 {
                     "localRoot": "${workspaceFolder}/src",
                     "remoteRoot": "/app/src"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/tasks",
+                    "remoteRoot": "/app/tasks"
                 }
             ],
             "port": 5678,

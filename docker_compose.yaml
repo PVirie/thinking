@@ -11,6 +11,7 @@ services:
             - ./artifacts/log/metric:/app/log
             - ./artifacts/weights:/app/weights
             - ./src:/app/src
+            - ./tasks:/app/tasks
         environment:
             - ERROR_LOG=/app/log/error.log
             - LOG_LEVEL=info
@@ -37,6 +38,7 @@ services:
             - ./artifacts/log/metric:/app/log
             - ./artifacts/weights:/app/weights
             - ./src:/app/src
+            - ./tasks:/app/tasks
         environment:
             - ERROR_LOG=/app/log/error.log
             - LOG_LEVEL=info
