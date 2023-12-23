@@ -42,7 +42,7 @@
             ]
         },
         {
-            "label": "docker-compose-start: current file",
+            "label": "docker-compose-start: current file (internal)",
             "type": "shell",
             "command": "docker compose -f docker_compose.yaml --profile cpu run --rm -d --build --service-ports main python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ${relativeFile}",
             "dependsOn": ["docker-compose-stop"],
@@ -57,6 +57,14 @@
                     }
                 }
             ]
+        },
+        // add delay task for docker to start
+        {
+            "label": "docker-compose-start: current file",
+            "type": "shell",
+            "command": "sleep 3",
+            "dependsOn": ["docker-compose-start: current file (internal)"],
+            "isBackground": false
         }
     ]
 }
