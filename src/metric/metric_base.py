@@ -21,8 +21,8 @@ def deep_get_data(x):
 
 
 def make_features(s, t, cartesian=False):
-    s = jnp.array(deep_get_data(s))
-    t = jnp.array(deep_get_data(t))
+    s = jnp.array(deep_get_data(s), jnp.float32)
+    t = jnp.array(deep_get_data(t), jnp.float32)
 
     if cartesian:
         # expand dim to s (s.shape[0], t.shape[0], dim) and t (s.shape[0], t.shape[0], dim)

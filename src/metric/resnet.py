@@ -21,16 +21,13 @@ from flax import serialization
 class ResnetBlock(nn.Module):
     # not convolutional, just dense
     features: int
-    training: bool = False
 
     @nn.compact
     def __call__(self, x):
         # x has shape [batch, dim]
         y = nn.Dense(features=self.features)(x)
-        y = nn.BatchNorm(use_running_average=not self.training, momentum=0.9)(y)
         y = nn.relu(y)
         y = nn.Dense(features=self.features)(y)
-        y = nn.BatchNorm(use_running_average=not self.training, momentum=0.9)(y)
         y = nn.relu(y)
         return x + y
 
@@ -40,7 +37,6 @@ class Resnet(nn.Module):
     layers: Sequence[int]
     output_dim: int
     input_dim: int = -1 # -1 means it will be inferred from the input
-    training: bool = False
     
     @nn.compact
     def __call__(self, x):
@@ -50,7 +46,6 @@ class Resnet(nn.Module):
             # when last last_dims != features use dense
             if last_dims != features:
                 x = nn.Dense(features)(x)
-                x = nn.BatchNorm(use_running_average=not self.training, momentum=0.9)(x)
                 x = nn.relu(x)
             x = ResnetBlock(features)(x)
             last_dims = features
@@ -65,25 +60,21 @@ class Metrics(metrics.Collection):
 
 
 class TrainState(train_state.TrainState):
-  batch_stats: flax.core.FrozenDict[str, Any]
   metrics: Metrics
-
 
 
 @jax.jit
 def train_step(state, batch, labels, masks):
 
     def loss_fn(params):
-        logits, new_model_state = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, batch, mutable=['batch_stats'])
+        logits = state.apply_fn({'params': params}, batch)
         loss = jnp.mean(mse_loss(logits, labels)*masks)
-        return loss, new_model_state
+        return loss
     
-    (loss, new_model_state), grads = jax.value_and_grad(
-        loss_fn, has_aux=True)(state.params)
+    loss, grads = jax.value_and_grad(loss_fn)(state.params)
     
     return state.apply_gradients(
         grads=grads,
-        batch_stats=new_model_state['batch_stats'],
     ), loss
 
 
@@ -97,17 +88,19 @@ class Model(metric_base.Model):
     def __init__(self, input_dims):
         self.rng = jax.random.PRNGKey(42)
         self.input_dims = input_dims
-        self.model = Resnet(layers=[8, 8, 8], output_dim=1, training=True)
-        self.predict_model = Resnet(layers=[8, 8, 8], output_dim=1, training=False)
+        self.model = Resnet(layers=[8, 8], output_dim=1)
 
         learning_rate = 1e-3
         momentum = 0.9
-        variables = self.model.init(self.rng, jnp.ones((1, input_dims * 2), jnp.float32))
+        variables = self.model.init(self.rng, jnp.empty((1, input_dims * 2), jnp.float32))
         tx = optax.sgd(learning_rate, momentum)
 
         self.state = TrainState.create(
-            apply_fn=self.model.apply, params=variables["params"], tx=tx,
-            metrics=Metrics.empty(), batch_stats=variables["batch_stats"])
+            apply_fn=self.model.apply, 
+            params=variables["params"], 
+            tx=tx,
+            metrics=Metrics.empty()
+        )
 
     def save(self, path):
         bytes_output = serialization.to_bytes(self.state)
@@ -152,7 +145,7 @@ class Model(metric_base.Model):
         
         batch = jnp.reshape(features, (-1, self.input_dims * 2))
 
-        logits = self.predict_model.apply({'params': self.state.params, 'batch_stats': self.state.batch_stats}, batch, mutable=False)
+        logits = self.model.apply({'params': self.state.params}, batch, mutable=False)
 
         # reshape logits back to features shape except the last dimension
         unflatten = jnp.reshape(logits, features.shape[:-1])
@@ -176,8 +169,16 @@ if __name__ == '__main__':
 
     resnet = Model(16)
     s = [Node(np.random.rand(16)), Node(np.random.rand(16))]
+    s2 = [Node(np.random.rand(16)), Node(np.random.rand(16))]
     t = Node(np.ones(16))
-    labels = 1.0
-    resnet.learn(s, t, labels, jnp.array([1.0, 2.0]))
     distance = resnet.likelihood(s, t)
-    print(distance)
+    distance2 = resnet.likelihood(s2, t)
+    print("Before", distance, distance2)
+    for i in range(1000):
+        loss = resnet.learn(s, t, 1.0, jnp.array([1.0, 1.0]))
+        loss2 = resnet.learn(s2, t, 0.5, jnp.array([1.0, 1.0]))
+        if i % 100 == 0:
+            print(loss, loss2)
+    distance = resnet.likelihood(s, t)
+    distance2 = resnet.likelihood(s2, t)
+    print("After", distance, distance2)

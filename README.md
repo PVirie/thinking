@@ -21,6 +21,7 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 
 -   Fixed metric model learning
 -   World update prior vs bootstrapping (implement statistical keeping of the variance and mean to estimate extreme cases.)
+-   Control pathway
 -   jax enhance phase II: reduce data transfer in training (target utilities function, remove if else in training functions.)
 -   Test the algorithm with many elaborate example environments.
 -   ~Convert all np array to jax array.~

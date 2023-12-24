@@ -63,7 +63,7 @@ class Model(Pathway):
 
         heuristic_scores = self.metric_network.likelihood(candidates, target)
 
-        scores = jnp.array(props) * heuristic_scores
+        scores = jnp.array(props, jnp.float32) * heuristic_scores
         max_candidate = jnp.argmax(scores)
 
         heuristic_rep = candidates[max_candidate]

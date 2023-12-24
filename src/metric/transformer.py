@@ -168,7 +168,7 @@ class Model(metric_base.Model):
 
         learning_rate = 1e-4
         momentum = 0.9
-        variables = self.model.init(self.rng, jnp.ones((1, input_dims), jnp.float32))
+        variables = self.model.init(self.rng, jnp.empty((1, input_dims), jnp.float32))
         tx = optax.sgd(learning_rate, momentum)
 
         self.state = TrainState.create(
@@ -231,6 +231,13 @@ class Model(metric_base.Model):
 if __name__ == '__main__':
     
     model = StackedTransformer(layers=[(10, 10), (10, 10)], output_dim=2)
+    key = jax.random.PRNGKey(0)
+    batch = jax.random.normal(key, (32, 10))
+    variables = model.init(key, batch)
+    output = model.apply(variables, batch)
+    print(output)
+
+    model = TransformerEncoderBlock(d_model=10, num_heads=10, d_ff=10)
     key = jax.random.PRNGKey(0)
     batch = jax.random.normal(key, (32, 10))
     variables = model.init(key, batch)

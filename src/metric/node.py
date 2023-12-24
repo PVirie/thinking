@@ -6,7 +6,7 @@ from typing import List
 
 class Node:
     def __init__(self, data):
-        self.data = jnp.array(data)
+        self.data = jnp.array(data, jnp.float32)
     # is same node
     async def is_same_node(self, another):
         dist = jnp.linalg.norm(self.data - another.data)
@@ -18,10 +18,10 @@ class Node_tensor_2D:
         self.max_rows = max_rows
         self.max_cols = max_cols
         if data is not None:
-            self.data = jnp.array(data)
+            self.data = jnp.array(data, jnp.float32)
             self.node_dim = self.data.shape[-1]
         else:
-            self.data = jnp.zeros([max_rows, max_cols, node_dim])
+            self.data = jnp.zeros([max_rows, max_cols, node_dim], jnp.float32)
             self.node_dim = node_dim
 
     async def match(self, node: Node):
@@ -50,7 +50,10 @@ class Node_tensor_2D:
         # self.data[self.max_rows - 1, num_steps:, :] = 0
         # use non-assigned update scheme instead
 
-        new_data = jnp.stack([h.data for h in hs], axis=0)
+        if isinstance(hs, list):
+            new_data = jnp.stack([h.data for h in hs], axis=0)
+        else:
+            new_data = hs
 
         # Pad new_data to match the size of the last row
         padding = ((0, self.max_cols - num_steps), (0, 0))
