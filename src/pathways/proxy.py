@@ -34,23 +34,27 @@ class Model(hippocampus.Model):
 
     async def get_candidates(self, x: Node, forward=True):
 
+        # match all
         p = await self.H.match(x)
+        # get neighbors
         kernel = await self.H.roll(1, -1 if forward else 1)
-        # pick top-distinct candidate_count from kernel, can't simply use top-k need to be distinct
-        # for now return all candidates
-        return kernel, p
 
-        # C = []
-        # c_prop = jnp.zeros(self.candidate_count, dtype=jnp.float32)
+        C = []
+        c_prop = []
         
-        # for i in range(self.candidate_count):
-        #     c = await kernel.consolidate(p, use_max=True)
-        #     C.append(c)
-        #     c_prop[i] = jnp.max(p, keepdims=False)
-        #     m = await kernel.match(c)
-        #     p = p * (1-m)
+        for i in range(self.candidate_count):
+            # find max
+            c = await kernel.consolidate(p, use_max=True)
 
-        # return C, c_prop
+            # keep max
+            C.append(c)
+            c_prop.append(jnp.max(p, keepdims=False))
+            
+            # remove max
+            m = await kernel.match(c)
+            p = p * (1-m)
+
+        return C, c_prop
     
 
 if __name__ == '__main__':

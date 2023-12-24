@@ -130,7 +130,7 @@ class Layer:
                             break
                     g = await self.from_next(data)
                 except StopIteration:
-                    yield False,{
+                    yield False, {
                         "layer": self.name + 1,
                         "selected": t,
                         "choices": []

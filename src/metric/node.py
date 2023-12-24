@@ -77,12 +77,10 @@ class Node_tensor_2D:
         # first flatten template
         augmented = jnp.reshape(prop, [-1, 1])
         flatten = jnp.reshape(self.data, [-1, self.node_dim])
-        # then reshape the result back to list of list of list
         if use_max:
             return Node(flatten[jnp.argmax(augmented), :])
         else:
             return Node(jnp.reshape(jnp.sum(augmented * flatten, axis=0) / jnp.sum(prop), [self.node_dim]))
-
 
 class Metric_Printer:
     def __init__(self, supports: Node_tensor_2D):

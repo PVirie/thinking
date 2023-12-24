@@ -3,6 +3,7 @@ import os
 import math
 import os
 import jax.numpy as jnp
+from jax import jit
 import asyncio
 from typing import List
 from loguru import logger
@@ -32,12 +33,15 @@ def generate_masks(pivots, length, diminishing_factor=0.9, pre_steps=1):
 
 class Model(Pathway):
 
-    def __init__(self, metric_network, diminishing_factor, world_update_prior, reach=1, all_pairs=False):
+    def __init__(self, metric_network, diminishing_factor, world_update_prior, reach=1, all_pairs=False, name=""):
         self.metric_network = metric_network
         self.diminishing_factor = diminishing_factor
         self.world_update_prior = world_update_prior
         self.reach = reach  # how many pivots to reach. the larger the coverage, the longer the training.
         self.no_pivot = all_pairs  # extreme training condition all node to all nodes
+
+        self.name = name
+        self.learn_steps = 0
 
 
     def save(self, path):
@@ -59,7 +63,7 @@ class Model(Pathway):
 
         heuristic_scores = self.metric_network.likelihood(candidates, target)
 
-        scores = props * heuristic_scores
+        scores = jnp.array(props) * heuristic_scores
         max_candidate = jnp.argmax(scores)
 
         heuristic_rep = candidates[max_candidate]
@@ -99,7 +103,11 @@ class Model(Pathway):
             # labels = np.where(new_scores > current_scores, new_scores, (1 - self.world_update_prior) * current_scores + self.world_update_prior * new_scores)
             labels = new_scores
 
-            self.metric_network.learn(s, t, labels, masks, cartesian=True)
+            loss = self.metric_network.learn(s, t, labels, masks, cartesian=True)
+
+            self.learn_steps += 1
+            if self.learn_steps % 100 == 0:
+                logger.info(f"heuristic {self.name} loss: {loss}")
 
 
 

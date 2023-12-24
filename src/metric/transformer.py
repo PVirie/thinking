@@ -206,6 +206,8 @@ class Model(metric_base.Model):
             masks = jnp.reshape(masks, (-1, 1))
 
         self.state, loss = train_step(self.state, batch, labels, masks)
+
+        return loss
         
 
     def likelihood(self, s, t, to_numpy=True, cartesian=False):
