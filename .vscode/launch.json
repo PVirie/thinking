@@ -37,7 +37,7 @@
             "host": "127.0.0.1"
         },
         {
-            "name": "Docker: Python - Currentfile NOGPU",
+            "name": "Docker: Python - Currentfile cpu",
             "type": "python",
             "request": "attach",
             "preLaunchTask": "docker-compose-start: current file",

@@ -157,14 +157,6 @@ def mse_loss(logit, label):
     return (logit - label) ** 2
 
 
-def deep_get_data(x):
-    # if x is a node, return data
-    if isinstance(x, Node):
-        return x.data
-    elif isinstance(x, list):
-        return [deep_get_data(y) for y in x]
-
-
 class Model(metric_base.Model):
 
     def __init__(self, input_dims):
@@ -197,12 +189,8 @@ class Model(metric_base.Model):
         # print(serialization.to_state_dict(self.state))
 
 
-    def learn(self, s, t, labels, masks):
-        s = jnp.array(deep_get_data(s))
-        t = jnp.array(deep_get_data(t))
-
-        # To do: now we use simple t - start as the feature, we can use more complex features
-        features = t - s
+    def learn(self, s, t, labels, masks, cartesian=False):
+        features = metric_base.make_features(s, t, cartesian)
 
         batch = jnp.reshape(features, (-1, self.input_dims))
         # if labels is a float, we need to reshape it to (batch, 1)
@@ -221,17 +209,7 @@ class Model(metric_base.Model):
         
 
     def distance(self, s, t, to_numpy=True, cartesian=False):
-        s = jnp.array(deep_get_data(s))
-        t = jnp.array(deep_get_data(t))
-        
-        if cartesian:
-            # expand dim to (batch, 1, dim) and (1, batch, dim)
-            s_ = jnp.expand_dims(s, axis=1)
-            t_ = jnp.expand_dims(t, axis=0)
-            # the output has shape (s.shape[0], t.shape[0], dim)
-            features = t_ - s_
-        else:
-            features = t - s
+        features = metric_base.make_features(s, t, cartesian)
         
         batch = jnp.reshape(features, (-1, self.input_dims))
 

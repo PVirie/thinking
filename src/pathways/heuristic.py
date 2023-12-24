@@ -85,19 +85,22 @@ class Model(Pathway):
 
         if len(pivots) > 0:
             masks, new_labels = generate_masks(pivots, path_length, self.diminishing_factor, reach)
-            s = [path]
-            t = [[path[p]] for p in pivots]
-            divergences = self.metric_network.distance(s, t) 
+            s = path
+            t = [path[p] for p in pivots]
+            divergences = self.metric_network.distance(s, t, cartesian=True)
             # divergence is a matrix of shape [len(t), len(s)]
-            labels = np.where(new_labels < divergences, new_labels, (1 - self.world_update_prior) * divergences + self.world_update_prior * new_labels)
-            
-            # loss_values += torch.mean(masks * torch.square(divergences - targets))
-            self.metric_network.learn(s, t, labels, masks)
+
+            # To do: fixed this using extreme tracker
+            # labels = np.where(new_labels < divergences, new_labels, (1 - self.world_update_prior) * divergences + self.world_update_prior * new_labels)
+            labels = new_labels
+
+            self.metric_network.learn(s, t, labels, masks, cartesian=True)
 
 
 
 if __name__ == '__main__':
-    masks = generate_masks([3, 5, 8], 10, pre_steps=1)
+    masks, labels = generate_masks([3, 5, 8], 10, pre_steps=1)
     print(masks)
+    print(labels)
 
     # To do: write test

@@ -92,25 +92,17 @@ def mse_loss(logit, label):
     return (logit - label) ** 2
 
 
-def deep_get_data(x):
-    # if x is a node, return data
-    if isinstance(x, Node):
-        return x.data
-    elif isinstance(x, list):
-        return [deep_get_data(y) for y in x]
-
-
 class Model(metric_base.Model):
 
     def __init__(self, input_dims):
         self.rng = jax.random.PRNGKey(42)
         self.input_dims = input_dims
-        self.model = Resnet(layers=[16, 8, 4], output_dim=1, training=True)
-        self.predict_model = Resnet(layers=[16, 8, 4], output_dim=1, training=False)
+        self.model = Resnet(layers=[8, 8, 8], output_dim=1, training=True)
+        self.predict_model = Resnet(layers=[8, 8, 8], output_dim=1, training=False)
 
-        learning_rate = 1e-4
+        learning_rate = 1e-3
         momentum = 0.9
-        variables = self.model.init(self.rng, jnp.ones((1, input_dims), jnp.float32))
+        variables = self.model.init(self.rng, jnp.ones((1, input_dims * 2), jnp.float32))
         tx = optax.sgd(learning_rate, momentum)
 
         self.state = TrainState.create(
@@ -131,14 +123,12 @@ class Model(metric_base.Model):
         # print(serialization.to_state_dict(self.state))
 
 
-    def learn(self, s, t, labels, masks):
-        s = jnp.array(deep_get_data(s))
-        t = jnp.array(deep_get_data(t))
 
-        # To do: now we use simple t - start as the feature, we can use more complex features
-        features = t - s
+    def learn(self, s, t, labels, masks, cartesian=False):
 
-        batch = jnp.reshape(features, (-1, self.input_dims))
+        features = metric_base.make_features(s, t, cartesian)
+
+        batch = jnp.reshape(features, (-1, self.input_dims * 2))
         # if labels is a float, we need to reshape it to (batch, 1)
         if isinstance(labels, float):
             labels = jnp.ones((batch.shape[0], 1)) * labels
@@ -155,19 +145,10 @@ class Model(metric_base.Model):
         
 
     def distance(self, s, t, to_numpy=True, cartesian=False):
-        s = jnp.array(deep_get_data(s))
-        t = jnp.array(deep_get_data(t))
+
+        features = metric_base.make_features(s, t, cartesian)
         
-        if cartesian:
-            # expand dim to (batch, 1, dim) and (1, batch, dim)
-            s_ = jnp.expand_dims(s, axis=1)
-            t_ = jnp.expand_dims(t, axis=0)
-            # the output has shape (s.shape[0], t.shape[0], dim)
-            features = t_ - s_
-        else:
-            features = t - s
-        
-        batch = jnp.reshape(features, (-1, self.input_dims))
+        batch = jnp.reshape(features, (-1, self.input_dims * 2))
 
         logits = self.predict_model.apply({'params': self.state.params, 'batch_stats': self.state.batch_stats}, batch, mutable=False)
 

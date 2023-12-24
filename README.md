@@ -19,8 +19,9 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 
 ## To do
 
+-   World update prior vs bootstrapping (implement statistical keeping of the variance and mean to estimate extreme cases.)
+-   Convert all np array to jax array.
 -   Test the algorithm with many elaborate example environments.
--   Use invertible embedding might help generalization?
 -   ~Jax~
 -   ~Vector field representation~
 -   ~Basis learning~

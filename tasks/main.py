@@ -2,17 +2,12 @@ import numpy as np
 import os
 import asyncio
 from loguru import logger
-import argparse
 import random
 
 from src.metric import Node, Node_tensor_2D, Metric_Printer, resnet
 from src.network import Layer
 from src.pathways import heuristic, hippocampus, proxy
 from src.utilities import *
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--retrain", action="store_true")
-args = parser.parse_args()
 
 
 async def build_cognitive_map(layers):
@@ -57,15 +52,12 @@ async def test():
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
     weight_path = os.path.join(dir_path, "..", "weights", "network.py.test")
-    os.makedirs(weight_path, exist_ok=True)
 
     if os.path.exists(weight_path): 
         train = False
     else:
         train = True
-
-    # read train from args
-    train = args.retrain
+        os.makedirs(weight_path, exist_ok=True)
 
     print("train:", train)
 
@@ -83,7 +75,7 @@ async def test():
             path = [representations[p] for p in path]
             await cognitive_map.incrementally_learn(path)
             if i % 100 == 0:
-                print("Training progress: %.2f%%" % (i * 100 / explore_steps), end="\r", flush=True)
+                print(f"Training progress: {(i * 100 / explore_steps):.2f}", end="\r", flush=True)
         print("\nFinish learning.")
         cognitive_map.save(weight_path)
     

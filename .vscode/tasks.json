@@ -25,7 +25,7 @@
             ]
         },
         {
-            "label": "docker-compose-start: cpu",
+            "label": "docker-compose-start: cpu (internal)",
             "type": "shell",
             "command": "docker compose -f docker_compose.yaml --profile cpu up -d --build --force-recreate",
             "dependsOn": ["docker-compose-stop"],
@@ -40,6 +40,14 @@
                     }
                 }
             ]
+        },
+        // add delay task for docker to start
+        {
+            "label": "docker-compose-start: cpu",
+            "type": "shell",
+            "command": "sleep 3",
+            "dependsOn": ["docker-compose-start: cpu (internal)"],
+            "isBackground": false
         },
         {
             "label": "docker-compose-start: current file (internal)",
