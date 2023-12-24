@@ -144,7 +144,7 @@ class Model(metric_base.Model):
         self.state, loss = train_step(self.state, batch, labels, masks)
         
 
-    def distance(self, s, t, to_numpy=True, cartesian=False):
+    def likelihood(self, s, t, to_numpy=True, cartesian=False):
 
         features = metric_base.make_features(s, t, cartesian)
         
@@ -177,5 +177,5 @@ if __name__ == '__main__':
     t = Node(np.ones(16))
     labels = 1.0
     resnet.learn(s, t, labels, jnp.array([1.0, 2.0]))
-    distance = resnet.distance(s, t)
+    distance = resnet.likelihood(s, t)
     print(distance)

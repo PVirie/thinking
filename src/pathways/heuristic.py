@@ -52,7 +52,7 @@ class Model(Pathway):
 
         num_mem = len(candidates)
 
-        heuristic_scores = self.metric_network.distance(candidates, target)
+        heuristic_scores = self.metric_network.likelihood(candidates, target)
 
         scores = props * heuristic_scores
         max_candidate = np.argmax(scores)
@@ -61,7 +61,7 @@ class Model(Pathway):
         # should we recompute score by feeding it back to the nextwork instead of haphazard method?
         heuristic_prop = scores[max_candidate]
 
-        base_scores = self.metric_network.distance(start, target)
+        base_scores = self.metric_network.likelihood(start, target)
         if heuristic_prop < base_scores:
             heuristic_prop = 0
 
@@ -74,7 +74,7 @@ class Model(Pathway):
         path_length = len(path)
 
         # learn self
-        # self_divergences = self.metric_network.distance(path[pivots], path[pivots])
+        # self_divergences = self.metric_network.likelihood(path[pivots], path[pivots])
         self_label = 1.0
         self_weight = 0.1
         self.metric_network.learn([path[p] for p in pivots], [path[p] for p in pivots], self_label, self_weight)
@@ -84,15 +84,15 @@ class Model(Pathway):
             reach = path_length
 
         if len(pivots) > 0:
-            masks, new_labels = generate_masks(pivots, path_length, self.diminishing_factor, reach)
+            masks, new_scores = generate_masks(pivots, path_length, self.diminishing_factor, reach)
             s = path
             t = [path[p] for p in pivots]
-            divergences = self.metric_network.distance(s, t, cartesian=True)
-            # divergence is a matrix of shape [len(t), len(s)]
+            current_scores = self.metric_network.likelihood(s, t, cartesian=True)
+            # current_scores is a matrix of shape [len(t), len(s)]
 
             # To do: fixed this using extreme tracker
-            # labels = np.where(new_labels < divergences, new_labels, (1 - self.world_update_prior) * divergences + self.world_update_prior * new_labels)
-            labels = new_labels
+            # labels = np.where(new_scores > current_scores, new_scores, (1 - self.world_update_prior) * current_scores + self.world_update_prior * new_scores)
+            labels = new_scores
 
             self.metric_network.learn(s, t, labels, masks, cartesian=True)
 

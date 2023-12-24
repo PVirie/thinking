@@ -8,7 +8,7 @@ class Model:
     def learn(self, s, t, labels, masks):
         pass
 
-    def distance(self, s, t):
+    def likelihood(self, s, t):
         pass
 
 

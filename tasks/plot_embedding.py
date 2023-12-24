@@ -70,7 +70,7 @@ async def test():
 
     for i, layer in enumerate(config["layers"]):
 
-        pairwise_dist = layer["heuristics"].metric_network.distance(representations, representations, cartesian=True)
+        pairwise_dist = layer["heuristics"].metric_network.likelihood(representations, representations, cartesian=True)
         print(pairwise_dist)
 
         # umap_2d = UMAP(n_neighbors=10, n_components=2, init='random', random_state=0)
