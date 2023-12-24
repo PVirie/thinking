@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+from jax import device_put
 import asyncio
 from typing import List
 
@@ -6,7 +7,7 @@ from typing import List
 
 class Node:
     def __init__(self, data):
-        self.data = jnp.array(data, jnp.float32)
+        self.data = device_put(jnp.array(data, jnp.float32))
     # is same node
     async def is_same_node(self, another):
         dist = jnp.linalg.norm(self.data - another.data)

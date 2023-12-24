@@ -74,8 +74,7 @@ async def test():
         stamp = time.time()
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-            path = [representations[p] for p in path]
-            await cognitive_map.incrementally_learn(path)
+            await cognitive_map.incrementally_learn([representations[p] for p in path])
             if i % 100 == 0:
                 print(f"Training progress: {(i * 100 / explore_steps):.2f}", end="\r", flush=True)
         print(f"\nFinish learning in {time.time() - stamp}s")

@@ -90,10 +90,10 @@ class Model(metric_base.Model):
         self.input_dims = input_dims
         self.model = Resnet(layers=[8, 8], output_dim=1)
 
-        learning_rate = 1e-3
+        learning_rate = 1e-4
         momentum = 0.9
         variables = self.model.init(self.rng, jnp.empty((1, input_dims * 2), jnp.float32))
-        tx = optax.sgd(learning_rate, momentum)
+        tx = optax.adam(learning_rate, momentum)
 
         self.state = TrainState.create(
             apply_fn=self.model.apply, 
@@ -139,7 +139,7 @@ class Model(metric_base.Model):
         return loss
         
 
-    def likelihood(self, s, t, to_numpy=True, cartesian=False):
+    def likelihood(self, s, t, cartesian=False):
 
         features = metric_base.make_features(s, t, cartesian)
         
@@ -150,10 +150,7 @@ class Model(metric_base.Model):
         # reshape logits back to features shape except the last dimension
         unflatten = jnp.reshape(logits, features.shape[:-1])
         
-        if to_numpy:
-            return unflatten
-        else:
-            return unflatten
+        return unflatten
     
 # To do: added metric computation and plot https://flax.readthedocs.io/en/latest/getting_started.html
 
@@ -182,3 +179,8 @@ if __name__ == '__main__':
     distance = resnet.likelihood(s, t)
     distance2 = resnet.likelihood(s2, t)
     print("After", distance, distance2)
+    resnet.save("weights")
+    resnet.load("weights")
+    distance = resnet.likelihood(s, t)
+    distance2 = resnet.likelihood(s2, t)
+    print("After load", distance, distance2)

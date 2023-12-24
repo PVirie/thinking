@@ -20,10 +20,13 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 ## To do
 
 -   Fixed metric model learning
+-   Fixed cortex pathway
+-   jax enhance phase III: use jit (remove if else in training functions)
 -   World update prior vs bootstrapping (implement statistical keeping of the variance and mean to estimate extreme cases.)
 -   Control pathway
--   jax enhance phase II: reduce data transfer in training (target utilities function, remove if else in training functions.)
 -   Test the algorithm with many elaborate example environments.
+-   ~Transformer model~
+-   ~jax enhance phase II: reduce data transfer in training (target utilities function)~
 -   ~Convert all np array to jax array.~
 -   ~Vector field representation~
 -   ~Basis learning~

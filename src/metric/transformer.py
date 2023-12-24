@@ -18,43 +18,6 @@ import optax
 from flax import serialization
 
 
-class MultiHeadSelfAttention(nn.Module):
-    num_heads: int
-    d_model: int
-    dropout_rate: float = 0.1
-
-    @nn.compact
-    def __call__(self, x, mask=None, deterministic=True):
-        d_head = self.d_model // self.num_heads
-        
-        # Project input to query, key, and value vectors
-        qkv = nn.Dense(self.d_model * 3)(x)
-        q, k, v = jnp.split(qkv, 3, axis=-1)
-
-        # Split heads
-        q = q.reshape(x.shape[0], -1, self.num_heads, d_head).transpose(0, 2, 1, 3)
-        k = k.reshape(x.shape[0], -1, self.num_heads, d_head).transpose(0, 2, 1, 3)
-        v = v.reshape(x.shape[0], -1, self.num_heads, d_head).transpose(0, 2, 1, 3)
-
-        # Scaled dot-product attention
-        attn_logits = jnp.matmul(q, k.transpose(0, 1, 3, 2))
-        attn_logits = attn_logits / jnp.sqrt(d_head)
-        if mask is not None:
-            attn_logits = jnp.where(mask, attn_logits, -jnp.inf)
-        attn_weights = nn.softmax(attn_logits)
-
-        # Apply dropout to attention weights if not in a deterministic context
-        attn_weights = nn.Dropout(rate=self.dropout_rate)(attn_weights, deterministic=deterministic)
-
-        # Attention output
-        attn_output = jnp.matmul(attn_weights, v)
-        attn_output = attn_output.transpose(0, 2, 1, 3).reshape(x.shape[0], -1, self.d_model)
-        
-        # Final dense layer to produce output
-        output = nn.Dense(self.d_model)(attn_output)
-        return output
-
-
 class TransformerEncoderBlock(nn.Module):
     d_model: int
     num_heads: int
@@ -65,7 +28,7 @@ class TransformerEncoderBlock(nn.Module):
     @nn.compact
     def __call__(self, x):
         # Multi-head self-attention
-        attn_output = nn.SelfAttention(
+        attn_output = nn.MultiHeadDotProductAttention(
             num_heads=self.num_heads, 
             qkv_features=self.d_model, 
             use_bias=False,
@@ -130,25 +93,24 @@ class Metrics(metrics.Collection):
 
 
 class TrainState(train_state.TrainState):
-  batch_stats: flax.core.FrozenDict[str, Any]
   metrics: Metrics
+  dropout_key: jax.Array
 
 
 
 @jax.jit
-def train_step(state, batch, labels, masks):
+def train_step(state, batch, labels, masks, dropout_key):
+    dropout_train_key = jax.random.fold_in(key=dropout_key, data=state.step)
 
     def loss_fn(params):
-        logits, new_model_state = state.apply_fn({'params': params, 'batch_stats': state.batch_stats}, batch, mutable=['batch_stats'])
+        logits = state.apply_fn({'params': params}, batch, rngs={'dropout': dropout_train_key})
         loss = jnp.mean(mse_loss(logits, labels)*masks)
-        return loss, new_model_state
+        return loss
     
-    (loss, new_model_state), grads = jax.value_and_grad(
-        loss_fn, has_aux=True)(state.params)
+    loss, grads = jax.value_and_grad(loss_fn)(state.params)
     
     return state.apply_gradients(
         grads=grads,
-        batch_stats=new_model_state['batch_stats'],
     ), loss
 
 
@@ -168,12 +130,16 @@ class Model(metric_base.Model):
 
         learning_rate = 1e-4
         momentum = 0.9
-        variables = self.model.init(self.rng, jnp.empty((1, input_dims), jnp.float32))
+        variables = self.model.init({'params': self.rng, 'dropout': self.dropout_rng}, jnp.empty((1, input_dims * 2), jnp.float32))
         tx = optax.sgd(learning_rate, momentum)
 
         self.state = TrainState.create(
-            apply_fn=self.model.apply, params=variables["params"], tx=tx,
-            metrics=Metrics.empty(), batch_stats=variables["batch_stats"])
+            apply_fn=self.model.apply, 
+            params=variables["params"], 
+            tx=tx,
+            metrics=Metrics.empty(), 
+            dropout_key=self.dropout_rng
+        )
 
     def save(self, path):
         bytes_output = serialization.to_bytes(self.state)
@@ -192,7 +158,7 @@ class Model(metric_base.Model):
     def learn(self, s, t, labels, masks, cartesian=False):
         features = metric_base.make_features(s, t, cartesian)
 
-        batch = jnp.reshape(features, (-1, self.input_dims))
+        batch = jnp.reshape(features, (-1, self.input_dims * 2))
         # if labels is a float, we need to reshape it to (batch, 1)
         if isinstance(labels, float):
             labels = jnp.ones((batch.shape[0], 1)) * labels
@@ -205,25 +171,31 @@ class Model(metric_base.Model):
         else:
             masks = jnp.reshape(masks, (-1, 1))
 
-        self.state, loss = train_step(self.state, batch, labels, masks)
+        self.state, loss = train_step(self.state, batch, labels, masks, self.state.dropout_key)
 
         return loss
         
 
-    def likelihood(self, s, t, to_numpy=True, cartesian=False):
+    def likelihood(self, s, t, cartesian=False):
         features = metric_base.make_features(s, t, cartesian)
         
-        batch = jnp.reshape(features, (-1, self.input_dims))
+        batch = jnp.reshape(features, (-1, self.input_dims * 2))
 
-        logits = self.predict_model.apply({'params': self.state.params, 'batch_stats': self.state.batch_stats}, batch, mutable=False)
+        logits = self.predict_model.apply(
+            {
+                'params': self.state.params,
+            }, 
+            batch, 
+            mutable=False, 
+            rngs={
+                'dropout': self.state.dropout_key
+            }
+        )
 
         # reshape logits back to features shape except the last dimension
         unflatten = jnp.reshape(logits, features.shape[:-1])
         
-        if to_numpy:
-            return unflatten
-        else:
-            return unflatten
+        return unflatten
     
 # To do: added metric computation and plot https://flax.readthedocs.io/en/latest/getting_started.html
 
@@ -233,21 +205,27 @@ if __name__ == '__main__':
     model = StackedTransformer(layers=[(10, 10), (10, 10)], output_dim=2)
     key = jax.random.PRNGKey(0)
     batch = jax.random.normal(key, (32, 10))
-    variables = model.init(key, batch)
-    output = model.apply(variables, batch)
-    print(output)
-
-    model = TransformerEncoderBlock(d_model=10, num_heads=10, d_ff=10)
-    key = jax.random.PRNGKey(0)
-    batch = jax.random.normal(key, (32, 10))
-    variables = model.init(key, batch)
+    variables = model.init({'params': key, 'dropout': key}, batch)
     output = model.apply(variables, batch)
     print(output)
 
     net = Model(16)
     s = [Node(np.random.rand(16)), Node(np.random.rand(16))]
+    s2 = [Node(np.random.rand(16)), Node(np.random.rand(16))]
     t = Node(np.ones(16))
-    labels = 1.0
-    net.learn(s, t, labels, jnp.array([1.0, 2.0]))
     distance = net.likelihood(s, t)
-    print(distance)
+    distance2 = net.likelihood(s2, t)
+    print("Before", distance, distance2)
+    for i in range(1000):
+        loss = net.learn(s, t, 1.0, jnp.array([1.0, 1.0]))
+        loss2 = net.learn(s2, t, 0.5, jnp.array([1.0, 1.0]))
+        if i % 100 == 0:
+            print(loss, loss2)
+    distance = net.likelihood(s, t)
+    distance2 = net.likelihood(s2, t)
+    print("After", distance, distance2)
+    net.save("weights")
+    net.load("weights")
+    distance = net.likelihood(s, t)
+    distance2 = net.likelihood(s2, t)
+    print("After load", distance, distance2)
