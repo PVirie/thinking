@@ -20,9 +20,9 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 ## To do
 
 -   World update prior vs bootstrapping (implement statistical keeping of the variance and mean to estimate extreme cases.)
--   Convert all np array to jax array.
+-   Reimplement proxy
 -   Test the algorithm with many elaborate example environments.
--   ~Jax~
+-   ~Convert all np array to jax array.~
 -   ~Vector field representation~
 -   ~Basis learning~
 -   ~Test: one step find path without enhancement~

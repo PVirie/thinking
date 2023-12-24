@@ -1,7 +1,7 @@
 import sys
 import os
 import math
-import numpy as np
+import jax.numpy as jnp
 import asyncio
 from typing import List
 from loguru import logger
@@ -22,21 +22,21 @@ class Model(Pathway):
         weight_path = os.path.join(path, "hippocampus")
         os.makedirs(weight_path, exist_ok=True)
         # self.H.data is an np array
-        np.save(os.path.join(weight_path, "H.npy"), self.H.data)
+        jnp.save(os.path.join(weight_path, "H.npy"), self.H.data)
 
     def load(self, path):
         weight_path = os.path.join(path, "hippocampus")
-        self.H.data = np.load(os.path.join(weight_path, "H.npy"))
+        self.H.data = jnp.load(os.path.join(weight_path, "H.npy"))
 
     async def enhance(self, c: Node):
         # flatten self.H, preserve indices
         prop = await self.H.match(c)
 
         # find max row and column
-        max_indices = np.argmax(prop, axis=1)
-        max_prop = np.max(prop, axis=1)
+        max_indices = jnp.argmax(prop, axis=1)
+        max_prop = jnp.max(prop, axis=1)
         # find max row
-        max_row = np.argmax(max_prop, axis=0)
+        max_row = jnp.argmax(max_prop, axis=0)
         # find max column
         max_col = max_indices[max_row]
         return await self.H.access(max_row, max_col)
@@ -45,14 +45,14 @@ class Model(Pathway):
         s_prop = await self.H.match(s)
         t_prop = await self.H.match(t)
 
-        s_max_indices = np.argmax(s_prop, axis=1)
-        t_max_indices = np.argmax(t_prop, axis=1)
-        s_max = np.max(s_prop, axis=1)
-        t_max = np.max(t_prop, axis=1)
+        s_max_indices = jnp.argmax(s_prop, axis=1)
+        t_max_indices = jnp.argmax(t_prop, axis=1)
+        s_max = jnp.max(s_prop, axis=1)
+        t_max = jnp.max(t_prop, axis=1)
 
-        causality = (t_max_indices > s_max_indices).astype(np.float32)
+        causality = (t_max_indices > s_max_indices).astype(jnp.float32)
         # flip to take the last occurrence
-        best = (self.h_size - 1) - np.argmax(np.flip(s_max * t_max * causality, axis=0), axis=0)
+        best = (self.h_size - 1) - jnp.argmax(jnp.flip(s_max * t_max * causality, axis=0), axis=0)
 
         s_best_index = s_max_indices[best]
         t_best_index = t_max_indices[best]
@@ -78,7 +78,7 @@ class Model(Pathway):
         entropies = []
         for x in xs:
             prop = await self.H.match(x)
-            entropies.append(np.mean(prop))
+            entropies.append(jnp.mean(prop))
         return entropies
 
 

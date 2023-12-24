@@ -2,7 +2,7 @@ import sys
 import os
 import math
 import os
-import numpy as np
+import jax.numpy as jnp
 import asyncio
 from typing import List
 from loguru import logger
@@ -13,16 +13,21 @@ log_2PI = math.log(2 * math.pi)
 
 
 def generate_masks(pivots, length, diminishing_factor=0.9, pre_steps=1):
-    pos = np.expand_dims(np.arange(0, length, dtype=np.int32), axis=1)
-    pre_pivots = pivots
-    for i in range(pre_steps):
-        pre_pivots = np.roll(pre_pivots, 1, 0)
-        pre_pivots[0] = -1
-    masks = np.logical_and(pos > np.expand_dims(pre_pivots, axis=0), pos <= np.expand_dims(pivots, axis=0)).astype(np.float32)
+    pivots = jnp.array(pivots, dtype=jnp.int32)
+    pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
+    
+    # pre_pivots = pivots
+    # for i in range(pre_steps):
+    #     pre_pivots = jnp.roll(pre_pivots, pre_steps, 0)
+    #     pre_pivots[: pre_steps] = -1
+    # use concatenate instead
+    pre_pivots = jnp.concatenate([jnp.full([pre_steps], -1, dtype=jnp.int32), pivots[:-pre_steps]], axis=0)
 
-    order = np.reshape(np.arange(0, -length, -1), [-1, 1]) + np.expand_dims(pivots, axis=0)
-    diminishing = np.power(diminishing_factor, order)
-    return np.transpose(masks), np.transpose(diminishing)
+    masks = jnp.logical_and(pos > jnp.expand_dims(pre_pivots, axis=0), pos <= jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
+
+    order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
+    diminishing = jnp.power(diminishing_factor, order)
+    return jnp.transpose(masks), jnp.transpose(diminishing)
 
 
 class Model(Pathway):
@@ -55,7 +60,7 @@ class Model(Pathway):
         heuristic_scores = self.metric_network.likelihood(candidates, target)
 
         scores = props * heuristic_scores
-        max_candidate = np.argmax(scores)
+        max_candidate = jnp.argmax(scores)
 
         heuristic_rep = candidates[max_candidate]
         # should we recompute score by feeding it back to the nextwork instead of haphazard method?

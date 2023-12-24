@@ -3,6 +3,7 @@ import os
 import asyncio
 from loguru import logger
 import random
+from datetime import datetime
 
 from src.metric import Node, Node_tensor_2D, Metric_Printer, resnet
 from src.network import Layer
@@ -70,13 +71,14 @@ async def test():
 
         explore_steps = 10000
         print("Training a cognitive map:")
+        stamp = time.time()
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
             path = [representations[p] for p in path]
             await cognitive_map.incrementally_learn(path)
             if i % 100 == 0:
                 print(f"Training progress: {(i * 100 / explore_steps):.2f}", end="\r", flush=True)
-        print("\nFinish learning.")
+        print(f"\nFinish learning in {time.time() - stamp}s")
         cognitive_map.save(weight_path)
     
     else:
