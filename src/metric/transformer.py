@@ -151,7 +151,7 @@ class Model(metric_base.Model):
     def load(self, path):
         with open(os.path.join(path, "resnet.bin"), 'rb') as f:
             bytes_output = f.read()
-        serialization.from_bytes(self.state, bytes_output)
+        self.state = serialization.from_bytes(self.state, bytes_output)
         # print(serialization.to_state_dict(self.state))
 
 
@@ -209,10 +209,11 @@ if __name__ == '__main__':
     output = model.apply(variables, batch)
     print(output)
 
-    net = Model(16)
     s = [Node(np.random.rand(16)), Node(np.random.rand(16))]
     s2 = [Node(np.random.rand(16)), Node(np.random.rand(16))]
     t = Node(np.ones(16))
+
+    net = Model(16)
     distance = net.likelihood(s, t)
     distance2 = net.likelihood(s2, t)
     print("Before", distance, distance2)
@@ -225,7 +226,9 @@ if __name__ == '__main__':
     distance2 = net.likelihood(s2, t)
     print("After", distance, distance2)
     net.save("weights")
-    net.load("weights")
-    distance = net.likelihood(s, t)
-    distance2 = net.likelihood(s2, t)
+
+    net2 = Model(16)
+    net2.load("weights")
+    distance = net2.likelihood(s, t)
+    distance2 = net2.likelihood(s2, t)
     print("After load", distance, distance2)
