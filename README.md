@@ -20,10 +20,10 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 ## To do
 
 -   jax enhance phase III: use jit (remove if else in training functions)
--   World update prior vs bootstrapping (implement statistical keeping of the variance and mean to estimate extreme cases.)
 -   Fixed cortex pathway
 -   Implement control pathway
 -   Test the algorithm with many elaborate example environments.
+-   ~World update prior vs bootstrapping (implement statistical keeping of the variance and mean to estimate extreme cases.)~
 -   ~Fixed metric model learning~
 -   ~Transformer model~
 -   ~jax enhance phase II: reduce data transfer in training (target utilities function)~

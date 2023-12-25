@@ -99,10 +99,8 @@ class Model(Pathway):
             current_scores = self.metric_network.likelihood(s, t, cartesian=True)
             # current_scores is a matrix of shape [len(t), len(s)]
 
-            # To do: fixed this using extreme tracker
-            # labels = np.where(new_scores > current_scores, new_scores, (1 - self.world_update_prior) * current_scores + self.world_update_prior * new_scores)
-            labels = new_scores
-
+            labels = jnp.where(new_scores > current_scores, new_scores, (1 - self.world_update_prior) * current_scores + self.world_update_prior * new_scores)
+            
             loss = self.metric_network.learn(s, t, labels, masks, cartesian=True)
 
             self.learn_steps += 1
