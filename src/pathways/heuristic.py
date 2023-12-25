@@ -96,11 +96,12 @@ class Model(Pathway):
             masks, new_scores = generate_masks(pivots, path_length, self.diminishing_factor, reach)
             s = path
             t = [path[p] for p in pivots]
-            current_scores = self.metric_network.likelihood(s, t, cartesian=True)
+            # current_scores = self.metric_network.likelihood(s, t, cartesian=True)
             # current_scores is a matrix of shape [len(t), len(s)]
 
-            labels = jnp.where(new_scores > current_scores, new_scores, (1 - self.world_update_prior) * current_scores + self.world_update_prior * new_scores)
-            
+            # labels = jnp.where(new_scores > current_scores, new_scores, (1 - self.world_update_prior) * current_scores + self.world_update_prior * new_scores)
+            labels = new_scores
+
             loss = self.metric_network.learn(s, t, labels, masks, cartesian=True)
 
             self.learn_steps += 1

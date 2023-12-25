@@ -5,10 +5,10 @@ class Model:
     def __init__(self, dims):
         pass
 
-    def learn(self, s, t, labels, masks):
+    def learn(self, s, t, labels, masks, cartesian=False):
         pass
 
-    def likelihood(self, s, t):
+    def likelihood(self, s, t, cartesian=False):
         pass
 
 
