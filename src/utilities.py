@@ -39,6 +39,7 @@ def random_graph(size, p):
 
 
 def random_walk(graph, s, max_steps):
+    # row index = from, column index = to
     unvisited = np.ones([graph.shape[0]], dtype=bool)
     indices = np.arange(graph.shape[0])
     path = []

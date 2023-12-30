@@ -1,4 +1,5 @@
 import numpy as np
+import jax.numpy as jnp
 import os
 import asyncio
 from loguru import logger
@@ -93,17 +94,14 @@ async def test():
     stamp = time.time()
     for t in goals:
         try:
-            path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps)
-            async for result, pi in path_generator:
-                if not result:
-                    await printer.print(pi)
-                else:
-                    await printer.print(np.argmax(pi), end=' ')
-                    total_length = total_length + 1
+            path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, printer=printer)
+            async for pi in path_generator:
+                # await printer.print(pi)
+                total_length = total_length + 1
         except RecursionError:
-            await printer.print("fail to find path in time.", t, end=' ')
+            await printer.print("fail to find path in time.", t)
         finally:
-            print()
+            print("-----------cognitive planner-----------")
     print("cognitive planner:", time.time() - stamp, " average length:", total_length / len(goals))
     print("======================================================")
 
@@ -111,17 +109,14 @@ async def test():
     stamp = time.time()
     for t in goals:
         try:
-            path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=-1)
-            async for result, pi in path_generator:
-                if not result:
-                    await printer.print(pi)
-                else:
-                    await printer.print(np.argmax(pi), end=' ')
-                    total_length = total_length + 1
+            path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=-1, printer=printer)
+            async for pi in path_generator:
+                # await printer.print(pi)
+                total_length = total_length + 1
         except RecursionError:
-            await printer.print("fail to find path in time.", t, end=' ')
+            await printer.print("fail to find path in time.", t)
         finally:
-            print()
+            print("----------hippocampus planner------------")
     print("hippocampus planner:", time.time() - stamp, " average length:", total_length / len(goals))
     print("======================================================")
 
@@ -129,34 +124,31 @@ async def test():
     stamp = time.time()
     for t in goals:
         try:
-            path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=1)
-            async for result, pi in path_generator:
-                if not result:
-                    await printer.print(pi)
-                else:
-                    await printer.print(np.argmax(pi), end=' ')
-                    total_length = total_length + 1
+            path_generator = cognitive_map.find_path(representations[0], representations[t], hard_limit=max_steps, pathway_bias=1, printer=printer)
+            async for pi in path_generator:
+                # await printer.print(pi)
+                total_length = total_length + 1
         except RecursionError:
-            await printer.print("fail to find path in time.", t, end=' ')
+            await printer.print("fail to find path in time.", t)
         finally:
-            await printer.print()
+            print("-----------cortex planner-----------")
     print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
-    # total_length = 0
-    # stamp = time.time()
-    # for t in goals:
-    #     try:
-    #         p = shortest_path(g, 0, t)
-    #         p = list(reversed(p))
-    #         for pi in p:
-    #             print(pi, end=' ')
-    #             total_length = total_length + 1
-    #     except RecursionError:
-    #         print("fail to find path in time.", t, end=' ')
-    #     finally:
-    #         print()
+    total_length = 0
+    stamp = time.time()
+    for t in goals:
+        try:
+            p = shortest_path(graph, 0, t)
+            p = list(reversed(p))
+            for pi in p:
+                total_length = total_length + 1
+        except RecursionError:
+            print("fail to find path in time.", t)
+        finally:
+            print(p)
+            print("-----------optimal planner-----------")
 
-    # print("optimal planner:", time.time() - stamp, " average length:", total_length / len(goals))
+    print("optimal planner:", time.time() - stamp, " average length:", total_length / len(goals))
 
 
 

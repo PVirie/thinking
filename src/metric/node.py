@@ -93,7 +93,7 @@ class Metric_Printer:
     async def replace(self, x):
         if isinstance(x, Node):
             logits = await self.supports.match(x)
-            return jnp.argmax(logits)
+            return jnp.argmax(logits).tolist()
         elif isinstance(x, list):
             return [await self.replace(y) for y in x]
         elif isinstance(x, tuple):
@@ -102,6 +102,8 @@ class Metric_Printer:
             return {await self.replace(k): await self.replace(v) for k, v in x.items()}
         elif isinstance(x, set):
             return {await self.replace(y) for y in x}
+        elif isinstance(x, jnp.ndarray):
+            return x.tolist()
         else:
             return x
 
@@ -115,6 +117,10 @@ class Metric_Printer:
             
         print(*new_args, **kwargs)
         
+
+class No_Printer:
+    async def print(self, *args, **kwargs):
+        pass
 
 
 

@@ -1,6 +1,6 @@
 import os
 from typing import List
-from .metric import Node
+from .metric import Node, No_Printer
 from loguru import logger
 
 def compute_pivot_indices(entropies):
@@ -93,48 +93,34 @@ class Layer:
 
         return hippocampus_rep if hippocampus_prop > cortex_prop else cortex_rep, sup_info
 
-    async def find_path(self, c: Node, t: Node, hard_limit=20, pathway_bias=0):
+    async def find_path(self, c: Node, t: Node, hard_limit=20, pathway_bias=0, printer=No_Printer()):
         # pathway_bias < 0 : use hippocampus
         # pathway_bias > 0 : use cortex
 
         count_steps = 0
 
-        yield False, {
+        await printer.print({
             "layer": self.name,
             "s": c,
             "t": t
-        }
-
+        })
+            
         if self.next is not None:
-            goals = self.next.find_path(await self.to_next(c, True), await self.to_next(t, False))
+            goals = self.next.find_path(await self.to_next(c, True), await self.to_next(t, False), printer=printer)
 
-        yield False, {
-            "layer": self.name,
-            "selected": c,
-            "choices": []
-        }
-
-        yield True, c
+        yield c
 
         while True:
             if await c.is_same_node(t):
+                # we have reached the target
+                await printer.print("target reached!")
                 break
 
             if self.next is not None:
                 try:
-                    while True:
-                        # pop the next goal
-                        result, data = await anext(goals)
-                        if result:
-                            yield False, data
-                            break
+                    data = await anext(goals)
                     g = await self.from_next(data)
                 except StopIteration:
-                    yield False, {
-                        "layer": self.name + 1,
-                        "selected": t,
-                        "choices": []
-                    }
                     g = t
             else:
                 g = t
@@ -142,35 +128,34 @@ class Layer:
             while True:
                 if await c.is_same_node(t):
                     # we have reached the target
+                    await printer.print("target reached!")
                     break
 
                 if await c.is_same_node(g):
                     # we have reached the goal
-                    c = g
+                    await printer.print("goal reached.")
                     break
 
                 count_steps = count_steps + 1
                 if count_steps >= hard_limit:
-                    yield False, {
+                    await printer.print({
                         "layer": self.name,
                         "success": False,
-                    }
+                        "reason": "hard limit reached."
+                    })
                     raise RecursionError
 
                 c, supplementary = await self.pincer_inference(c, g, pathway_bias)
                 c = await self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
 
-                yield False, {
+                await printer.print({
                     "layer": self.name,
+                    "goal": g,
                     "selected": c,
                     "choices": supplementary
-                }
-                yield True, c
+                })
+                yield c
 
-        yield False, {
-            "layer": self.name,
-            "success": True,
-        }
 
     async def next_step(self, c: Node, t: Node, pathway_bias=0):
         # pathway_bias < 0 : use hippocampus
