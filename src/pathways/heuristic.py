@@ -69,8 +69,8 @@ class Model(Pathway):
         heuristic_prop = scores[max_candidate]
 
         base_scores = self.metric_network.likelihood(start, target)
-        if heuristic_prop < base_scores:
-            heuristic_prop = 0
+        # if heuristic_prop < base_scores:
+        #     heuristic_prop = 0
 
         # print("5 best", torch.argmax(heuristic_rep, dim=0))
         return heuristic_rep, heuristic_prop

@@ -39,19 +39,22 @@ class Model(hippocampus.Model):
         C = []
         c_prop = []
         
+        # this array is use for subtracting selected candidates
+        vp = p.copy()
+        flatten_p = jnp.reshape(p, [-1])
         for i in range(self.candidate_count):
             # find max
-            c = await kernel.consolidate(p, use_max=True)
-
+            c = await kernel.consolidate(vp, use_max=True)
             is_null = await c.is_null()
             if not is_null:
-                # keep max
+                # collect max candidate's prop and candidate
+                max_index = jnp.argmax(jnp.reshape(vp, [-1]), keepdims=False)
+                c_prop.append(flatten_p[max_index])
                 C.append(c)
-                c_prop.append(jnp.max(p, keepdims=False))
             
             # remove max
             m = await kernel.match(c, filter_invalid=False)
-            p = p * (1-m)
+            vp = vp * (1-m)
 
         return C, c_prop
     
