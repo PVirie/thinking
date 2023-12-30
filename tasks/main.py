@@ -1,10 +1,8 @@
 import numpy as np
-import jax.numpy as jnp
 import os
 import asyncio
 from loguru import logger
 import random
-from datetime import datetime
 
 from src.metric import Node, Node_tensor_2D, Metric_Printer, resnet, ideal
 from src.network import Layer
