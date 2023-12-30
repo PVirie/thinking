@@ -12,6 +12,9 @@ class Node:
     async def is_same_node(self, another):
         dist = jnp.linalg.norm(self.data - another.data)
         return dist < 1e-4
+    
+    async def is_null(self):
+        return jnp.linalg.norm(self.data) < 1e-4
 
 
 class Node_tensor_2D:
@@ -25,7 +28,7 @@ class Node_tensor_2D:
             self.data = jnp.zeros([max_rows, max_cols, node_dim], jnp.float32)
             self.node_dim = node_dim
 
-    async def match(self, node: Node):
+    async def match(self, node: Node, filter_invalid=True):
         '''
         node.data as shape: [node_dim]
         self.data as shape: [max_rows, max_cols, node_dim]
@@ -35,8 +38,9 @@ class Node_tensor_2D:
         flatten = jnp.reshape(self.data, [-1, self.node_dim])
         results = jnp.exp(-jnp.linalg.norm(flatten - node.data, axis=1))
 
-        # need to filter where self.H is invalid (i.e. where the chunk is not full)
-        results = jnp.where(jnp.linalg.norm(flatten, axis=1) < 1e-8, 0, results)
+        if filter_invalid:
+            # filter where self.H is invalid (i.e. where the chunk is not full)
+            results = jnp.where(jnp.linalg.norm(flatten, axis=1) < 1e-8, 0, results)
 
         # then reshape the result back to list of list of list
         return jnp.reshape(results, [self.max_rows, self.max_cols])
@@ -82,7 +86,7 @@ class Node_tensor_2D:
         augmented = jnp.reshape(prop, [-1, 1])
         flatten = jnp.reshape(self.data, [-1, self.node_dim])
         if use_max:
-            return Node(flatten[jnp.argmax(augmented), :])
+            return Node(jnp.reshape(flatten[jnp.argmax(augmented, axis=0), :], [self.node_dim]))
         else:
             return Node(jnp.reshape(jnp.sum(augmented * flatten, axis=0) / jnp.sum(prop), [self.node_dim]))
 

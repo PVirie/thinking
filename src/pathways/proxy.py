@@ -43,12 +43,14 @@ class Model(hippocampus.Model):
             # find max
             c = await kernel.consolidate(p, use_max=True)
 
-            # keep max
-            C.append(c)
-            c_prop.append(jnp.max(p, keepdims=False))
+            is_null = await c.is_null()
+            if not is_null:
+                # keep max
+                C.append(c)
+                c_prop.append(jnp.max(p, keepdims=False))
             
             # remove max
-            m = await kernel.match(c)
+            m = await kernel.match(c, filter_invalid=False)
             p = p * (1-m)
 
         return C, c_prop
