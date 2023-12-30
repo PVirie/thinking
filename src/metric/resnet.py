@@ -50,7 +50,7 @@ class Resnet(nn.Module):
             x = ResnetBlock(features)(x)
             last_dims = features
         x = nn.Dense(features=self.output_dim)(x)
-        return x
+        return nn.sigmoid(x)
     
 
 @struct.dataclass

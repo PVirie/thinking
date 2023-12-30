@@ -81,8 +81,7 @@ class StackedTransformer(nn.Module):
 
         # Final layer to project to output dimension
         x = nn.Dense(self.output_dim)(x)
-
-        return x
+        return nn.sigmoid(x)
 
     
 

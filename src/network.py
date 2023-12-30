@@ -106,7 +106,7 @@ class Layer:
         })
             
         if self.next is not None:
-            goals = self.next.find_path(await self.to_next(c, True), await self.to_next(t, False), printer=printer)
+            goals = self.next.find_path(await self.to_next(c, True), await self.to_next(t, False), hard_limit=hard_limit, pathway_bias=pathway_bias, printer=printer)
 
         yield c
 
