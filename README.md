@@ -19,10 +19,10 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 
 ## To do
 
--   Improve metric model learning (assign label as a mask and use loss = mask*label*div(pred, label) - lambda (negative sample) )
 -   Implement control pathway
 -   jax enhance phase III: use jit (remove if else in training functions)
 -   Test the algorithm with many elaborate example environments.
+-   ~Improve metric model learning (added unvisit factor)~
 -   ~Fix cortex pathway with ideal model~
 -   ~World update prior vs bootstrapping (implement statistical keeping of the variance and mean to estimate extreme cases.)~
 -   ~Transformer model~

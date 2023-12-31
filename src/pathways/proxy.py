@@ -12,6 +12,7 @@ class Model(hippocampus.Model):
         # call super method
         super().__init__(memory_size, chunk_size, 1.0, embedding_dim)
         self.candidate_count = candidate_count
+        self.unvisit_factor = jnp.ones([memory_size, chunk_size], dtype=jnp.float32)
 
 
     def save(self, path):
@@ -29,6 +30,17 @@ class Model(hippocampus.Model):
         await super().incrementally_learn(hs)
 
 
+    async def reset(self):
+        # set platitudes to 0
+        self.unvisit_factor = jnp.ones([self.h_size, self.chunk_size], dtype=jnp.float32)
+
+
+    async def update_visit(self, c: Node):
+        # update unvisit factor
+        m = await self.H.match(c, filter_invalid=False)
+        self.unvisit_factor = self.unvisit_factor * (1-m)
+
+
     async def get_candidates(self, x: Node, forward=True):
 
         # match all
@@ -40,8 +52,8 @@ class Model(hippocampus.Model):
         c_prop = []
         
         # this array is use for subtracting selected candidates
-        vp = p.copy()
-        flatten_p = jnp.reshape(p, [-1])
+        vp = p * jnp.roll(self.unvisit_factor, -1 if forward else 1, axis=1)
+        flatten_p = jnp.reshape(vp, [-1])
         for i in range(self.candidate_count):
             # find max
             c = await kernel.consolidate(vp, use_max=True)

@@ -124,6 +124,8 @@ class Layer:
                     g = t
             else:
                 g = t
+            
+            await self.proxy.reset()
 
             while True:
                 if await c.is_same_node(t):
@@ -147,6 +149,9 @@ class Layer:
 
                 c, supplementary = await self.pincer_inference(c, g, pathway_bias)
                 c = await self.hippocampus.enhance(c)  # enhance signal preventing signal degradation
+
+                # this may contradict with ONLINE LEARNING, luckily we don't do it now.
+                await self.proxy.update_visit(c)
 
                 await printer.print({
                     "layer": self.name,
