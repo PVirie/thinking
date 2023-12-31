@@ -68,7 +68,7 @@ def train_step(state, batch, labels, masks):
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, batch)
-        loss = jnp.mean(mse_loss(logits, labels)*masks)
+        loss = jnp.mean(mse_loss(logits, labels, masks))
         return loss
     
     loss, grads = jax.value_and_grad(loss_fn)(state.params)
@@ -79,8 +79,8 @@ def train_step(state, batch, labels, masks):
 
 
 @jax.vmap
-def mse_loss(logit, label):
-    return (logit - label) ** 2
+def mse_loss(logit, label, masks):
+    return ((logit - label) ** 2) * masks
 
 
 class Model(metric_base.Model):
@@ -88,9 +88,9 @@ class Model(metric_base.Model):
     def __init__(self, input_dims):
         self.rng = jax.random.PRNGKey(42)
         self.input_dims = input_dims
-        self.model = Resnet(layers=[8, 8], output_dim=1)
+        self.model = Resnet(layers=[8, 4, 2], output_dim=1)
 
-        learning_rate = 1e-4
+        learning_rate = 1e-3
         momentum = 0.9
         variables = self.model.init(self.rng, jnp.empty((1, input_dims * 2), jnp.float32))
         tx = optax.adam(learning_rate, momentum)

@@ -4,7 +4,7 @@ import asyncio
 from loguru import logger
 import random
 
-from src.metric import Node, Node_tensor_2D, Metric_Printer, resnet, ideal
+from src.metric import Node, Node_tensor_2D, Metric_Printer, resnet, ideal, transformer
 from src.network import Layer
 from src.pathways import heuristic, hippocampus, proxy
 from src.utilities import *

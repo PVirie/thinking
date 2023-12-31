@@ -103,7 +103,7 @@ def train_step(state, batch, labels, masks, dropout_key):
 
     def loss_fn(params):
         logits = state.apply_fn({'params': params}, batch, rngs={'dropout': dropout_train_key})
-        loss = jnp.mean(mse_loss(logits, labels)*masks)
+        loss = jnp.mean(mse_loss(logits, labels, masks))
         return loss
     
     loss, grads = jax.value_and_grad(loss_fn)(state.params)
@@ -114,8 +114,8 @@ def train_step(state, batch, labels, masks, dropout_key):
 
 
 @jax.vmap
-def mse_loss(logit, label):
-    return (logit - label) ** 2
+def mse_loss(logit, label, masks):
+    return ((logit - label) ** 2) * masks
 
 
 class Model(metric_base.Model):
