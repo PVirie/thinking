@@ -131,6 +131,7 @@ async def test():
         finally:
             print("-----------cortex planner-----------")
     print("cortex planner:", time.time() - stamp, " average length:", total_length / len(goals))
+    print("======================================================")
 
     total_length = 0
     stamp = time.time()

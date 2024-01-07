@@ -19,6 +19,7 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 
 ## To do
 
+-   Heuristic learning value estimate using max value of the next state.
 -   Implement control pathway
 -   jax enhance phase III: use jit (remove if else in training functions)
 -   Test the algorithm with many elaborate example environments.
