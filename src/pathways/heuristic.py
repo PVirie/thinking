@@ -29,6 +29,19 @@ def generate_masks(pivots, length, diminishing_factor=0.9, pre_steps=1):
     return jnp.transpose(masks), jnp.transpose(diminishing)
 
 
+def generate_q_learning(current_values, length, diminishing_factor=0.9):
+    # current_values is a matrix of shape [batch, length]
+    current_values = jnp.array(current_values)
+    xv, yv = jnp.meshgrid(jnp.linspace(0, - length + 1, length), jnp.linspace(0, length - 1, length))
+    mesh = xv + yv
+    diminishing = jnp.power(diminishing_factor, mesh)
+    diminishing = jnp.where(mesh < 0, 0, diminishing)
+
+    # https://stackoverflow.com/questions/41164305/numpy-dot-product-with-max-instead-of-sum
+    M3 = jnp.max(current_values[:, :, None] * diminishing[None, :, :], axis = 1)
+    return M3
+
+
 class Model(Pathway):
 
     def __init__(self, metric_network, diminishing_factor, world_update_prior, reach=1, all_pairs=False, name=""):
@@ -94,11 +107,12 @@ class Model(Pathway):
             masks, new_scores = generate_masks(pivots, path_length, self.diminishing_factor, reach)
             s = path
             t = [path[p] for p in pivots]
-            # current_scores = self.metric_network.likelihood(s, t, cartesian=True)
+            current_scores = self.metric_network.likelihood(s, t, cartesian=True)
             # current_scores is a matrix of shape [len(t), len(s)]
 
-            # labels = jnp.where(new_scores > current_scores, new_scores, (1 - self.world_update_prior) * current_scores + self.world_update_prior * new_scores)
             labels = new_scores
+            # labels = jnp.where(new_scores > current_scores, new_scores, (1 - self.world_update_prior) * current_scores + self.world_update_prior * new_scores)
+            # labels = generate_q_learning(current_scores, path_length, self.diminishing_factor)
 
             loss = self.metric_network.learn(s, t, labels, masks, cartesian=True)
 
@@ -113,4 +127,5 @@ if __name__ == '__main__':
     print(masks)
     print(labels)
 
-    # To do: write test
+    kernel = generate_q_learning([[0, 1, 2], [0, 2, 1]], 3)
+    print(kernel)
