@@ -6,7 +6,7 @@ from loguru import logger
 def compute_pivot_indices(entropies):
     all_pvs = []
     for j in range(1, len(entropies) - 1):
-        if entropies[j - 1] < entropies[j] and entropies[j] >= entropies[j + 1]:
+        if entropies[j] > entropies[j + 1]:
             all_pvs.append(j)
     all_pvs.append(len(entropies) - 1)
     return all_pvs
