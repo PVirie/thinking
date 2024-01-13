@@ -39,6 +39,7 @@ class Model(Pathway):
         return await self.H.access(max_row, max_col)
 
     async def infer(self, s: Node, t: Node):
+        # find the latest distance between s and t
         s_prop = await self.H.match(s)
         t_prop = await self.H.match(t)
 
@@ -61,7 +62,7 @@ class Model(Pathway):
         if s_best_index >= self.chunk_size:
             return None, None
 
-        hippocampus_prop = pow(self.diminishing_factor, t_best_index - s_best_index - 1) * s_best_prop * t_best_prop
+        hippocampus_prop = pow(self.diminishing_factor, t_best_index - s_best_index) * s_best_prop * t_best_prop
         hippocampus_rep = await self.H.access(best, s_best_index + 1)
         
         return hippocampus_rep, hippocampus_prop
@@ -86,7 +87,68 @@ class Model(Pathway):
         return await res.consolidate(prop)
 
 
+    async def distance(self, s: List[Node], t: List[Node]):
+        # find the minimal distance between all pairs of s and t
+        # return a matrix of shape [len(t), len(s)]
+        s_prop = await self.H.match_many(s)
+        t_prop = await self.H.match_many(t)
+
+        # s_prop has shape [len(s), max_row, max_col]
+        # t_prop has shape [len(t), max_row, max_col]
+        s_max_indices = jnp.argmax(s_prop, axis=2)
+        t_max_indices = jnp.argmax(t_prop, axis=2)
+        s_max = jnp.max(s_prop, axis=2)
+        t_max = jnp.max(t_prop, axis=2)
+
+        # s_max_* has shape [len(s), max_row]
+        # t_max_* has shape [len(t), max_row]
+        # now make s_max_indices and t_max_indices have shape [len(t), len(s), max_row]
+        s_max_indices = jnp.expand_dims(s_max_indices, axis=0)
+        s_max_indices = jnp.repeat(s_max_indices, len(t), axis=0)
+        t_max_indices = jnp.expand_dims(t_max_indices, axis=1)
+        t_max_indices = jnp.repeat(t_max_indices, len(s), axis=1)
+        s_max = jnp.expand_dims(s_max, axis=0)
+        t_max = jnp.expand_dims(t_max, axis=1)
+
+        causality = (t_max_indices >= s_max_indices).astype(jnp.float32)
+        dist_score = self.chunk_size - (t_max_indices - s_max_indices)
+        # choose the smallest distance
+        logit = s_max * t_max * causality * dist_score
+        best = jnp.argmax(logit, axis=2)
+        best_value = jnp.max(logit, axis=2)
+
+        # best has shape [len(t), len(s)]
+        t_indexer, s_indexer = jnp.meshgrid(jnp.arange(len(t)), jnp.arange(len(s)), indexing='ij')
+        # get s_best_index and t_best_index of shape [len(t), len(s)]
+        s_best_index = s_max_indices[t_indexer, s_indexer, best]
+        t_best_index = t_max_indices[t_indexer, s_indexer, best]
+
+        distances = pow(self.diminishing_factor, t_best_index - s_best_index)
+
+        # filter distance where best is invalid
+        distances = distances * (best_value > 0)
+        return distances
+
+
 
 if __name__ == '__main__':
-    pass
-    # To do: write test
+    # test
+    import asyncio
+    import random
+
+    model = Model(16, 8, 0.9, 4)
+    rep = [Node(r) for r in jnp.eye(4, dtype=jnp.float32)]
+
+    async def test():
+        await model.incrementally_learn([rep[i] for i in [0, 1, 2, 3]])
+        await model.incrementally_learn([rep[i] for i in [0, 2, 1, 3]])
+        
+        # one pair lastest distance
+        _, prop = await model.infer(rep[2], rep[3])
+        print(prop)
+
+        # all pair minimal distance
+        all_pair_distances = await model.distance(rep, rep)
+        print(all_pair_distances)
+
+    asyncio.run(test())

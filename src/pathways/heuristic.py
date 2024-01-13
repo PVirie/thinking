@@ -88,6 +88,7 @@ class Model(Pathway):
         # print("5 best", torch.argmax(heuristic_rep, dim=0))
         return heuristic_rep, heuristic_prop
 
+
     async def incrementally_learn(self, path: List[Node], pivots):
 
         reach = self.reach
@@ -107,7 +108,7 @@ class Model(Pathway):
             masks, new_scores = generate_masks(pivots, path_length, self.diminishing_factor, reach)
             s = path
             t = [path[p] for p in pivots]
-            current_scores = self.metric_network.likelihood(s, t, cartesian=True)
+            # current_scores = self.metric_network.likelihood(s, t, cartesian=True)
             # current_scores is a matrix of shape [len(t), len(s)]
 
             labels = new_scores
@@ -120,6 +121,27 @@ class Model(Pathway):
             if self.learn_steps % 100 == 0:
                 logger.info(f"heuristic {self.name} loss: {loss}")
 
+
+    async def incrementally_learn_2(self, path: List[Node], pivots, hippocampus_distances):
+
+        reach = self.reach
+        path_length = len(path)
+
+        # learn self
+        self_label = 1.0
+        self_weight = 0.1
+        self.metric_network.learn([path[p] for p in pivots], [path[p] for p in pivots], self_label, self_weight)
+
+        if len(pivots) > 0:
+            masks, new_scores = generate_masks(pivots, path_length, self.diminishing_factor, reach)
+            s = path
+            t = [path[p] for p in pivots]
+
+            loss = self.metric_network.learn(s, t, hippocampus_distances, masks, cartesian=True)
+
+            self.learn_steps += 1
+            if self.learn_steps % 100 == 0:
+                logger.info(f"heuristic {self.name} loss: {loss}")
 
 
 if __name__ == '__main__':

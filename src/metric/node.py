@@ -46,6 +46,22 @@ class Node_tensor_2D:
         return jnp.reshape(results, [self.max_rows, self.max_cols])
 
 
+    async def match_many(self, nodes: List[Node], filter_invalid=True):
+        input = jnp.stack([n.data for n in nodes], axis=0)
+        flatten = jnp.reshape(self.data, [-1, self.node_dim])
+        results = jnp.exp(-jnp.linalg.norm(flatten[None, :, :] - input[:, None, :], axis=2))
+
+        if filter_invalid:
+            # filter where self.H is invalid (i.e. where the chunk is not full)
+            invalid_flag = jnp.linalg.norm(flatten, axis=1) < 1e-8
+            invalid_flag = jnp.expand_dims(invalid_flag, axis=0)
+            invalid_flag = jnp.repeat(invalid_flag, len(nodes), axis=0)
+            results = jnp.where(invalid_flag, 0, results)
+
+        # then reshape the result back to list of list of list
+        return jnp.reshape(results, [len(nodes), self.max_rows, self.max_cols])
+
+
     async def append(self, hs: List[Node]):
         num_steps = len(hs)
 
@@ -142,6 +158,9 @@ async def test():
 
     rolled = await nodes.roll(0, 1)
     print(await rolled.match(node1))
+
+    # test match many
+    print(await nodes.match_many([node1, node2, node3]))
 
     new_node = await nodes.consolidate(jnp.array([[1, 0], [0, 1]]), use_max=False)
     print(new_node.data)

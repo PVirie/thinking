@@ -52,7 +52,9 @@ class Layer:
         pivots_indices = compute_pivot_indices(entropies)
         pivots = [path[i] for i in pivots_indices]
 
-        await self.heuristics.incrementally_learn(path, pivots_indices)
+        # await self.heuristics.incrementally_learn(path, pivots_indices)
+        hippocampus_distances = await self.hippocampus.distance(path, [path[i] for i in pivots_indices])
+        await self.heuristics.incrementally_learn_2(path, pivots_indices, hippocampus_distances)
 
         if self.next is not None and len(pivots) > 1:
             await self.next.incrementally_learn(pivots)
