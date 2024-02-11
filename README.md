@@ -20,8 +20,9 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 ## To do
 
 -   Implement Turing pathway
--   jax enhance phase III: use jit (remove if else in training functions)
 -   Test the algorithm with many elaborate example environments.
+    -   2D maze with 2D position as the state.
+-   jax enhance phase III: use jit (remove if else in training functions)
 -   ~Heuristic learning value estimate using max value from hippocampus~
 -   ~Improve metric model learning (added unvisit factor)~
 -   ~Fix cortex pathway with ideal model~
