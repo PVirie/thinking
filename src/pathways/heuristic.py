@@ -1,6 +1,5 @@
 import os
 import math
-import os
 import jax.numpy as jnp
 from jax import jit
 from typing import List

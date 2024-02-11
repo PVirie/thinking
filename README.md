@@ -1,12 +1,12 @@
 # Thinking model
 
-An implementation of thinking model version XXXIX(II).
+An implementation of thinking model.
 
-## Discretum
+## Guided Non-deterministic Turing Machine (version XLII)
 
 Use hippocampus neighboring and superpositional sum to bypass the requirement for negative examples.
 
-## Prerequisites
+### Prerequisites
 
 -   install [docker-ce](https://www.linode.com/docs/guides/installing-and-using-docker-on-ubuntu-and-debian/)
 -   (Optional) install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#getting-started)
@@ -19,7 +19,7 @@ Use hippocampus neighboring and superpositional sum to bypass the requirement fo
 
 ## To do
 
--   Implement control pathway
+-   Implement Turing pathway
 -   jax enhance phase III: use jit (remove if else in training functions)
 -   Test the algorithm with many elaborate example environments.
 -   ~Heuristic learning value estimate using max value from hippocampus~
