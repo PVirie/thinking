@@ -2,7 +2,7 @@
     "configurations": [
         {
             "name": "Docker: Python - GPU",
-            "type": "python",
+            "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "docker-compose-start: gpu",
             "pathMappings": [
@@ -15,12 +15,14 @@
                     "remoteRoot": "/app/tasks"
                 }
             ],
-            "port": 5678,
-            "host": "127.0.0.1"
+            "connect": {
+                "host": "127.0.0.1",
+                "port": 5678
+            }
         },
         {
             "name": "Docker: Python - NOGPU",
-            "type": "python",
+            "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "docker-compose-start: cpu",
             "pathMappings": [
@@ -33,12 +35,14 @@
                     "remoteRoot": "/app/tasks"
                 }
             ],
-            "port": 5678,
-            "host": "127.0.0.1"
+            "connect": {
+                "host": "127.0.0.1",
+                "port": 5678
+            }
         },
         {
             "name": "Docker: Python - Currentfile cpu",
-            "type": "python",
+            "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "docker-compose-start: current file",
             "pathMappings": [
@@ -51,8 +55,10 @@
                     "remoteRoot": "/app/tasks"
                 }
             ],
-            "port": 5678,
-            "host": "127.0.0.1"
+            "connect": {
+                "host": "127.0.0.1",
+                "port": 5678
+            }
         }
     ]
 }
