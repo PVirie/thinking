@@ -26,7 +26,8 @@ An implementation of thinking models.
 
 ## To do
 
--   [ ] Implement Turing pathway
+-   [ ] Implement heuristically uncertainty minimization along networks (HUMN).
+-   [ ] Use human on Turing machine
 -   [ ] Test the algorithm with many elaborate example environments.
     -   2D maze with 2D position as the state.
 -   [ ] jax enhance phase III: use jit (remove if else in training functions)
