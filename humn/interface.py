@@ -1,14 +1,41 @@
 
 
-class From_State:
+class Action:
     def __init__(self):
         pass
 
+    def __add__(self, s): 
+        pass
 
-class To_State:
+class State:
     def __init__(self):
         pass
 
-
-    async def is_here(self, here: From_State):
+    def __add__(self, a): 
         pass
+
+    def __sub__(self, s):
+        pass
+
+class State_Sequence:
+    def __init__(self):
+        pass
+
+    def __getitem__(self, i):
+        pass
+
+    def __setitem__(self, i, s):
+        pass
+
+    def __delitem__(self, i):
+        pass
+
+    def __len__(self):
+        pass
+
+    def append(self, s):
+        pass
+
+
+
+

@@ -1,5 +1,5 @@
 from .interface import *
-from typing import List
+from typing import List, Tuple
 
 class Layer:
     def __init__(self, name, heuristics, hippocampus, proxy):
@@ -15,7 +15,7 @@ class Layer:
         pass
 
 
-    async def incrementally_learn(self, path: List[From_State], pivots_indices):
+    async def incrementally_learn(self, path: State_Sequence, pivots_indices):
         if len(path) < 2:
             return
 
@@ -28,7 +28,7 @@ class Layer:
 
 
 
-    async def next_step(self, from_state: From_State, goal_state: To_State, pathway_bias=None):
+    async def next_step(self, from_state: State, goal_state: State, pathway_bias=None):
 
         if await goal_state.is_here(from_state):
             return goal_state

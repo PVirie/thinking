@@ -1,7 +1,7 @@
 import logging
 from .interface import *
 from .layer import Layer
-from typing import List
+from typing import List, Tuple
 
 
 
@@ -19,7 +19,7 @@ class HUMN:
         self.layers = []
 
 
-    async def observe(self, path: List[From_State]):
+    async def observe(self, path: State_Sequence):
         current_layer_path = path        
         for layer in self.layers:
             entropies = await self.hippocampus.compute_entropy(current_layer_path)
@@ -31,7 +31,7 @@ class HUMN:
 
 
 
-    async def think(self, from_state: From_State, goal_state: To_State):
+    async def think(self, from_state: State, goal_state: State):
         if len(self.layers) == 0:
             logging.error("No layers in HUMN, please initialize it.")
             return None
