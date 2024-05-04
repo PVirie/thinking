@@ -2,16 +2,17 @@
 
 An implementation of thinking models.
 
-| Version | Model                                       | Description                                                                                          |
-| ------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 42      | **Guided Non-deterministic Turing Machine** | Use hippocampus neighboring and superpositional sum to bypass the requirement for negative examples. |
-| 41      | Freewill                                    | Control actions                                                                                      |
-| 39(2)   | Discretum                                   | Hippocampus + heuristic                                                                              |
-| 40      | Knapsack                                    | Use knapsack generalization, th basic idea is the concept of property.                               |
-| 38      | Subprobability                              | argmax x given s where x is a neighbor of s                                                          |
-| 37      | Functional variational                      | Generalize neighbor distribution                                                                     |
-| 36      | Gaussian variational                        | Gaussian neighbor distribution                                                                       |
-| 35      | The fundamental model                       | Hierarchical Uncertainty Minimization across Network                                                 |
+| Version | Model                                   | Description                                                                                          |
+| ------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 43      | **Recursive sub-action inference**      | Infer sub-actions instead of states                                                                  |
+| 42      | Guided Non-deterministic Turing Machine | Use hippocampus neighboring and superpositional sum to bypass the requirement for negative examples. |
+| 41      | Freewill                                | Control actions                                                                                      |
+| 39(2)   | Discretum                               | Hippocampus + heuristic                                                                              |
+| 40      | Knapsack                                | Use knapsack generalization, th basic idea is the concept of property.                               |
+| 38      | Subprobability                          | argmax x given s where x is a neighbor of s                                                          |
+| 37      | Functional variational                  | Generalize neighbor distribution                                                                     |
+| 36      | Gaussian variational                    | Gaussian neighbor distribution                                                                       |
+| 35      | The fundamental model                   | Hierarchical Uncertainty Minimization across Network                                                 |
 
 ## Prerequisites
 
