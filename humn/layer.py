@@ -8,6 +8,7 @@ class Layer:
         self.hippocampus = hippocampus
         self.proxy = proxy
 
+
     def save(self, weight_path):
         pass
 
@@ -27,24 +28,18 @@ class Layer:
         await self.heuristics.incrementally_learn_2(path, pivots_indices, hippocampus_distances)
 
 
-
-    async def next_step(self, from_state: State, goal_state: State, pathway_bias=None):
+    async def infer_next_step(self, from_state: State, goal_state: Goal, pathway_bias=None):
 
         if await goal_state.is_here(from_state):
             return goal_state
-        
 
-        candidates, props = await self.proxy.get_candidates(from_state)
+        pass
 
-        cortex_rep, cortex_prop = await self.heuristics.consolidate(from_state, candidates, props, goal_state)
-        hippocampus_rep, hippocampus_prop = await self.hippocampus.infer(from_state, goal_state)
+        # 1. generate action candidates
+        # 2. evaluate action candidates
+        # 3. s = s + a
 
-        # sup_info = [(await self.hippocampus.enhance(cortex_rep), cortex_prop), (await self.hippocampus.enhance(hippocampus_rep), hippocampus_prop)]
 
-        if pathway_bias is None:
-            return hippocampus_rep if hippocampus_prop > cortex_prop else cortex_rep
-        elif pathway_bias == "hippocampus":
-            return hippocampus_rep
-        if pathway_bias == "cortex":
-            return cortex_rep
-
+    async def project_state(self, state: State):
+        # return goal of the below layer
+        pass

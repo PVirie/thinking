@@ -18,7 +18,7 @@ class State:
         pass
 
 class State_Sequence:
-    def __init__(self):
+    def __init__(self, start, actions):
         pass
 
     def __getitem__(self, i):
@@ -36,6 +36,15 @@ class State_Sequence:
     def append(self, s):
         pass
 
+
+
+class Goal:
+    def __init__(self):
+        pass
+
+
+    def is_here(self, s):
+        pass
 
 
 
