@@ -52,6 +52,20 @@ class State_Sequence:
     def append(self, s):
         self.actions.append(s - self[-1])
 
+    def unroll(self):
+        states = []
+        s = self.start
+        states.append(s)
+        for a in self.actions:
+            s += a
+            states.append(s)
+        return states
+    
+    def generate_subsequence(self, indices):
+        start = self[indices[0]]
+        unrolled = self.unroll()
+        actions = [unrolled[i] - unrolled[i - 1] for i in indices[1:]]
+        return State_Sequence(start, actions)
 
 
 

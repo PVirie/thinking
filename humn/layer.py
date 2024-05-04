@@ -6,7 +6,6 @@ class Layer:
         self.name = name
         self.heuristics = heuristics
         self.hippocampus = hippocampus
-        self.proxy = proxy
 
 
     def save(self, weight_path):
@@ -21,10 +20,10 @@ class Layer:
             return
 
         await self.hippocampus.incrementally_learn(path)
-        await self.proxy.incrementally_learn(path)
 
         # await self.heuristics.incrementally_learn(path, pivots_indices)
-        hippocampus_distances = await self.hippocampus.distance(path, [path[i] for i in pivots_indices])
+
+        hippocampus_distances = await self.hippocampus.distance(path, path.generate_subsequence(pivots_indices).unroll())
         await self.heuristics.incrementally_learn_2(path, pivots_indices, hippocampus_distances)
 
 
@@ -33,8 +32,13 @@ class Layer:
         if from_state + expect_action == from_state:
             return expect_action
 
-        pass
+        heuristic_state, heuristic_score = await self.heuristics.infer_sub_action(from_state, expect_action)
+        hippocampus_state, hippocampus_score = await self.hippocampus.infer_sub_action(from_state, expect_action)
 
-        # 1. generate action candidates
-        # 2. evaluate action candidates
+        if pathway_bias is None:
+            return heuristic_state if heuristic_score > hippocampus_score else hippocampus_state
+        elif pathway_bias == "heuristics":
+            return heuristic_state
+        elif pathway_bias == "hippocampus":
+            return hippocampus_state
 
