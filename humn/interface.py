@@ -5,7 +5,7 @@ class Action:
         pass
 
     def __add__(self, s): 
-        pass
+        return s + self
 
 class State:
     def __init__(self):
@@ -23,22 +23,34 @@ class State:
 
 class State_Sequence:
     def __init__(self, start, actions):
-        pass
+        self.start = start
+        self.actions = actions
 
     def __getitem__(self, i):
-        pass
+        if i == 0:
+            return self.start
+        s = self.start
+        for a in self.actions[:i]:
+            s += a
+        return s
 
     def __setitem__(self, i, s):
-        pass
+        if i == 0:
+            self.start = s
+        else:
+            self.actions[i - 1] = s - self[i - 1]
 
     def __delitem__(self, i):
-        pass
+        if i == 0:
+            self.start = self[1]
+            self.actions.pop(0)
+        self.actions.pop(i)
 
     def __len__(self):
-        pass
+        return len(self.actions) + 1
 
     def append(self, s):
-        pass
+        self.actions.append(s - self[-1])
 
 
 
