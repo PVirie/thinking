@@ -17,6 +17,10 @@ class State:
     def __sub__(self, s):
         pass
 
+    # implement ==
+    def __eq__(self, s):
+        pass
+
 class State_Sequence:
     def __init__(self, start, actions):
         pass
@@ -36,15 +40,6 @@ class State_Sequence:
     def append(self, s):
         pass
 
-
-
-class Goal:
-    def __init__(self):
-        pass
-
-
-    def is_here(self, s):
-        pass
 
 
 

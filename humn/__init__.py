@@ -32,20 +32,19 @@ class HUMN:
             current_layer_path = [current_layer_path[i] for i in pivots_indices]
 
 
-    async def think(self, from_state: State, goal_state: Goal):
+    async def think(self, from_state: State, goal_state: State):
         if len(self.layers) == 0:
             logging.error("No layers in HUMN, please initialize it.")
             return None
         
-        if await goal_state.is_here(from_state):
+        if from_state == goal_state:
             return goal_state
 
-        last_layer_goal = goal_state
+        action = goal_state - from_state
         for layer in reversed(self.layers):
-            layer_next_state = await layer.infer_next_step(from_state, last_layer_goal)
-            last_layer_goal = await layer.project_state(layer_next_state)
+            action = await layer.infer_sub_action(from_state, action)
 
-        return layer_next_state
+        return from_state + action
 
 
     def save(self, path):

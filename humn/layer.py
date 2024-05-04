@@ -28,18 +28,13 @@ class Layer:
         await self.heuristics.incrementally_learn_2(path, pivots_indices, hippocampus_distances)
 
 
-    async def infer_next_step(self, from_state: State, goal_state: Goal, pathway_bias=None):
+    async def infer_sub_action(self, from_state: State, expect_action: Action, pathway_bias=None):
 
-        if await goal_state.is_here(from_state):
-            return goal_state
+        if from_state + expect_action == from_state:
+            return expect_action
 
         pass
 
         # 1. generate action candidates
         # 2. evaluate action candidates
-        # 3. s = s + a
 
-
-    async def project_state(self, state: State):
-        # return goal of the below layer
-        pass
