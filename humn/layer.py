@@ -1,11 +1,11 @@
 from .interface import *
+from .pathways import *
 from typing import List, Tuple
 
 class Layer:
-    def __init__(self, name, heuristics, hippocampus, proxy):
-        self.name = name
-        self.heuristics = heuristics
-        self.hippocampus = hippocampus
+    def __init__(self):
+        self.heuristics = cortex.Cortex_Pathway()
+        self.hippocampus = hippocampus.Hippocampus_Pathway()
 
 
     def save(self, weight_path):
@@ -20,11 +20,7 @@ class Layer:
             return
 
         await self.hippocampus.incrementally_learn(path)
-
-        # await self.heuristics.incrementally_learn(path, pivots_indices)
-
-        hippocampus_distances = await self.hippocampus.distance(path, path.generate_subsequence(pivots_indices).unroll())
-        await self.heuristics.incrementally_learn_2(path, pivots_indices, hippocampus_distances)
+        await self.heuristics.incrementally_learn(path, pivots_indices)
 
 
     async def infer_sub_action(self, from_state: State, expect_action: Action, pathway_bias=None):
