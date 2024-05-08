@@ -1,11 +1,10 @@
-from .interface import *
-from .pathways import *
+from .interfaces import *
 from typing import List, Tuple
 
 class Layer:
-    def __init__(self):
-        self.heuristics = cortex.Cortex_Pathway()
-        self.hippocampus = hippocampus.Hippocampus_Pathway()
+    def __init__(self, cortex, hippocampus):
+        self.heuristics = cortex
+        self.hippocampus = hippocampus
 
 
     def save(self, weight_path):
@@ -14,27 +13,31 @@ class Layer:
     def load(self, weight_path):
         pass
 
+    
+    def compute_entropy_local_minima(self, path: State_Sequence) -> Index_Sequence:
+        return self.hippocampus.compute_entropy_local_minimum_indices(path)
 
-    async def incrementally_learn(self, path: State_Sequence, pivots_indices):
+
+    def incrementally_learn(self, path: State_Sequence, pivots_indices: Index_Sequence):
         if len(path) < 2:
             return
 
-        await self.hippocampus.incrementally_learn(path)
-        await self.heuristics.incrementally_learn(path, pivots_indices)
+        self.hippocampus.incrementally_learn(path, pivots_indices)
+        self.heuristics.incrementally_learn(path, pivots_indices)
 
 
-    async def infer_sub_action(self, from_state: State, expect_action: Action, pathway_bias=None):
+    def infer_sub_action(self, from_state: State, expect_action: Action, pathway_bias=None) -> Action:
 
         if from_state + expect_action == from_state:
             return expect_action
 
-        heuristic_state, heuristic_score = await self.heuristics.infer_sub_action(from_state, expect_action)
-        hippocampus_state, hippocampus_score = await self.hippocampus.infer_sub_action(from_state, expect_action)
+        heuristic_action, heuristic_score = self.heuristics.infer_sub_action(from_state, expect_action)
+        hippocampus_action, hippocampus_score = self.hippocampus.infer_sub_action(from_state, expect_action)
 
         if pathway_bias is None:
-            return heuristic_state if heuristic_score > hippocampus_score else hippocampus_state
+            return heuristic_action if heuristic_score > hippocampus_score else hippocampus_action
         elif pathway_bias == "heuristics":
-            return heuristic_state
+            return heuristic_action
         elif pathway_bias == "hippocampus":
-            return hippocampus_state
+            return hippocampus_action
 

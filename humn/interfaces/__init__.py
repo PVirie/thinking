@@ -1,5 +1,4 @@
 
-
 class Action:
     def __init__(self):
         pass
@@ -20,6 +19,20 @@ class State:
     # implement ==
     def __eq__(self, s):
         pass
+
+
+
+class Index_Sequence:
+    
+    def __getitem__(self, i):
+        pass
+
+    def __setitem__(self, i, s):
+        pass
+
+    def append(self, s):
+        pass
+
 
 class State_Sequence:
     def __init__(self, start, actions):
@@ -61,10 +74,9 @@ class State_Sequence:
             states.append(s)
         return states
     
-    def generate_subsequence(self, indices):
+    def generate_subsequence(self, indices: Index_Sequence):
         start = self[indices[0]]
         unrolled = self.unroll()
         actions = [unrolled[i] - unrolled[i - 1] for i in indices[1:]]
         return State_Sequence(start, actions)
-
 

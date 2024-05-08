@@ -1,38 +1,38 @@
 import logging
-from .interface import *
+from .interfaces import *
 from .layer import Layer
 from typing import List, Tuple
 
 
 
-async def compute_pivot_indices(layer, path, use_entropy=False):
+def compute_pivot_indices(layer, path: State_Sequence, use_entropy=False) -> Index_Sequence:
     if use_entropy:
-        entropies = await layer.compute_entropy(path)
-        all_pvs = []
-        for j in range(1, len(entropies) - 1):
-            if entropies[j] > entropies[j + 1]:
-                all_pvs.append(j)
-        all_pvs.append(len(entropies) - 1)
+        all_pvs = layer.compute_entropy_local_minima(path)
     else:
         # skip by 1
-        all_pvs = list(range(1, len(path), 2))
+        all_pvs = Index_Sequence()
+        for i in range(1, len(path), 2):
+            all_pvs.append(i)
+    
+    # always have the last
+    all_pvs.append(len(path))
     return all_pvs
 
 
 class HUMN:
-    def __init__(self):
-        self.layers = []
+    def __init__(self, layers):
+        self.layers = layers
 
 
-    async def observe(self, path: State_Sequence):
+    def observe(self, path: State_Sequence):
         current_layer_path = path        
         for layer in self.layers:
-            pivots_indices = await compute_pivot_indices(current_layer_path)
-            await layer.incrementally_learn(current_layer_path, pivots_indices)
-            current_layer_path = [current_layer_path[i] for i in pivots_indices]
+            pivots_indices = compute_pivot_indices(current_layer_path)
+            layer.incrementally_learn(current_layer_path, pivots_indices)
+            current_layer_path = current_layer_path.generate_subsequence(pivots_indices)
 
 
-    async def think(self, from_state: State, goal_state: State):
+    def think(self, from_state: State, goal_state: State):
         if len(self.layers) == 0:
             logging.error("No layers in HUMN, please initialize it.")
             return None
@@ -42,7 +42,7 @@ class HUMN:
 
         action = goal_state - from_state
         for layer in reversed(self.layers):
-            action = await layer.infer_sub_action(from_state, action)
+            action = layer.infer_sub_action(from_state, action)
 
         return from_state + action
 
@@ -53,6 +53,7 @@ class HUMN:
 
     def load(self, path):
         pass
+
 
     def set_pathway_preference(self, pathway_name, preference):
         pass
