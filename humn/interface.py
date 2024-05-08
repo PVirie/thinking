@@ -68,4 +68,3 @@ class State_Sequence:
         return State_Sequence(start, actions)
 
 
-

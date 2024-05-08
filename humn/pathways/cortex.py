@@ -1,5 +1,5 @@
 from . import base
-
+from ..interface import State_Sequence, State, Action
 
 
 class Cortex_Pathway(base.Pathway):
@@ -8,9 +8,9 @@ class Cortex_Pathway(base.Pathway):
         pass
 
 
-    async def incrementally_learn(self, path):
+    def incrementally_learn(self, path: State_Sequence):
         pass
 
 
-    async def infer_sub_action(self, from_state, expect_action):
+    def infer_sub_action(self, from_state: State, expect_action: Action):
         pass
