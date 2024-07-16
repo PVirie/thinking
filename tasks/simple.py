@@ -2,7 +2,8 @@ import os
 import logging
 import contextlib
 import random
-import pickle
+import json
+from typing import List
 from pydantic import BaseModel
 
 from humn import *
@@ -12,66 +13,88 @@ from src.jax.pathway import cortex, hippocampus
 
 
 class Context(BaseModel):
-    model: HUMN
-    states: list[alg.State]
-    goals: list[int]
+    layers: List[(cortex.Model, hippocampus.Model)]
+    states: alg.State_Sequence
+    goals: List[int]
     graph: np.ndarray
     random_seed: int = 0
 
 
-    def load(self, path):
-        context.model.load(path)
-        self.states = pickle.load(open(os.path.join(path, "states.pkl"), "rb"))
-        self.goals = pickle.load(open(os.path.join(path, "goals.pkl"), "rb"))
-        self.graph = pickle.load(open(os.path.join(path, "graph.pkl"), "rb"))
-        self.random_seed = pickle.load(open(os.path.join(path, "random_seed.pkl"), "rb"))
+    @staticmethod
+    def load(path):
+        try:
+            with open(os.path.join(path, "metadata.json"), "r") as f:
+                metadata = json.load(f)
+                layers = []
+                for i in range(metadata["num_layers"]):
+                    layer_path = os.path.join(path, "layers", f"layer_{i}")
+                    cortex_path = os.path.join(layer_path, "cortex")
+                    hippocampus_path = os.path.join(layer_path, "hippocampus")
+                    layers.append((cortex.Model.load(cortex_path), hippocampus.Model.load(hippocampus_path)))
+                states = alg.State_Sequence([alg.State.load(os.path.join(path, "states", f"state_{i}")) for i in range(metadata["num_states"])])
+                graph = np.load(os.path.join(path, "graph.npy"))
+                context = Context(layers=layers, states=states, goals=metadata["goals"], graph=graph, random_seed=metadata["random_seed"])
+            return context
+        except Exception as e:
+            logging.error(e)
+        return None
                                  
 
     def save(self, path):
-        context.model.save(path)
-        pickle.dump(self.states, open(os.path.join(path, "states.pkl"), "wb"))
-        pickle.dump(self.goals, open(os.path.join(path, "goals.pkl"), "wb"))
-        pickle.dump(self.graph, open(os.path.join(path, "graph.pkl"), "wb"))
-        pickle.dump(self.random_seed, open(os.path.join(path, "random_seed.pkl"), "wb"))
-
-
-    def ready(self):
+        for i, layer in enumerate(self.layers):
+            layer_path = os.path.join(path, "layers", f"layer_{i}")
+            cortex_path = os.path.join(layer_path, "cortex")
+            hippocampus_path = os.path.join(layer_path, "hippocampus")
+            layer[0].save(cortex_path)
+            layer[1].save(hippocampus_path)
+        for i, state in enumerate(self.states):
+            state_path = os.path.join(path, "states", f"state_{i}")
+            state.save(state_path)
+        graph_path = os.path.join(path, "graph.npy")
+        np.save(graph_path, self.graph)
+        with open(os.path.join(path, "metadata.json"), "w") as f:
+            json.dump({
+                "num_layers": len(self.layers),
+                "num_states": len(self.states),
+                "goals": self.goals,
+                "random_seed": self.random_seed
+            }, f, indent=4)
         return True
-    
-    
-    def setup(self):
-        self.random_seed = random.randint(0, 1000)
-        random.seed(self.seed)
+
+
+    @staticmethod
+    def setup():
+        random_seed = random.randint(0, 1000)
+        random.seed(random_seed)
 
         graph_shape = 16
         one_hot = generate_onehot_representation(np.arange(graph_shape), graph_shape)
-        self.states = [alg.State(one_hot[i, :]) for i in range(16)]
+        states = alg.State_Sequence([alg.State(one_hot[i, :]) for i in range(16)])
 
-        self.graph = random_graph(graph_shape, 0.4)
+        graph = random_graph(graph_shape, 0.4)
 
-        layers = [Layer(cortex.Model(), hippocampus.Model())]
-        self.model = HUMN(layers)
+        layers = [Layer(cortex.Model(), hippocampus.Model()), Layer(cortex.Model(), hippocampus.Model())]
+        model = HUMN(layers)
 
         explore_steps = 10000
         logging.info("Training a cognitive map:")
         stamp = time.time()
         for i in range(explore_steps):
-            path = random_walk(self.graph, random.randint(0, self.graph.shape[0] - 1), self.graph.shape[0] - 1)
-            self.model.incrementally_learn([self.states[p] for p in path])
+            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+            model.observe(states.generate_subsequence(alg.Index_Sequence(path)))
             if i % 100 == 0:
                 logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}", end="\r", flush=True)
         logging.info(f"\nFinish learning in {time.time() - stamp}s")
 
-        return Context(model=self.model, states=self.states, goals=np.arange(graph_shape), graph=self.graph, random_seed=self.random_seed)
+        return Context(model=model, states=states, goals=np.arange(graph_shape), graph=graph, random_seed=random_seed)
 
 
 
 @contextlib.contextmanager
 def experiment_session(path):
-    context = Context()
-    context.load(path)
-    if not context.ready():
-        context.setup()
+    cortex = Context.load(path)
+    if cortex is None:
+        cortex = Context.setup()
         context.save(path)
     yield context
 
@@ -83,60 +106,76 @@ if __name__ == "__main__":
 
     max_steps = 40
     with experiment_session(experiment_path) as context:
+        model = HUMN(context.layers)
+
+        logging.info("-----------cognitive planner-----------")
         total_length = 0
         stamp = time.time()
-        for t in context.goals:
-            try:
-                path_generator = context.model.find_path(context.states[0], context.states[t], hard_limit=max_steps)
-                for pi in path_generator:
-                    total_length = total_length + 1
-            except RecursionError:
+        for t_i in context.goals:
+            s = context.states[0]
+            t = context.states[t_i]
+            ps = []
+            for i in range(max_steps):
+                p = model.think(s, t)
+                ps.append(p)
+                total_length = total_length + 1
+                if p == t:
+                    break
+                s = p
+            if i == max_steps - 1:
                 logging.warning("fail to find path in time.", t)
-            finally:
-                 logging.info("-----------cognitive planner-----------")
+            logging.info(ps)
         logging.info("cognitive planner:", time.time() - stamp, " average length:", total_length / len(context.goals))
 
+        logging.info("----------hippocampus planner------------")
         total_length = 0
         stamp = time.time()
-        for t in context.goals:
-            try:
-                path_generator = context.model.find_path(context.states[0], context.states[t], hard_limit=max_steps, pathway_bias=-1)
-                for pi in path_generator:
-                    total_length = total_length + 1
-            except RecursionError:
+        for t_i in context.goals:
+            s = context.states[0]
+            t = context.states[t_i]
+            ps = []
+            for i in range(max_steps):
+                p = model.think(s, t, pathway_preference="hippocampus")
+                ps.append(p)
+                total_length = total_length + 1
+                if p == t:
+                    break
+                s = p
+            if i == max_steps - 1:
                 logging.warning("fail to find path in time.", t)
-            finally:
-                logging.info("----------hippocampus planner------------")
+            logging.info(ps)
         logging.info("hippocampus planner:", time.time() - stamp, " average length:", total_length / len(context.goals))
-        logging.info("======================================================")
-
+        
+        logging.info("-----------cortex planner-----------")
         total_length = 0
         stamp = time.time()
-        for t in context.goals:
-            try:
-                path_generator = context.model.find_path(context.states[0], context.states[t], hard_limit=max_steps, pathway_bias=1)
-                for pi in path_generator:
-                    total_length = total_length + 1
-            except RecursionError:
+        for t_i in context.goals:
+            s = context.states[0]
+            t = context.states[t_i]
+            ps = []
+            for i in range(max_steps):
+                p = model.think(s, t, pathway_preference="heuristics")
+                ps.append(p)
+                total_length = total_length + 1
+                if p == t:
+                    break
+                s = p
+            if i == max_steps - 1:
                 logging.warning("fail to find path in time.", t)
-            finally:
-                logging.info("-----------cortex planner-----------")
+            logging.info(ps)
         logging.info("cortex planner:", time.time() - stamp, " average length:", total_length / len(context.goals))
-        logging.info("======================================================")
-
+        
+        logging.info("-----------optimal planner-----------")
         total_length = 0
         stamp = time.time()
         for t in context.goals:
             try:
-                p = shortest_path(context.graph, 0, t)
-                p = list(reversed(p))
-                for pi in p:
-                    total_length = total_length + 1
+                ps = shortest_path(context.graph, 0, t)
+                ps = list(reversed(ps))
+                total_length = total_length + len(ps)
             except RecursionError:
                 logging.info("fail to find path in time.", t)
             finally:
-                logging.info(p)
-                logging.info("-----------optimal planner-----------")
-
+                logging.info(ps)
         logging.info("optimal planner:", time.time() - stamp, " average length:", total_length / len(context.goals))
 

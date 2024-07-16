@@ -7,13 +7,6 @@ class Layer:
         self.hippocampus = hippocampus
 
 
-    def save(self, weight_path):
-        pass
-
-    def load(self, weight_path):
-        pass
-
-    
     def compute_entropy_local_minima(self, path: State_Sequence) -> Index_Sequence:
         return self.hippocampus.compute_entropy_local_minimum_indices(path)
 
@@ -26,18 +19,17 @@ class Layer:
         self.heuristics.incrementally_learn(path, pivots_indices)
 
 
-    def infer_sub_action(self, from_state: State, expect_action: Action, pathway_bias=None) -> Action:
-
+    def infer_sub_action(self, from_state: State, expect_action: Action, pathway_preference=None) -> Action:
         if from_state + expect_action == from_state:
             return expect_action
 
         heuristic_action, heuristic_score = self.heuristics.infer_sub_action(from_state, expect_action)
         hippocampus_action, hippocampus_score = self.hippocampus.infer_sub_action(from_state, expect_action)
 
-        if pathway_bias is None:
+        if pathway_preference is None:
             return heuristic_action if heuristic_score > hippocampus_score else hippocampus_action
-        elif pathway_bias == "heuristics":
+        elif pathway_preference == "heuristics":
             return heuristic_action
-        elif pathway_bias == "hippocampus":
+        elif pathway_preference == "hippocampus":
             return hippocampus_action
 

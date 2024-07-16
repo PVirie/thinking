@@ -33,10 +33,16 @@ class State(humn.State):
         # test norm within 1e-4
         return jnp.linalg.norm(self.data - s.data) < 1e-4
 
+    @staticmethod
+    def load(path):
+        pass
+
+    def save(self, path):
+        pass
 
 class Index_Sequence(humn.Index_Sequence):
-    def __init__(self):
-        self.list = []
+    def __init__(self, indices = []):
+        self.list = indices
 
     def __getitem__(self, i):
         return self.list[i]
@@ -49,5 +55,5 @@ class Index_Sequence(humn.Index_Sequence):
 
 
 class State_Sequence(humn.State_Sequence):
-    def __init__(self, start, actions):
-        super().__init__(start, actions)
+    def __init__(self, states):
+        super().__init__(states)

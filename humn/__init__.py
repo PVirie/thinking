@@ -32,7 +32,7 @@ class HUMN:
             current_layer_path = current_layer_path.generate_subsequence(pivots_indices)
 
 
-    def think(self, from_state: State, goal_state: State):
+    def think(self, from_state: State, goal_state: State, pathway_preference=None):
         if len(self.layers) == 0:
             logging.error("No layers in HUMN, please initialize it.")
             return None
@@ -42,18 +42,7 @@ class HUMN:
 
         action = goal_state - from_state
         for layer in reversed(self.layers):
-            action = layer.infer_sub_action(from_state, action)
+            action = layer.infer_sub_action(from_state, action, pathway_preference)
 
         return from_state + action
 
-
-    def save(self, path):
-        pass
-
-
-    def load(self, path):
-        pass
-
-
-    def set_pathway_preference(self, pathway_name, preference):
-        pass

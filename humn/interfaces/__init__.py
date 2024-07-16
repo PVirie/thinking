@@ -35,9 +35,10 @@ class Index_Sequence:
 
 
 class State_Sequence:
-    def __init__(self, start, actions):
-        self.start = start
-        self.actions = actions
+    def __init__(self, states):
+        self.start = states[0]
+        self.actions = [states[i] - states[i - 1] for i in range(1, len(states))]
+
 
     def __getitem__(self, i):
         if i == 0:
@@ -75,8 +76,6 @@ class State_Sequence:
         return states
     
     def generate_subsequence(self, indices: Index_Sequence):
-        start = self[indices[0]]
         unrolled = self.unroll()
-        actions = [unrolled[i] - unrolled[i - 1] for i in indices[1:]]
-        return State_Sequence(start, actions)
+        return State_Sequence([unrolled[i] for i in indices[1:]])
 
