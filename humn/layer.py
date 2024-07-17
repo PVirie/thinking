@@ -7,6 +7,11 @@ class Layer:
         self.hippocampus = hippocampus
 
 
+    def refresh(self):
+        self.heuristics.refresh()
+        self.hippocampus.refresh()
+
+
     def compute_entropy_local_minima(self, path: State_Sequence) -> Index_Sequence:
         return self.hippocampus.compute_entropy_local_minimum_indices(path)
 

@@ -24,6 +24,11 @@ class HUMN:
         self.layers = layers
 
 
+    def refresh(self):
+        for layer in self.layers:
+            layer.refresh()
+
+
     def observe(self, path: State_Sequence):
         current_layer_path = path        
         for layer in self.layers:

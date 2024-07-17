@@ -4,6 +4,9 @@ from typing import Tuple
 
 class Pathway:
 
+    def refresh(self):
+        pass
+
     def incrementally_learn(self, path: State_Sequence, pivots_indices: Index_Sequence):
         pass
     

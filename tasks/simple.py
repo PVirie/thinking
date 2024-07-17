@@ -108,62 +108,39 @@ if __name__ == "__main__":
     with experiment_session(experiment_path) as context:
         model = HUMN(context.layers)
 
+        def exp_loop(preference = None):
+            total_length = 0
+            stamp = time.time()
+            for t_i in context.goals:
+                s = context.states[0]
+                t = context.states[t_i]
+                ps = []
+                model.refresh()
+                for i in range(max_steps):
+                    p = model.think(s, t, pathway_preference=preference)
+                    p_i = context.states[p]
+                    ps.append(p_i)
+                    total_length = total_length + 1
+                    if p == t:
+                        break
+                    # enhance result
+                    s = context.states[p_i]
+                if i == max_steps - 1:
+                    logging.warning("fail to find path in time.", t)
+                logging.info(ps)
+            return total_length, time.time() - stamp
+
         logging.info("-----------cognitive planner-----------")
-        total_length = 0
-        stamp = time.time()
-        for t_i in context.goals:
-            s = context.states[0]
-            t = context.states[t_i]
-            ps = []
-            for i in range(max_steps):
-                p = model.think(s, t)
-                ps.append(p)
-                total_length = total_length + 1
-                if p == t:
-                    break
-                s = p
-            if i == max_steps - 1:
-                logging.warning("fail to find path in time.", t)
-            logging.info(ps)
-        logging.info("cognitive planner:", time.time() - stamp, " average length:", total_length / len(context.goals))
+        total_length, elapsed_seconds = exp_loop()
+        logging.info("cognitive planner:", elapsed_seconds, " average length:", total_length / len(context.goals))
 
         logging.info("----------hippocampus planner------------")
-        total_length = 0
-        stamp = time.time()
-        for t_i in context.goals:
-            s = context.states[0]
-            t = context.states[t_i]
-            ps = []
-            for i in range(max_steps):
-                p = model.think(s, t, pathway_preference="hippocampus")
-                ps.append(p)
-                total_length = total_length + 1
-                if p == t:
-                    break
-                s = p
-            if i == max_steps - 1:
-                logging.warning("fail to find path in time.", t)
-            logging.info(ps)
-        logging.info("hippocampus planner:", time.time() - stamp, " average length:", total_length / len(context.goals))
+        total_length, elapsed_seconds = exp_loop(preference="hippocampus")
+        logging.info("hippocampus planner:", elapsed_seconds, " average length:", total_length / len(context.goals))
         
         logging.info("-----------cortex planner-----------")
-        total_length = 0
-        stamp = time.time()
-        for t_i in context.goals:
-            s = context.states[0]
-            t = context.states[t_i]
-            ps = []
-            for i in range(max_steps):
-                p = model.think(s, t, pathway_preference="heuristics")
-                ps.append(p)
-                total_length = total_length + 1
-                if p == t:
-                    break
-                s = p
-            if i == max_steps - 1:
-                logging.warning("fail to find path in time.", t)
-            logging.info(ps)
-        logging.info("cortex planner:", time.time() - stamp, " average length:", total_length / len(context.goals))
+        total_length, elapsed_seconds = exp_loop(preference="heuristics")
+        logging.info("cortex planner:", elapsed_seconds, " average length:", total_length / len(context.goals))
         
         logging.info("-----------optimal planner-----------")
         total_length = 0
