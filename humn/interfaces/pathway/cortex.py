@@ -4,8 +4,7 @@ from .. import *
 
 class Cortex_Pathway(base.Pathway):
 
-    def __init__(self, model, step_discount_factor=0.9):
-        self.model = model
+    def __init__(self, step_discount_factor=0.9):
         self.step_discount_factor = step_discount_factor
 
     

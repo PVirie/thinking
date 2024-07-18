@@ -11,6 +11,11 @@ class Action(humn.Action):
         else:
             self.data = device_put(jnp.array(data, jnp.float32))
 
+    def __add__(self, s): 
+        return s + self
+    
+    def norm(self):
+        return jnp.linalg.norm(self.data)
     
 
 class State(humn.State):
@@ -21,24 +26,33 @@ class State(humn.State):
             self.data = device_put(jnp.array(data, jnp.float32))
 
     def __add__(self, a): 
-        # simple state, just replace with a
-        return State(a.data)
+        return State(self.data + a.data)
+
 
     def __sub__(self, s):
-        # simple state, just replace with self.data
-        return Action(self.data)
+        return Action(self.data - s.data)
 
-    # implement ==
+
     def __eq__(self, s):
+        # implement ==
         # test norm within 1e-4
-        return jnp.linalg.norm(self.data - s.data) < 1e-4
+        return (self.data - s.data).norm() < 1e-4
+
 
     @staticmethod
     def load(path):
-        pass
+        # load jax array from path
+        with open(path, "rb") as f:
+            data = jnp.load(f)
+        return State(data)
+
 
     def save(self, path):
-        pass
+        # save jax array to path
+        with open(path, "wb") as f:
+            jnp.save(f, self.data)
+
+
 
 class Index_Sequence(humn.Index_Sequence):
     def __init__(self, indices = []):
@@ -86,11 +100,14 @@ class State_Sequence(humn.State_Sequence):
             self.actions.pop(0)
         self.actions.pop(i)
 
+
     def __len__(self):
         return len(self.actions) + 1
 
+
     def append(self, s):
         self.actions.append(s - self[-1])
+
 
     def unroll(self):
         states = []
@@ -111,8 +128,9 @@ class State_Sequence(humn.State_Sequence):
         min_dist = 1e6
         min_i = 0
         for i, s2 in enumerate(self.unroll()):
-            dist = s2 - s
-            if dist.norm() < min_dist:
-                min_dist = dist.norm()
+            a = s2 - s
+            dist = a.norm()
+            if dist < min_dist:
+                min_dist = dist
                 min_i = i
         return min_i
