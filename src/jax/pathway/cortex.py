@@ -24,10 +24,9 @@ class Model(cortex.Cortex_Pathway):
 
 
     def infer_sub_action(self, from_state: State, expect_action: Action) -> Tuple[Action, float]:
-        # goal_state = from_state + expect_action
-        # next_action, score = self.model.infer(from_state, goal_state)
-        # return next_action, score
-        pass
+        goal_state = from_state + expect_action
+        next_action_data, score = self.model.infer(from_state.data, goal_state.data)
+        return Action(next_action_data), score
 
 
     def compute_masked_distance(self, indices, start, end):

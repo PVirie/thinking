@@ -15,47 +15,41 @@ class Model:
         self.key = jnp.reshape(self.key, (-1, dims * 2))
 
         # self.key = jnp.reshape(features, (-1, self.input_dims * 2))
-        self.value = jnp.zeros([dims * dims], jnp.float32)
+        self.score = jnp.zeros([dims * dims, 1], jnp.float32)
+        self.value = jnp.zeros([dims * dims, dims], jnp.float32)
 
 
-    @staticmethod
-    def make_features(s, t):
-        s_ = jnp.expand_dims(s, axis=1)
-        s_ = jnp.tile(s_, (1, t.shape[0], 1))
+    def fit(self, s, x, t, scores):
+        # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N)
 
-        t_ = jnp.expand_dims(t, axis=0)
-        t_ = jnp.tile(t_, (s.shape[0], 1, 1))
-
-        features = jnp.concatenate([s_, t_], axis=-1)
-        return features
-
-
-    def fit(self, s, t, labels, masks):
-        # s has shape (N, dim), t has shape (M, dim), labels has shape (N, M), masks has shape (N, M)
-
-        features = Model.make_features(s, t)
+        features = jnp.concatenate([s, t], axis=-1)
         batch = jnp.reshape(features, (-1, self.input_dims * 2))
 
         # access key
         logits = jnp.matmul(batch, jnp.transpose(self.key))
-        # logits has shape [NxM, len(key)]
+        # logits has shape [N, len(key)]
         # find max key for each batch
         argmax_logits = jnp.argmax(logits, axis=1)
 
-        masks = jnp.reshape(masks, (-1))
-        labels = jnp.reshape(labels, (-1))
+        scores = jnp.reshape(scores, (-1, 1))
 
-        updates = jnp.where(labels * masks > self.value[argmax_logits], labels, self.value[argmax_logits])
-        # update value at argmax_logits with updates
-        self.value = self.value.at[argmax_logits].set(updates)
+        update_indices = scores > self.score[argmax_logits]
+        score_updates = (1 - update_indices) * self.score[argmax_logits] + update_indices * scores
+        # update score at argmax_logits with updates
+        self.score = self.score.at[argmax_logits].set(score_updates)
 
-        return jnp.mean(updates)
+        # only select values that are argmax_logits
+        value_updates = (1 - update_indices) * self.value[argmax_logits] + update_indices * x
+        # update values at argmax_logits with value_updates
+        self.value = self.value.at[argmax_logits].set(value_updates)
+
+        return jnp.mean(score_updates)
 
 
     def infer(self, s, t):
-        # s has shape (N, dim), t has shape (M, dim), labels has shape (N, M), masks has shape (N, M)
+        # s has shape (N, dim), t has shape (N, dim)
 
-        features = Model.make_features(s, t)
+        features = jnp.concatenate([s, t], axis=-1)
         batch = jnp.reshape(features, (-1, self.input_dims * 2))
 
         # access key
@@ -63,32 +57,37 @@ class Model:
         # logits has shape [N*M, len(key)]
         # find max key for each batch
         argmax_logits = jnp.argmax(logits, axis=1)
-        # access value, return with shape (N, M)
-        return jnp.reshape(self.value[argmax_logits], features.shape[:-1])
+        # return best score, value
+
+        best_score = jnp.reshape(self.score[argmax_logits], [features.shape[0]])
+        best_value = jnp.reshape(self.value[argmax_logits], [features.shape[0], -1])
+
+        return best_score, best_value
 
 
     def save(self, path):
-        jnp.save(os.path.join(path, "ideal.npy"), self.value)
+        jnp.save(os.path.join(path, "table.npy"), self.value)
 
 
     def load(self, path):
-        self.value = jnp.load(os.path.join(path, "ideal.npy"))
+        self.value = jnp.load(os.path.join(path, "table.npy"))
 
 
 
 
 if __name__ == "__main__":
-    model = Model(3)
+    model = Model(4)
     print(model.key)
 
-    eye = jnp.eye(3, dtype=jnp.float32)
+    eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :]])
-    t = eye
+    x = jnp.array([eye[1, :], eye[2, :]])
+    t = jnp.array([eye[3, :], eye[3, :]])
 
-    model.fit(s, t, 0.5, jnp.array([1, 1, 0, 0, 0, 0]))
-    value = model.infer(s, t)
-    print(value)
+    model.fit(s, x, t, jnp.array([1, 0]))
+    score, value = model.infer(s, t)
+    print(score, value)
     
-    model.fit(s, t, 1.0, jnp.array([1, 0, 1, 1, 0, 0]))
-    value = model.infer(s, t)
-    print(value)
+    model.fit(s, x, t, jnp.array([0, 1]))
+    score, value = model.infer(s, t)
+    print(score, value)
