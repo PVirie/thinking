@@ -1,11 +1,13 @@
 from humn.interfaces.pathway import cortex
 from ..algebric import *
 from typing import Tuple
+import os
 
 class Model(cortex.Cortex_Pathway):
     
-    def __init__(self, step_discount_factor=0.9):
+    def __init__(self, model, step_discount_factor=0.9):
         super().__init__(step_discount_factor=step_discount_factor)
+        self.model = model
 
 
     @staticmethod

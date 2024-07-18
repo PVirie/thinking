@@ -10,6 +10,7 @@ services:
         volumes:
             - ./artifacts/log/metric:/app/log
             - ./artifacts/weights:/app/weights
+            - ./humn:/app/humn
             - ./src:/app/src
             - ./tasks:/app/tasks
         environment:
@@ -37,6 +38,7 @@ services:
         volumes:
             - ./artifacts/log/metric:/app/log
             - ./artifacts/weights:/app/weights
+            - ./humn:/app/humn
             - ./src:/app/src
             - ./tasks:/app/tasks
         environment:
