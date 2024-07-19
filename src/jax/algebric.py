@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from jax import device_put
-
+from typing import List
 import humn
 
 class Action(humn.Action):
@@ -56,81 +56,69 @@ class State(humn.State):
 
 class Index_Sequence(humn.Index_Sequence):
     def __init__(self, indices = []):
-        self.list = indices
+        self.data = jnp.array(indices, dtype=jnp.int64)
 
     def __getitem__(self, i):
-        return self.list[i]
+        return self.data[i]
 
     def __setitem__(self, i, s):
-        self.list[i] = s
+        self.data = self.data.at[i].set(s)
 
     def append(self, s):
-        self.list.append(s)
+        self.data = jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int64)], axis=0)
 
 
 
 
 class State_Sequence(humn.State_Sequence):
     def __init__(self, states):
-        self.start = states[0]
-        self.actions = [states[i] - states[i - 1] for i in range(1, len(states))]
+        if isinstance(states, List):
+            self.data = jnp.array([s.data for s in states])
+        elif isinstance(states, jnp.ndarray):
+            self.data = states
+        else:
+            self.data = device_put(jnp.array(states, jnp.float32))
 
 
     def __getitem__(self, i):
-        # check type if i is a State then return best match indice
         if isinstance(i, State):
-            return self.match(i)
+            return self.match_index(i)
+        else:
+            return State(self.data[i, :])
 
-        if i == 0:
-            return self.start
-        s = self.start
-        for a in self.actions[:i]:
-            s += a
-        return s
 
     def __setitem__(self, i, s):
-        if i == 0:
-            self.start = s
+        if isinstance(i, State):
+            loc = self.match_index(i)
+            self.data = self.data.at[loc].set(s.data)
         else:
-            self.actions[i - 1] = s - self[i - 1]
-
-    def __delitem__(self, i):
-        if i == 0:
-            self.start = self[1]
-            self.actions.pop(0)
-        self.actions.pop(i)
+            self.data = self.data.at[i].set(s.data)
 
 
     def __len__(self):
-        return len(self.actions) + 1
+        return self.data.shape[0]
 
 
     def append(self, s):
-        self.actions.append(s - self[-1])
+        self.data = jnp.concatenate([self.data, jnp.expand_dims(s.data, axis=0)], axis=0)
 
 
-    def unroll(self):
-        states = []
-        s = self.start
-        states.append(s)
-        for a in self.actions:
-            s += a
-            states.append(s)
-        return states
+    def sample_skip(self, n, include_last=False):
+        # return indices and states
+        indices = Index_Sequence()
+        for i in range(n, len(self), n):
+            indices.append(i)
+        if include_last and i != len(self) - 1:
+            indices.append(len(self) - 1)
+
+        states = self.data[indices.data]
+        return indices, State_Sequence(states)
     
+
+    def match_index(self, s):
+        # find index of state s
+        return jnp.argmin(jnp.linalg.norm(self.data - s.data, axis=1))
     
+
     def generate_subsequence(self, indices: Index_Sequence):
-        unrolled = self.unroll()
-        return State_Sequence([unrolled[i] for i in indices[1:]])
-
-
-    def match(self, s):
-        min_dist = 1e6
-        min_i = 0
-        for i, s2 in enumerate(self.unroll()):
-            a = s2 - s
-            dist = a.norm()
-            if dist < min_dist:
-                min_dist = dist
-                min_i = i
-        return min_i
+        return State_Sequence(self.data[indices.data])

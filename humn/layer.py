@@ -2,9 +2,10 @@ from .interfaces import *
 from typing import List, Tuple
 
 class Layer:
-    def __init__(self, cortex, hippocampus):
+    def __init__(self, cortex, hippocampus, use_entropy=True):
         self.heuristics = cortex
         self.hippocampus = hippocampus
+        self.use_entropy = use_entropy
 
 
     def refresh(self):
@@ -12,16 +13,19 @@ class Layer:
         self.hippocampus.refresh()
 
 
-    def compute_entropy_local_minima(self, path: State_Sequence) -> Index_Sequence:
-        return self.hippocampus.compute_entropy_local_minimum_indices(path)
-
-
-    def incrementally_learn(self, path: State_Sequence, pivots_indices: Index_Sequence):
+    def incrementally_learn_and_sample_pivots(self, path: State_Sequence):
         if len(path) < 2:
             return
 
-        self.hippocampus.incrementally_learn(path, pivots_indices)
-        self.heuristics.incrementally_learn(path, pivots_indices)
+        if self.use_entropy:
+            indices, pivots = self.hippocampus.sample_local_entropy(path)
+        else:
+            indices, pivots = path.sample_skip(2, include_last = True)
+
+        self.hippocampus.incrementally_learn(path, indices, pivots)
+        self.heuristics.incrementally_learn(path, indices, pivots)
+
+        return pivots
 
 
     def infer_sub_action(self, from_state: State, expect_action: Action, pathway_preference=None) -> Action:

@@ -7,7 +7,8 @@ class Pathway:
     def refresh(self):
         pass
 
-    def incrementally_learn(self, path: State_Sequence, pivots_indices: Index_Sequence):
+
+    def incrementally_learn(self, path: State_Sequence, pivot_indices: Index_Sequence, pivots: State_Sequence):
         pass
     
 

@@ -1,7 +1,8 @@
 import jax.numpy as jnp
 import os
+from . import base
 
-class Model:
+class Model(base.Model):
 
     def __init__(self, dims):
         self.input_dims = dims
@@ -19,8 +20,12 @@ class Model:
         self.value = jnp.zeros([dims * dims, dims], jnp.float32)
 
 
-    def fit(self, s, x, t, scores):
-        # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N)
+    def fit(self, s, x, t, scores, masks=1.0):
+        # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
+
+        scores = jnp.reshape(scores, (-1, 1))
+        masks = jnp.reshape(masks, (-1, 1))
+        x = jnp.reshape(x, (-1, self.input_dims))
 
         features = jnp.concatenate([s, t], axis=-1)
         batch = jnp.reshape(features, (-1, self.input_dims * 2))
@@ -31,9 +36,8 @@ class Model:
         # find max key for each batch
         argmax_logits = jnp.argmax(logits, axis=1)
 
-        scores = jnp.reshape(scores, (-1, 1))
-
-        update_indices = scores > self.score[argmax_logits]
+        # update indices where scores are higher than current scores
+        update_indices = (scores > self.score[argmax_logits]) * masks
         score_updates = (1 - update_indices) * self.score[argmax_logits] + update_indices * scores
         # update score at argmax_logits with updates
         self.score = self.score.at[argmax_logits].set(score_updates)
@@ -66,11 +70,13 @@ class Model:
 
 
     def save(self, path):
-        jnp.save(os.path.join(path, "table.npy"), self.value)
+        # jnp.save(os.path.join(path, "table.npy"), self.value)
+        pass
 
 
     def load(self, path):
-        self.value = jnp.load(os.path.join(path, "table.npy"))
+        # self.value = jnp.load(os.path.join(path, "table.npy"))
+        pass
 
 
 

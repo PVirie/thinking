@@ -26,40 +26,9 @@ class State:
 
 
 class Index_Sequence:
-    
-    def __getitem__(self, i):
-        pass
-
-    def __setitem__(self, i, s):
-        pass
-
-    def append(self, s):
-        pass
+    pass
 
 
 class State_Sequence:
-    def __getitem__(self, i):
-        # check type if i is a State then return best match indice
-        # else return state at index i
-        pass
-
-    def __setitem__(self, i, s):
-        pass
-
-    def __delitem__(self, i):
-        pass
-
-    def __len__(self):
-        pass
-
-    def append(self, s):
-        pass
-
-    def unroll(self):
-        pass
-        
-    def generate_subsequence(self, indices: Index_Sequence):
-        pass
-
-    def match(self, s):
+    def sample_skip(self, n, include_last=False):
         pass

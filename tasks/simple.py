@@ -69,7 +69,7 @@ class Context(BaseModel):
 
         graph_shape = 16
         one_hot = generate_onehot_representation(np.arange(graph_shape), graph_shape)
-        states = alg.State_Sequence([alg.State(one_hot[i, :]) for i in range(16)])
+        states = alg.State_Sequence(one_hot)
 
         graph = random_graph(graph_shape, 0.4)
 

@@ -1,5 +1,6 @@
 from . import base
 from .. import *
+from typing import Tuple
 
 class Hippocampus_Pathway(base.Pathway):
 
@@ -7,11 +8,11 @@ class Hippocampus_Pathway(base.Pathway):
         pass
 
 
-    def compute_entropy_local_minimum_indices(self, path: State_Sequence) -> Index_Sequence:
+    def sample_local_entropy(self, path: State_Sequence) -> Tuple[Index_Sequence, State_Sequence]:
         pass
     
 
-    def incrementally_learn(self, path: State_Sequence, pivots_indices: Index_Sequence):
+    def incrementally_learn(self, path: State_Sequence, pivot_indices: Index_Sequence, pivots: State_Sequence):
         # compute gap distance between each consecutive states
         # if 99.7% of the distance less than 1 unit is within 3 std, then it is a relative jump
         pass

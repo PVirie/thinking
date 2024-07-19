@@ -5,20 +5,6 @@ from typing import List, Tuple
 
 
 
-def compute_pivot_indices(layer, path: State_Sequence, use_entropy=False) -> Index_Sequence:
-    if use_entropy:
-        all_pvs = layer.compute_entropy_local_minima(path)
-    else:
-        # skip by 1
-        all_pvs = Index_Sequence()
-        for i in range(1, len(path), 2):
-            all_pvs.append(i)
-    
-    # always have the last
-    all_pvs.append(len(path))
-    return all_pvs
-
-
 class HUMN:
     def __init__(self, layers):
         self.layers = layers
@@ -32,9 +18,7 @@ class HUMN:
     def observe(self, path: State_Sequence):
         current_layer_path = path        
         for layer in self.layers:
-            pivots_indices = compute_pivot_indices(current_layer_path)
-            layer.incrementally_learn(current_layer_path, pivots_indices)
-            current_layer_path = current_layer_path.generate_subsequence(pivots_indices)
+            current_layer_path = layer.incrementally_learn_and_sample_pivots(current_layer_path)
 
 
     def think(self, from_state: State, goal_state: State, pathway_preference=None):
