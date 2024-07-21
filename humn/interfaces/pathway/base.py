@@ -4,6 +4,10 @@ from typing import Tuple
 
 class Pathway:
 
+    def __init__(self, step_discount_factor=0.9):
+        self.step_discount_factor = step_discount_factor
+    
+    
     def refresh(self):
         pass
 

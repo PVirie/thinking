@@ -66,10 +66,11 @@ class Model(cortex.Cortex_Pathway):
 
         s = jnp.tile(jnp.expand_dims(path.data, axis=1), (1, len(pivots), 1))
         x = jnp.tile(jnp.expand_dims(jnp.roll(path.data, -1, axis=0), axis=1), (1, len(pivots), 1))
+        a = x - s
         t = jnp.tile(jnp.expand_dims(pivots.data[pivot_indices.data], axis=0), (len(path), 1, 1))
 
-        # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N)
-        self.model.fit(s, x, t, scores, masks)
+        # s has shape (N, dim), a has shape (N, dim), t has shape (N, dim), scores has shape (N)
+        self.model.fit(s, a, t, scores, masks)
 
 
 

@@ -4,8 +4,8 @@ from typing import Tuple
 
 class Model(hippocampus.Hippocampus_Pathway):
     
-    def __init__(self):
-        super().__init__()
+    def __init__(self, record_size, step_discount_factor=0.9):
+        super().__init__(step_discount_factor=step_discount_factor)
 
     @staticmethod
     def load(path):

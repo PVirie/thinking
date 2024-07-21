@@ -56,7 +56,7 @@ class State(humn.State):
 
 class Index_Sequence(humn.Index_Sequence):
     def __init__(self, indices = []):
-        self.data = jnp.array(indices, dtype=jnp.int64)
+        self.data = jnp.array(indices, dtype=jnp.int32)
 
     def __getitem__(self, i):
         return self.data[i]
@@ -65,7 +65,7 @@ class Index_Sequence(humn.Index_Sequence):
         self.data = self.data.at[i].set(s)
 
     def append(self, s):
-        self.data = jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int64)], axis=0)
+        self.data = jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int32)], axis=0)
 
 
 

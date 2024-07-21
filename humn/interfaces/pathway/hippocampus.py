@@ -4,9 +4,6 @@ from typing import Tuple
 
 class Hippocampus_Pathway(base.Pathway):
 
-    def __init__(self):
-        pass
-
 
     def sample_local_entropy(self, path: State_Sequence) -> Tuple[Index_Sequence, State_Sequence]:
         pass
