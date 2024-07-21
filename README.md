@@ -28,10 +28,13 @@ An implementation of thinking models.
 ## To do
 
 -   [ ] Implement heuristically uncertainty minimization along networks (HUMN).
+    -   [ ] Use hippocampus as the relative pathway
+    -   [ ] Use cortex as the absolute pathway
+    -   [ ] Cortex temperature to allow adjusting smoothness of the results.
+    -   [ ] jax enhance phase III: use jit (remove if else in training functions)
 -   [ ] Use human on Turing machine
 -   [ ] Test the algorithm with many elaborate example environments.
     -   2D maze with 2D position as the state.
--   [ ] jax enhance phase III: use jit (remove if else in training functions)
 -   [x] Heuristic learning value estimate using max value from hippocampus
 -   [x] Improve metric model learning (added unvisit factor)
 -   [x] Fix cortex pathway with ideal model
