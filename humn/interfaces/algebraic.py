@@ -32,3 +32,9 @@ class Index_Sequence:
 class State_Sequence:
     def sample_skip(self, n, include_last=False):
         pass
+
+
+
+class Augmented_State_Squence:
+    pass
+
