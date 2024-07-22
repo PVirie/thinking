@@ -13,10 +13,11 @@ class Model:
         pass
 
 
+    def extend(self, path: algebraic.State_Sequence):
+        pass
+
+
     def refresh(self):
         pass
 
-
-    def incrementally_learn(self, path: algebraic.State_Sequence):
-        pass
 

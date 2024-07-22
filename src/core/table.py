@@ -1,6 +1,7 @@
 import jax.numpy as jnp
 import os
-from . import base
+
+import base
 
 class Model(base.Model):
 
@@ -51,9 +52,10 @@ class Model(base.Model):
 
 
     def infer(self, s, t):
-        # s has shape (N, dim), t has shape (N, dim)
+        # s has shape (N, L, dim), t has shape (N, dim)
 
-        queries = jnp.concatenate([s, t], axis=-1)
+        # for simple model only use the last state
+        queries = jnp.concatenate([s[:, -1, :], t], axis=-1)
         batch = jnp.reshape(queries, (-1, self.input_dims * 2))
 
         # access key
@@ -87,13 +89,14 @@ if __name__ == "__main__":
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :]])
+    s_ = jnp.array([[jnp.zeros(4), eye[0, :]], [eye[0, :], eye[1, :]]])
     x = jnp.array([eye[1, :], eye[2, :]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
     model.fit(s, x, t, jnp.array([1, 0]))
-    score, value = model.infer(s, t)
+    score, value = model.infer(s_, t)
     print(score, value)
     
     model.fit(s, x, t, jnp.array([0, 1]))
-    score, value = model.infer(s, t)
+    score, value = model.infer(s_, t)
     print(score, value)

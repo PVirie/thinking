@@ -34,7 +34,6 @@ class State_Sequence:
         pass
 
 
-
 class Augmented_State_Squence:
     pass
 

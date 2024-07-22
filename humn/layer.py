@@ -26,8 +26,9 @@ class Layer:
         else:
             indices, pivots = path.sample_skip(2, include_last = True)
 
-        self.hippocampus_model.incrementally_learn(path)
-        self.cortex.incrementally_learn(self.hippocampus_model(), indices, pivots)
+        self.refresh()
+        self.hippocampus_model.extend(path)
+        self.cortex.incrementally_learn(self.hippocampus_model(), indices)
 
         return pivots
 

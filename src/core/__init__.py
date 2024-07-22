@@ -1,5 +1,5 @@
 import os
-from . import base, table
+from . import table
 
 
 

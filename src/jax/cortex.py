@@ -1,4 +1,4 @@
-from humn.interfaces.pathway import cortex
+from humn import cortex_model
 from typing import Tuple
 
 import os
@@ -24,10 +24,10 @@ def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1)
     return masks, scores
 
 
-class Model(cortex.Cortex_Pathway):
+class Model(cortex_model.Model):
     
     def __init__(self, model: core.base.Model, step_discount_factor=0.9):
-        super().__init__(step_discount_factor=step_discount_factor)
+        self.step_discount_factor = step_discount_factor
         self.model = model
 
 
@@ -46,31 +46,32 @@ class Model(cortex.Cortex_Pathway):
             json.dump({"step_discount_factor": self.step_discount_factor}, f)
 
 
-    def refresh(self):
-        pass
 
+    def incrementally_learn(self, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Index_Sequence):
 
-
-    def infer_sub_action(self, from_state: State, expect_action: Action) -> Tuple[Action, float]:
-        goal_state = from_state + expect_action
-        next_action_data, score = self.model.infer(from_state.data, goal_state.data)
-        return Action(next_action_data), score
-
-
-
-    def incrementally_learn(self, path: State_Sequence, pivot_indices: Index_Sequence, pivots: State_Sequence):
-        distances = jnp.arange(len(path))
+        distances = jnp.arange(len(path_encoding_sequence))
 
         # learn to predict the next state and its probability from the current state given goal
-        masks, scores = generate_mask_and_score(pivot_indices.data, len(path))
+        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence))
 
-        s = jnp.tile(jnp.expand_dims(path.data, axis=1), (1, len(pivots), 1))
-        x = jnp.tile(jnp.expand_dims(jnp.roll(path.data, -1, axis=0), axis=1), (1, len(pivots), 1))
+        pivots = path_encoding_sequence[pivot_indices]
+
+        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data, axis=1), (1, len(pivots), 1))
+        x = jnp.tile(jnp.expand_dims(jnp.roll(path_encoding_sequence.data, -1, axis=0), axis=1), (1, len(pivots), 1))
         a = x - s
-        t = jnp.tile(jnp.expand_dims(pivots.data[pivot_indices.data], axis=0), (len(path), 1, 1))
+        t = jnp.tile(jnp.expand_dims(pivots.data[pivot_indices.data], axis=0), (len(path_encoding_sequence), 1, 1))
 
         # s has shape (N, dim), a has shape (N, dim), t has shape (N, dim), scores has shape (N)
         self.model.fit(s, a, t, scores, masks)
+
+
+
+    def infer_sub_action(self, from_encoding_sequence: Augmented_State_Squence, expect_action: Action) -> Action:
+        goal_state = from_encoding_sequence + expect_action
+        # goal_state has shape (1, dim)
+        next_action_data, score = self.model.infer(from_encoding_sequence.data, goal_state.data)
+        return Action(next_action_data)
+
 
 
 
@@ -83,7 +84,6 @@ if __name__ == "__main__":
     table_model = core.table.Model(4)
     model = Model(table_model)
 
-    states = State_Sequence(jnp.eye(4, dtype=jnp.float32))
-    pivot_indices, pivots = states.sample_skip(2, include_last=True)
+    states = Augmented_State_Squence(jnp.eye(4, dtype=jnp.float32))
 
-    model.incrementally_learn(states, pivot_indices, pivots)
+    model.incrementally_learn(states, Index_Sequence([2, 3]))

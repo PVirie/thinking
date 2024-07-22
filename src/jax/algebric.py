@@ -83,6 +83,10 @@ class State_Sequence(humn.State_Sequence):
     def __getitem__(self, i):
         if isinstance(i, State):
             return self.match_index(i)
+        elif isinstance(i, slice):
+            return State_Sequence(self.data[i])
+        elif isinstance(i, Index_Sequence):
+            return State_Sequence(self.data[i.data])
         else:
             return State(self.data[i, :])
 
@@ -122,3 +126,37 @@ class State_Sequence(humn.State_Sequence):
 
     def generate_subsequence(self, indices: Index_Sequence):
         return State_Sequence(self.data[indices.data])
+
+
+
+class Augmented_State_Squence(humn.Augmented_State_Squence):
+    
+    def __init__(self, data):
+        # data has shape (N, 2, dim)
+        # reshape to (N, 2*dim)
+        data = jnp.reshape(data, (data.shape[0], -1))
+        if isinstance(data, jnp.ndarray):
+            self.data = data
+        else:
+            self.data = device_put(jnp.array(data, jnp.float32))
+
+
+    def __add__(self, a):
+        # return state self.data[-1, 0, dim] + a.data
+        return State(self.data[-1, 0, :]) + a
+    
+
+    def __len__(self):
+        return self.data.shape[0]
+    
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            # if i is a slice
+            return Augmented_State_Squence(self.data[i])
+        elif isinstance(i, Index_Sequence):
+            # if i is an index sequence
+            return Augmented_State_Squence(self.data[i.data])
+        else:
+            # if i is an integer
+            return State(self.data[i, 0, :])
