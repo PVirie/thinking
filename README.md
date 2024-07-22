@@ -4,7 +4,8 @@ An implementation of thinking models.
 
 | Version | Model                                   | Description                                                                                          |
 | ------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 43      | **Recursive sub-action inference**      | Infer sub-actions instead of states                                                                  |
+| 44      | **Transformer core**                    | Use transformers as the core to model argmax x given s and t                                         |
+| 43      | Recursive sub-action inference          | Infer sub-actions instead of states                                                                  |
 | 42      | Guided Non-deterministic Turing Machine | Use hippocampus neighboring and superpositional sum to bypass the requirement for negative examples. |
 | 41      | Freewill                                | Control actions                                                                                      |
 | 39(2)   | Discretum                               | Hippocampus + heuristic                                                                              |
@@ -28,13 +29,10 @@ An implementation of thinking models.
 ## To do
 
 -   [ ] Implement heuristically uncertainty minimization along networks (HUMN).
-    -   [ ] Use hippocampus as the relative pathway
-    -   [ ] Use cortex as the absolute pathway
-    -   [ ] Cortex temperature to allow adjusting smoothness of the results.
+    -   [ ] Added different positional encodings to the model.
     -   [ ] jax enhance phase III: use jit (remove if else in training functions)
--   [ ] Use human on Turing machine
 -   [ ] Test the algorithm with many elaborate example environments.
-    -   2D maze with 2D position as the state.
+    -   [ ] 2D maze with 2D position as the state.
 -   [x] Heuristic learning value estimate using max value from hippocampus
 -   [x] Improve metric model learning (added unvisit factor)
 -   [x] Fix cortex pathway with ideal model

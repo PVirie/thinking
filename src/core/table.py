@@ -27,8 +27,8 @@ class Model(base.Model):
         masks = jnp.reshape(masks, (-1, 1))
         x = jnp.reshape(x, (-1, self.input_dims))
 
-        features = jnp.concatenate([s, t], axis=-1)
-        batch = jnp.reshape(features, (-1, self.input_dims * 2))
+        queries = jnp.concatenate([s, t], axis=-1)
+        batch = jnp.reshape(queries, (-1, self.input_dims * 2))
 
         # access key
         logits = jnp.matmul(batch, jnp.transpose(self.key))
@@ -53,8 +53,8 @@ class Model(base.Model):
     def infer(self, s, t):
         # s has shape (N, dim), t has shape (N, dim)
 
-        features = jnp.concatenate([s, t], axis=-1)
-        batch = jnp.reshape(features, (-1, self.input_dims * 2))
+        queries = jnp.concatenate([s, t], axis=-1)
+        batch = jnp.reshape(queries, (-1, self.input_dims * 2))
 
         # access key
         logits = jnp.matmul(batch, jnp.transpose(self.key))
@@ -63,8 +63,8 @@ class Model(base.Model):
         argmax_logits = jnp.argmax(logits, axis=1)
         # return best score, value
 
-        best_score = jnp.reshape(self.score[argmax_logits], [features.shape[0]])
-        best_value = jnp.reshape(self.value[argmax_logits], [features.shape[0], -1])
+        best_score = jnp.reshape(self.score[argmax_logits], [queries.shape[0]])
+        best_value = jnp.reshape(self.value[argmax_logits], [queries.shape[0], -1])
 
         return best_score, best_value
 
