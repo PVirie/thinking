@@ -6,6 +6,7 @@ import base
 class Model(base.Model):
 
     def __init__(self, dims):
+        self.class_name = "table"
         self.input_dims = dims
         # make [[1, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, 1], [0, 1, 0, 1, 0, 0] ...]]
         eye = jnp.eye(dims, dtype=jnp.float32)
@@ -19,6 +20,10 @@ class Model(base.Model):
         # self.key = jnp.reshape(features, (-1, self.input_dims * 2))
         self.score = jnp.zeros([dims * dims, 1], jnp.float32)
         self.value = jnp.zeros([dims * dims, dims], jnp.float32)
+
+
+    def get_class_parameters(self):
+        return {"class_name": self.class_name, "input_dims": self.input_dims}
 
 
     def fit(self, s, x, t, scores, masks=1.0):
@@ -52,15 +57,15 @@ class Model(base.Model):
 
 
     def infer(self, s, t):
-        # s has shape (N, L, dim), t has shape (N, dim)
+        # s has shape (N, dim), t has shape (N, dim)
 
         # for simple model only use the last state
-        queries = jnp.concatenate([s[:, -1, :], t], axis=-1)
+        queries = jnp.concatenate([s, t], axis=-1)
         batch = jnp.reshape(queries, (-1, self.input_dims * 2))
 
         # access key
         logits = jnp.matmul(batch, jnp.transpose(self.key))
-        # logits has shape [N*M, len(key)]
+        # logits has shape [N, len(key)]
         # find max key for each batch
         argmax_logits = jnp.argmax(logits, axis=1)
         # return best score, value
@@ -72,14 +77,16 @@ class Model(base.Model):
 
 
     def save(self, path):
-        # jnp.save(os.path.join(path, "table.npy"), self.value)
-        pass
+        jnp.save(os.path.join(path, "score.npy"), self.score)
+        jnp.save(os.path.join(path, "value.npy"), self.value)
 
 
-    def load(self, path):
-        # self.value = jnp.load(os.path.join(path, "table.npy"))
-        pass
-
+    @staticmethod
+    def load(path, class_parameters):
+        model = Model(class_parameters["input_dims"])
+        model.score = jnp.load(os.path.join(path, "score.npy"))
+        model.value = jnp.load(os.path.join(path, "value.npy"))
+        return model
 
 
 
@@ -89,14 +96,13 @@ if __name__ == "__main__":
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :]])
-    s_ = jnp.array([[jnp.zeros(4), eye[0, :]], [eye[0, :], eye[1, :]]])
     x = jnp.array([eye[1, :], eye[2, :]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
     model.fit(s, x, t, jnp.array([1, 0]))
-    score, value = model.infer(s_, t)
+    score, value = model.infer(s, t)
     print(score, value)
     
     model.fit(s, x, t, jnp.array([0, 1]))
-    score, value = model.infer(s_, t)
+    score, value = model.infer(s, t)
     print(score, value)

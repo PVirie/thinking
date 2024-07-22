@@ -32,6 +32,7 @@ class Model(hippocampus_model.Model):
     def __call__(self) -> Augmented_State_Squence:
         # data has shape (N, 2, dim)
         return Augmented_State_Squence(jnp.concatenate([self.data, self.positional_encoding], axis=1))
+        # return Augmented_State_Squence(self.data)
 
 
     def append(self, state: State):

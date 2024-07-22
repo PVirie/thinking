@@ -15,6 +15,20 @@ class Layer:
     def refresh(self):
         self.hippocampus_model.refresh()
 
+    
+    def abstract(self, action: algebraic.Action) -> algebraic.Action:
+        if self.abstraction_model is not None:
+            return self.abstraction_model.abstract(action)
+        else:
+            return action
+        
+
+    def specify(self, action: algebraic.Action) -> algebraic.Action:
+        if self.abstraction_model is not None:
+            return self.abstraction_model.specify(action)
+        else:
+            return action
+
 
     def incrementally_learn_and_sample_pivots(self, path: algebraic.State_Sequence) -> algebraic.State_Sequence:
         if len(path) < 2:
@@ -28,7 +42,7 @@ class Layer:
 
         self.refresh()
         self.hippocampus_model.extend(path)
-        self.cortex.incrementally_learn(self.hippocampus_model(), indices)
+        self.cortex.incrementally_learn(self.hippocampus_model.all(), indices)
 
         return pivots
 
@@ -39,5 +53,5 @@ class Layer:
             return expect_action
 
         self.hippocampus_model.append(from_state)
-        return self.cortex.infer_sub_action(self.hippocampus_model(), expect_action)
+        return self.cortex.infer_sub_action(self.hippocampus_model.all(), expect_action)
 

@@ -133,8 +133,6 @@ class Augmented_State_Squence(humn.Augmented_State_Squence):
     
     def __init__(self, data):
         # data has shape (N, 2, dim)
-        # reshape to (N, 2*dim)
-        data = jnp.reshape(data, (data.shape[0], -1))
         if isinstance(data, jnp.ndarray):
             self.data = data
         else:

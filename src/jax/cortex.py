@@ -56,8 +56,10 @@ class Model(cortex_model.Model):
 
         pivots = path_encoding_sequence[pivot_indices]
 
-        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data, axis=1), (1, len(pivots), 1))
-        x = jnp.tile(jnp.expand_dims(jnp.roll(path_encoding_sequence.data, -1, axis=0), axis=1), (1, len(pivots), 1))
+        sequence_data = path_encoding_sequence.data[:, 0, :]
+
+        s = jnp.tile(jnp.expand_dims(sequence_data, axis=1), (1, len(pivots), 1))
+        x = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=1), (1, len(pivots), 1))
         a = x - s
         t = jnp.tile(jnp.expand_dims(pivots.data[pivot_indices.data], axis=0), (len(path_encoding_sequence), 1, 1))
 
@@ -68,8 +70,10 @@ class Model(cortex_model.Model):
 
     def infer_sub_action(self, from_encoding_sequence: Augmented_State_Squence, expect_action: Action) -> Action:
         goal_state = from_encoding_sequence + expect_action
-        # goal_state has shape (1, dim)
-        next_action_data, score = self.model.infer(from_encoding_sequence.data, goal_state.data)
+        next_action_data, score = self.model.infer(
+            jnp.expand_dims(from_encoding_sequence.data, axis=0), 
+            jnp.expand_dims(goal_state.data, axis=0)
+            )
         return Action(next_action_data)
 
 

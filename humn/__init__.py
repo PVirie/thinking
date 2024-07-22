@@ -31,8 +31,13 @@ class HUMN:
             return goal_state
 
         action = goal_state - from_state
+        for layer in self.layers:
+            action = layer.abstract(action)
+
         for layer in reversed(self.layers):
-            action = layer.infer_sub_action(from_state, action, pathway_preference)
+            abstract_action = layer.infer_sub_action(from_state, action, pathway_preference)
+            action = layer.specify(abstract_action)
+
 
         return from_state + action
 

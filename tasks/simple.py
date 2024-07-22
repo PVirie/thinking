@@ -9,7 +9,8 @@ from pydantic import BaseModel
 from humn import *
 from src.utilities import *
 from src.jax import algebric as alg
-from src.jax.pathway import cortex, hippocampus
+from src.jax import cortex, hippocampus
+from src.core import table
 
 
 class Context(BaseModel):
@@ -73,7 +74,7 @@ class Context(BaseModel):
 
         graph = random_graph(graph_shape, 0.4)
 
-        layers = [Layer(cortex.Model(), hippocampus.Model()), Layer(cortex.Model(), hippocampus.Model())]
+        layers = [Layer(cortex.Model(table.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape)), Layer(cortex.Model(table.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape))]
         model = HUMN(layers)
 
         explore_steps = 10000
@@ -117,7 +118,7 @@ if __name__ == "__main__":
                 ps = []
                 model.refresh()
                 for i in range(max_steps):
-                    p = model.think(s, t, pathway_preference=preference)
+                    p = model.think(s, t)
                     p_i = context.states[p]
                     ps.append(p_i)
                     total_length = total_length + 1
@@ -134,14 +135,6 @@ if __name__ == "__main__":
         total_length, elapsed_seconds = exp_loop()
         logging.info("cognitive planner:", elapsed_seconds, " average length:", total_length / len(context.goals))
 
-        logging.info("----------hippocampus planner------------")
-        total_length, elapsed_seconds = exp_loop(preference="hippocampus")
-        logging.info("hippocampus planner:", elapsed_seconds, " average length:", total_length / len(context.goals))
-        
-        logging.info("-----------cortex planner-----------")
-        total_length, elapsed_seconds = exp_loop(preference="heuristics")
-        logging.info("cortex planner:", elapsed_seconds, " average length:", total_length / len(context.goals))
-        
         logging.info("-----------optimal planner-----------")
         total_length = 0
         stamp = time.time()

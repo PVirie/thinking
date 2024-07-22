@@ -4,7 +4,7 @@ from . import algebraic
 class Model:
 
     
-    def __call__(self) -> algebraic.Augmented_State_Squence:
+    def all(self) -> algebraic.Augmented_State_Squence:
         # return pathway encoding of all the states in the context
         pass
 
