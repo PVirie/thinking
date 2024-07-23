@@ -8,7 +8,7 @@ def load(path: str) -> None:
     with open(os.path.join(path, "metadata.json"), "r") as f:
         metadata = json.load(f)
     class_name = metadata["class_name"]
-    if class_name == "Table":
+    if class_name == "table":
         return table.Model.load(path, metadata)
     return None
 

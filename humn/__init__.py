@@ -22,7 +22,7 @@ class HUMN:
             current_layer_path = layer.incrementally_learn_and_sample_pivots(current_layer_path)
 
 
-    def think(self, from_state: State, goal_state: State, pathway_preference=None):
+    def think(self, from_state: State, goal_state: State):
         if len(self.layers) == 0:
             logging.error("No layers in HUMN, please initialize it.")
             return None
@@ -35,7 +35,7 @@ class HUMN:
             action = layer.abstract(action)
 
         for layer in reversed(self.layers):
-            abstract_action = layer.infer_sub_action(from_state, action, pathway_preference)
+            abstract_action = layer.infer_sub_action(from_state, action)
             action = layer.specify(abstract_action)
 
 

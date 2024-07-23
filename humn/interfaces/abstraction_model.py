@@ -6,8 +6,8 @@ class Model:
 
     
 
-    def incrementally_learn(self, path: algebraic.State_Sequence):
-        pass
+    def incrementally_learn(self, path: algebraic.State_Sequence) -> float:
+        return 0
 
 
     def abstract(self, path: algebraic.State_Sequence) -> Tuple[algebraic.Index_Sequence, algebraic.State_Sequence]:

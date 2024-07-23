@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import os
 
-import base
+from . import base
 
 class Model(base.Model):
 

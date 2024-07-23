@@ -2,6 +2,7 @@ import jax.numpy as jnp
 from jax import device_put
 from typing import List
 import humn
+import os
 
 class Action(humn.Action):
     def __init__(self, data):
@@ -36,21 +37,7 @@ class State(humn.State):
     def __eq__(self, s):
         # implement ==
         # test norm within 1e-4
-        return (self.data - s.data).norm() < 1e-4
-
-
-    @staticmethod
-    def load(path):
-        # load jax array from path
-        with open(path, "rb") as f:
-            data = jnp.load(f)
-        return State(data)
-
-
-    def save(self, path):
-        # save jax array to path
-        with open(path, "wb") as f:
-            jnp.save(f, self.data)
+        return jnp.linalg.norm(self.data - s.data) < 1e-4
 
 
 
@@ -78,6 +65,19 @@ class State_Sequence(humn.State_Sequence):
             self.data = states
         else:
             self.data = device_put(jnp.array(states, jnp.float32))
+
+
+
+    @staticmethod
+    def load(path):
+        # load jax array from path
+        return State_Sequence(jnp.load(path + ".npy"))
+
+
+    def save(self, path):
+        # save jax array to path
+        jnp.save(path + ".npy", self.data)
+
 
 
     def __getitem__(self, i):
@@ -110,8 +110,11 @@ class State_Sequence(humn.State_Sequence):
     def sample_skip(self, n, include_last=False):
         # return indices and states
         indices = Index_Sequence()
-        for i in range(n, len(self), n):
+        i = n
+        while i < len(self):
             indices.append(i)
+            i += n
+
         if include_last and i != len(self) - 1:
             indices.append(len(self) - 1)
 

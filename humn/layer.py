@@ -52,6 +52,7 @@ class Layer:
             # reach goal state
             return expect_action
 
+        self.refresh()
         self.hippocampus_model.append(from_state)
         return self.cortex.infer_sub_action(self.hippocampus_model.all(), expect_action)
 
