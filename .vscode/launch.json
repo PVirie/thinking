@@ -11,6 +11,10 @@
                     "remoteRoot": "/app/src"
                 },
                 {
+                    "localRoot": "${workspaceFolder}/humn",
+                    "remoteRoot": "/app/humn"
+                },
+                {
                     "localRoot": "${workspaceFolder}/tasks",
                     "remoteRoot": "/app/tasks"
                 }
@@ -31,6 +35,10 @@
                     "remoteRoot": "/app/src"
                 },
                 {
+                    "localRoot": "${workspaceFolder}/humn",
+                    "remoteRoot": "/app/humn"
+                },
+                {
                     "localRoot": "${workspaceFolder}/tasks",
                     "remoteRoot": "/app/tasks"
                 }
@@ -49,6 +57,10 @@
                 {
                     "localRoot": "${workspaceFolder}/src",
                     "remoteRoot": "/app/src"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/humn",
+                    "remoteRoot": "/app/humn"
                 },
                 {
                     "localRoot": "${workspaceFolder}/tasks",

@@ -9,7 +9,8 @@ services:
         restart: no
         volumes:
             - ./artifacts/log/metric:/app/log
-            - ./artifacts/weights:/app/weights
+            - ./artifacts/experiments:/app/experiments
+            - ./humn:/app/humn
             - ./src:/app/src
             - ./tasks:/app/tasks
         environment:
@@ -36,7 +37,8 @@ services:
         restart: no
         volumes:
             - ./artifacts/log/metric:/app/log
-            - ./artifacts/weights:/app/weights
+            - ./artifacts/experiments:/app/experiments
+            - ./humn:/app/humn
             - ./src:/app/src
             - ./tasks:/app/tasks
         environment:
