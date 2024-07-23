@@ -38,7 +38,7 @@ class Layer:
             indices, pivots = self.abstraction_model(path)
             self.abstraction_model.incrementally_learn(path)
         else:
-            indices, pivots = path.sample_skip(2, include_last = True)
+            indices, pivots = path.sample_skip(8, include_last = True)
 
         self.refresh()
         self.hippocampus_model.extend(path)

@@ -19,6 +19,8 @@ class Model(hippocampus_model.Model):
         self.input_dims = dims
         self.data = jnp.zeros((max_length, dims), dtype=jnp.float32)
 
+        self.start = self.max_length
+
         # make positional encoding
         
         # self.positional_encoding = jnp.zeros((max_length, dims), dtype=jnp.float32)
@@ -57,8 +59,9 @@ class Model(hippocampus_model.Model):
 
     def all(self) -> Augmented_State_Squence:
         # data has shape (N, 2, dim)
-        return Augmented_State_Squence(jnp.stack([self.data, self.positional_encoding], axis=1))
-        # return Augmented_State_Squence(self.data)
+        return Augmented_State_Squence(
+            jnp.stack([self.data[self.start:], self.positional_encoding[self.start:]], axis=1)
+        )
 
 
     def append(self, state: State):
@@ -66,6 +69,8 @@ class Model(hippocampus_model.Model):
         self.data = jnp.roll(self.data, -1, axis=0)
         # inplace update
         self.data = self.data.at[-1].set(state.data)
+        
+        self.start = max(0, self.start - 1)
 
 
     def extend(self, path: State_Sequence):
@@ -74,8 +79,11 @@ class Model(hippocampus_model.Model):
         # inplace update
         self.data = self.data.at[-len(path):].set(path.data)
 
+        self.start = max(0, self.start - len(path))
+
+
 
     def refresh(self):
         self.data = jnp.zeros((self.max_length, self.input_dims), dtype=jnp.float32)
-
+        self.start = self.max_length
 

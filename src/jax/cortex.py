@@ -73,7 +73,7 @@ class Model(cortex_model.Model):
             jnp.expand_dims(from_encoding_sequence.data[-1, 0, :], axis=0), 
             jnp.expand_dims(goal_state.data, axis=0)
             )
-        return Action(next_action_data)
+        return Action(next_action_data[0])
 
 
 

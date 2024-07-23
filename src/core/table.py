@@ -73,7 +73,7 @@ class Model(base.Model):
         best_score = jnp.reshape(self.score[argmax_logits], [queries.shape[0]])
         best_value = jnp.reshape(self.value[argmax_logits], [queries.shape[0], -1])
 
-        return best_score, best_value
+        return best_value, best_score
 
 
     def save(self, path):

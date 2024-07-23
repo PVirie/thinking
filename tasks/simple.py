@@ -103,6 +103,7 @@ class Context(BaseModel):
 
 @contextlib.contextmanager
 def experiment_session(path):
+    # empty_directory(path)
     context = Context.load(path)
     if context is None:
         context = Context.setup()
@@ -124,14 +125,14 @@ if __name__ == "__main__":
             for t_i in context.goals:
                 s = context.states[0]
                 t = context.states[t_i]
-                ps = []
+                ps = [0]
                 model.refresh()
                 for i in range(max_steps):
+                    if s == t:
+                        break
                     p = model.think(s, t)
                     p_i = context.states[p]
                     ps.append(p_i)
-                    if p == t:
-                        break
                     # enhance result
                     s = context.states[p_i]
                 if i == max_steps - 1:

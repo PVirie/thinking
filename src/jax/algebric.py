@@ -109,17 +109,18 @@ class State_Sequence(humn.State_Sequence):
 
     def sample_skip(self, n, include_last=False):
         # return indices and states
-        indices = Index_Sequence()
+        indices = []
         i = n
         while i < len(self):
             indices.append(i)
             i += n
 
-        if include_last and i != len(self) - 1:
+        if include_last and (len(indices) == 0 or indices[len(indices) - 1] != len(self) - 1):
             indices.append(len(self) - 1)
 
-        states = self.data[indices.data]
-        return indices, State_Sequence(states)
+        indice_sequence = Index_Sequence(indices)
+        states = self.data[indice_sequence.data]
+        return indice_sequence, State_Sequence(states)
     
 
     def match_index(self, s):
