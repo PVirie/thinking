@@ -1,5 +1,4 @@
-from .interfaces import algebraic
-from .interfaces import cortex_model, hippocampus_model, abstraction_model
+from .interfaces import algebraic, cortex_model, hippocampus_model, abstraction_model
 from typing import List, Tuple, Union
 
 class Layer:

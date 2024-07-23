@@ -3,11 +3,10 @@ import jax
 import jax.numpy as jnp
 import os
 
-import os
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__)))
-
-import base
+if __name__ == "__main__":
+    import base
+else:
+    from . import base
 
 
 def compute_error(M, Y, L, W):

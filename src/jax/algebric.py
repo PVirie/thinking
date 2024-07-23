@@ -4,7 +4,7 @@ from typing import List
 import humn
 import os
 
-class Action(humn.Action):
+class Action(humn.algebraic.Action):
     def __init__(self, data):
         # if data is jax array, then it is already on device
         if isinstance(data, jnp.ndarray):
@@ -19,7 +19,7 @@ class Action(humn.Action):
         return jnp.linalg.norm(self.data)
     
 
-class State(humn.State):
+class State(humn.algebraic.State):
     def __init__(self, data):
         if isinstance(data, jnp.ndarray):
             self.data = data
@@ -41,7 +41,7 @@ class State(humn.State):
 
 
 
-class Index_Sequence(humn.Index_Sequence):
+class Index_Sequence(humn.algebraic.Index_Sequence):
     def __init__(self, indices = []):
         self.data = jnp.array(indices, dtype=jnp.int32)
 
@@ -57,7 +57,7 @@ class Index_Sequence(humn.Index_Sequence):
 
 
 
-class State_Sequence(humn.State_Sequence):
+class State_Sequence(humn.algebraic.State_Sequence):
     def __init__(self, states):
         if isinstance(states, List):
             self.data = jnp.array([s.data for s in states])
@@ -133,7 +133,7 @@ class State_Sequence(humn.State_Sequence):
 
 
 
-class Augmented_State_Squence(humn.Augmented_State_Squence):
+class Augmented_State_Squence(humn.algebraic.Augmented_State_Squence):
     
     def __init__(self, data):
         # data has shape (N, 2, dim)

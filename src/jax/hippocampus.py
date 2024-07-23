@@ -3,14 +3,9 @@ from typing import Tuple
 import jax.numpy as jnp
 
 import os
-import sys
 import json
-sys.path.append(os.path.join(os.path.dirname(__file__)))
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from algebric import *
-
+from .algebric import *
 
 
 class Model(hippocampus_model.Model):

@@ -2,13 +2,15 @@ from humn import cortex_model
 from typing import Tuple
 
 import os
-import sys
 import json
-sys.path.append(os.path.join(os.path.dirname(__file__)))
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from algebric import *
+if __name__ == "__main__":
+    from algebric import *
+else:
+    from .algebric import *
+
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import core
 
 
@@ -81,6 +83,8 @@ class Model(cortex_model.Model):
 
 
 if __name__ == "__main__":
+    import jax
+
     masks, scores = generate_mask_and_score(jnp.array([1, 3, 8]), 8)
     print(masks)
     print(scores)
@@ -88,6 +92,6 @@ if __name__ == "__main__":
     table_model = core.table.Model(4)
     model = Model(table_model)
 
-    states = Augmented_State_Squence(jnp.eye(4, dtype=jnp.float32))
+    states = Augmented_State_Squence(jax.random.normal(jax.random.PRNGKey(0), (10, 2, 4)))
 
-    model.incrementally_learn(states, Index_Sequence([2, 3]))
+    model.incrementally_learn(states, Index_Sequence([5, 9]))
