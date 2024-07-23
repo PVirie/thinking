@@ -1,3 +1,5 @@
+import jax.random
+import jax
 import jax.numpy as jnp
 import os
 
@@ -7,30 +9,30 @@ sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 import base
 
+
+def compute_error(M, Y, L, W):
+    # trace ( [Y - L W] M [Y - L W]^T )
+    E = Y - jnp.matmul(L, W)
+    return jnp.trace(jnp.matmul(E, jnp.matmul(M, E.T)))
+
 class Model(base.Model):
 
-    def __init__(self, dims):
-        self.class_name = "table"
+    def __init__(self, hidden_size, dims):
+        self.class_name = "linear"
+        self.hidden_size = hidden_size
         self.input_dims = dims
-        # make [[1, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, 1], [0, 1, 0, 1, 0, 0] ...]]
-        eye = jnp.eye(dims, dtype=jnp.float32)
-        eye_1 = jnp.expand_dims(eye, axis=0)
-        eye_1 = jnp.tile(eye_1, (dims, 1, 1))
-        eye_2 = jnp.expand_dims(eye, axis=1)
-        eye_2 = jnp.tile(eye_2, (1, dims, 1))
-        self.key = jnp.concatenate([eye_2, eye_1], axis=-1)
-        self.key = jnp.reshape(self.key, (-1, dims * 2))
 
-        # self.key = jnp.reshape(features, (-1, self.input_dims * 2))
-        self.score = jnp.zeros([dims * dims, 1], jnp.float32)
-        self.value = jnp.zeros([dims * dims, dims], jnp.float32)
+        self.key = jax.random.normal(jax.random.PRNGKey(0), (hidden_size, dims * 2))*0.01
+        self.score = jnp.zeros([hidden_size, 1], jnp.float32)
+        self.value = jnp.zeros([hidden_size, dims], jnp.float32)
 
 
     def get_class_parameters(self):
-        return {"class_name": self.class_name, "input_dims": self.input_dims}
+        return {"class_name": self.class_name, "input_dims": self.input_dims, "hidden_size": self.hidden_size}
 
 
     def save(self, path):
+        jnp.save(os.path.join(path, "key.npy"), self.key)
         jnp.save(os.path.join(path, "score.npy"), self.score)
         jnp.save(os.path.join(path, "value.npy"), self.value)
 
@@ -38,10 +40,11 @@ class Model(base.Model):
     @staticmethod
     def load(path, class_parameters):
         model = Model(class_parameters["input_dims"])
+        model.key = jnp.load(os.path.join(path, "key.npy"))
         model.score = jnp.load(os.path.join(path, "score.npy"))
         model.value = jnp.load(os.path.join(path, "value.npy"))
         return model
-    
+
 
     def fit(self, s, x, t, scores, masks=1.0):
         # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
@@ -55,20 +58,21 @@ class Model(base.Model):
 
         # access key
         logits = jnp.matmul(batch, jnp.transpose(self.key))
-        # logits has shape [N, len(key)]
-        # find max key for each batch
-        argmax_logits = jnp.argmax(logits, axis=1)
+        
+        best_value = jnp.matmul(logits, self.value)
+        best_score = jnp.matmul(logits, self.score)
 
-        # update indices where scores are higher than current scores
-        update_indices = (scores > self.score[argmax_logits]) * masks
-        score_updates = (1 - update_indices) * self.score[argmax_logits] + update_indices * scores
-        # update score at argmax_logits with updates
-        self.score = self.score.at[argmax_logits].set(score_updates)
+        update_indices = (scores > best_score) * masks
 
-        # only select values that are argmax_logits
-        value_updates = (1 - update_indices) * self.value[argmax_logits] + update_indices * x
-        # update values at argmax_logits with value_updates
-        self.value = self.value.at[argmax_logits].set(value_updates)
+        error_v = compute_error(update_indices, x, best_value, self.value)
+        error_s = compute_error(update_indices, scores, best_score, self.score)
+
+
+        # # score_updates = (1 - update_indices) * best_score + update_indices * scores
+        # self.score = 0.95*self.score + 0.05*score_updates
+
+        # # value_updates = (1 - update_indices) * best_value + update_indices * x
+        # self.value = 0.95*self.value + 0.05*value_updates
 
         return jnp.mean(score_updates)
 
@@ -82,22 +86,17 @@ class Model(base.Model):
 
         # access key
         logits = jnp.matmul(batch, jnp.transpose(self.key))
-        # logits has shape [N, len(key)]
-        # find max key for each batch
-        argmax_logits = jnp.argmax(logits, axis=1)
-        # return best score, value
 
-        best_score = jnp.reshape(self.score[argmax_logits], [queries.shape[0]])
-        best_value = jnp.reshape(self.value[argmax_logits], [queries.shape[0], -1])
+        best_value = jnp.matmul(logits, self.value)
+        best_score = jnp.matmul(logits, self.score)
 
         return best_value, best_score
 
 
 
 
-
 if __name__ == "__main__":
-    model = Model(4)
+    model = Model(8, 4)
     print(model.key)
 
     eye = jnp.eye(4, dtype=jnp.float32)
