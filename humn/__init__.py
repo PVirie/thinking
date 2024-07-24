@@ -1,4 +1,3 @@
-import logging
 from .interfaces import algebraic, cortex_model, hippocampus_model, abstraction_model
 from .layer import Layer
 from typing import List, Tuple
@@ -6,37 +5,28 @@ from typing import List, Tuple
 
 
 class HUMN:
-    def __init__(self, layers: List[Layer]):
-        self.layers = layers
+    def __init__(self, layers: List[Layer], abstraction_models: List[abstraction_model.Model] = []):
+        if layers == None or len(layers) == 0:
+            raise ValueError("At least one layer is required")
+        
+        # fill abstraction model with none to have size len(layers) - 1
+        while len(abstraction_models) < len(layers) - 1:
+            abstraction_models.append(None)
 
+        for l, l_, ab in zip(layers[:-1], layers[1:], abstraction_models):
+            l.set_next_layer(l_, ab)
+        
+        self.root = layers[0]
+        
 
     def refresh(self):
-        for layer in self.layers:
-            layer.refresh()
+        self.root.refresh()
 
 
     def observe(self, path: algebraic.State_Sequence):
-        current_layer_path = path        
-        for layer in self.layers:
-            current_layer_path = layer.incrementally_learn_and_sample_pivots(current_layer_path)
+        self.root.incrementally_learn(path)
 
 
-    def think(self, from_state: algebraic.State, goal_state: algebraic.State):
-        if len(self.layers) == 0:
-            logging.error("No layers in HUMN, please initialize it.")
-            return None
-        
-        if from_state == goal_state:
-            return goal_state
-
-        action = goal_state - from_state
-        for layer in self.layers:
-            action = layer.abstract(action)
-
-        for layer in reversed(self.layers):
-            abstract_action = layer.infer_sub_action(from_state, action)
-            action = layer.specify(abstract_action)
-
-
-        return from_state + action
+    def think(self, from_state: algebraic.State, action: algebraic.Action) -> algebraic.Action:
+        return self.root.infer_sub_action(from_state, action)
 

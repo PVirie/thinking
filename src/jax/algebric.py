@@ -15,8 +15,8 @@ class Action(humn.algebraic.Action):
     def __add__(self, s): 
         return s + self
     
-    def norm(self):
-        return jnp.linalg.norm(self.data)
+    def zero_length(self):
+        return jnp.linalg.norm(self.data) < 1e-4
     
 
 class State(humn.algebraic.State):

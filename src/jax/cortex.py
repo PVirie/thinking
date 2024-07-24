@@ -50,7 +50,7 @@ class Model(cortex_model.Model):
 
 
 
-    def incrementally_learn(self, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Index_Sequence):
+    def incrementally_learn(self, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Index_Sequence, pivots: State_Sequence) -> float:
 
         distances = jnp.arange(len(path_encoding_sequence))
 

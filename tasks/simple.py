@@ -130,7 +130,8 @@ if __name__ == "__main__":
                 for i in range(max_steps):
                     if s == t:
                         break
-                    p = model.think(s, t)
+                    a = model.think(s, t - s)
+                    p = s + a
                     p_i = context.states[p]
                     ps.append(p_i)
                     # enhance result

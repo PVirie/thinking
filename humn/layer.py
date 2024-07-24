@@ -2,56 +2,61 @@ from .interfaces import algebraic, cortex_model, hippocampus_model, abstraction_
 from typing import List, Tuple, Union
 
 class Layer:
-    def __init__(self, 
-                 cortex_model: cortex_model.Model, 
-                 hippocampus_model: hippocampus_model.Model, 
-                 abstraction_model: Union[abstraction_model.Model, None] = None):
+    def __init__(self, cortex_model: cortex_model.Model, hippocampus_model: hippocampus_model.Model):
         self.cortex = cortex_model
         self.hippocampus_model = hippocampus_model
-        self.abstraction_model = abstraction_model
+        self.next_layer = None
+        self.abstraction_model = None
 
 
     def refresh(self):
         self.hippocampus_model.refresh()
+        if self.next_layer is not None:
+            self.next_layer.refresh()
 
+
+    def set_next_layer(self, next_layer: 'Layer', abstraction_model: Union[abstraction_model.Model, None] = None):
+        self.next_layer = next_layer
+        self.abstraction_model = abstraction_model
     
-    def abstract(self, action: algebraic.Action) -> algebraic.Action:
-        if self.abstraction_model is not None:
-            return self.abstraction_model.abstract(action)
-        else:
-            return action
-        
 
-    def specify(self, action: algebraic.Action) -> algebraic.Action:
-        if self.abstraction_model is not None:
-            return self.abstraction_model.specify(action)
-        else:
-            return action
-
-
-    def incrementally_learn_and_sample_pivots(self, path: algebraic.State_Sequence) -> algebraic.State_Sequence:
+    def incrementally_learn(self, path: algebraic.State_Sequence):
         if len(path) < 2:
             return
 
         if self.abstraction_model is not None:
-            indices, pivots = self.abstraction_model(path)
+            pv_indices, pivots = self.abstraction_model.abstract_path(path)
             self.abstraction_model.incrementally_learn(path)
         else:
-            indices, pivots = path.sample_skip(8, include_last = True)
+            pv_indices, pivots = path.sample_skip(8, include_last = True)
 
         self.refresh()
         self.hippocampus_model.extend(path)
-        self.cortex.incrementally_learn(self.hippocampus_model.all(), indices)
+        self.cortex.incrementally_learn(self.hippocampus_model.all(), pv_indices, pivots)
 
-        return pivots
+        if self.next_layer is not None:
+            self.next_layer.incrementally_learn(pivots)
 
 
-    def infer_sub_action(self, from_state: algebraic.State, expect_action: algebraic.Action) -> algebraic.Action:
-        if from_state + expect_action == from_state:
-            # reach goal state
-            return expect_action
+    def infer_sub_action(self, from_state: algebraic.State, action: algebraic.Action) -> algebraic.Action:
+        if action.zero_length():
+            return action
+        
+        if self.next_layer is not None:
+            if self.abstraction_model is not None:
+                nl_from_state, nl_action = self.abstraction_model.abstract(from_state, action)
+            else:
+                nl_from_state, nl_action = from_state, action
+            nl_sub_action = self.next_layer.infer_sub_action(nl_from_state, nl_action)
+            if not nl_sub_action.zero_length():
+                # if the next step is not the goal, specify the goal
+                if self.abstraction_model is not None:
+                    action = self.abstraction_model.specify(nl_from_state, nl_sub_action)
+                else:
+                    action = nl_sub_action
 
         self.refresh()
         self.hippocampus_model.append(from_state)
-        return self.cortex.infer_sub_action(self.hippocampus_model.all(), expect_action)
+        return self.cortex.infer_sub_action(self.hippocampus_model.all(), action)
+
 

@@ -1,27 +1,23 @@
+from __future__ import annotations
+from typing import Tuple
 
 class Action:
-    def __init__(self):
-        pass
-
     def __add__(self, s): 
         return s + self
     
-    def norm(self):
+    def zero_length(self):
         pass
+
 
 class State:
-    def __init__(self):
-        pass
-
     def __add__(self, a): 
         pass
 
     def __sub__(self, s):
         pass
 
-    # implement ==
     def __eq__(self, s):
-        pass
+        return (self - s).zero_length()
 
 
 
@@ -30,7 +26,7 @@ class Index_Sequence:
 
 
 class State_Sequence:
-    def sample_skip(self, n, include_last=False):
+    def sample_skip(self, n, include_last=False) -> Tuple[Index_Sequence, State_Sequence]:
         pass
 
 
