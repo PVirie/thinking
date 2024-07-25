@@ -25,14 +25,14 @@ class Layer:
             return
 
         if self.abstraction_model is not None:
-            pv_indices, pivots = self.abstraction_model.abstract_path(path)
+            clusters, pivots = self.abstraction_model.abstract_path(path)
             self.abstraction_model.incrementally_learn(path)
         else:
-            pv_indices, pivots = path.sample_skip(8, include_last = True)
+            clusters, pivots = path.sample_skip(8, include_last = True)
 
         self.refresh()
         self.hippocampus_model.extend(path)
-        self.cortex.incrementally_learn(self.hippocampus_model.all(), pv_indices, pivots)
+        self.cortex.incrementally_learn(self.hippocampus_model.all(), clusters, pivots)
 
         if self.next_layer is not None:
             self.next_layer.incrementally_learn(pivots)
@@ -51,7 +51,7 @@ class Layer:
             if not nl_sub_action.zero_length():
                 # if the next step is not the goal, specify the goal
                 if self.abstraction_model is not None:
-                    action = self.abstraction_model.specify(nl_from_state, nl_sub_action)
+                    action = self.abstraction_model.specify(from_state, nl_from_state, nl_sub_action)
                 else:
                     action = nl_sub_action
 

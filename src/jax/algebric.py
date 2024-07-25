@@ -41,7 +41,7 @@ class State(humn.algebraic.State):
 
 
 
-class Index_Sequence(humn.algebraic.Index_Sequence):
+class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
     def __init__(self, indices = []):
         self.data = jnp.array(indices, dtype=jnp.int32)
 
@@ -85,7 +85,7 @@ class State_Sequence(humn.algebraic.State_Sequence):
             return self.match_index(i)
         elif isinstance(i, slice):
             return State_Sequence(self.data[i])
-        elif isinstance(i, Index_Sequence):
+        elif isinstance(i, Pointer_Sequence):
             return State_Sequence(self.data[i.data])
         else:
             return State(self.data[i, :])
@@ -118,7 +118,7 @@ class State_Sequence(humn.algebraic.State_Sequence):
         if include_last and (len(indices) == 0 or indices[len(indices) - 1] != len(self) - 1):
             indices.append(len(self) - 1)
 
-        indice_sequence = Index_Sequence(indices)
+        indice_sequence = Pointer_Sequence(indices)
         states = self.data[indice_sequence.data]
         return indice_sequence, State_Sequence(states)
     
@@ -128,7 +128,7 @@ class State_Sequence(humn.algebraic.State_Sequence):
         return jnp.argmin(jnp.linalg.norm(self.data - s.data, axis=1))
     
 
-    def generate_subsequence(self, indices: Index_Sequence):
+    def generate_subsequence(self, indices: Pointer_Sequence):
         return State_Sequence(self.data[indices.data])
 
 
@@ -156,7 +156,7 @@ class Augmented_State_Squence(humn.algebraic.Augmented_State_Squence):
         if isinstance(i, slice):
             # if i is a slice
             return Augmented_State_Squence(self.data[i])
-        elif isinstance(i, Index_Sequence):
+        elif isinstance(i, Pointer_Sequence):
             # if i is an index sequence
             return Augmented_State_Squence(self.data[i.data])
         else:

@@ -9,14 +9,17 @@ class Model:
         return 0
 
 
-    def abstract_path(self, path: algebraic.State_Sequence) -> Tuple[algebraic.Index_Sequence, algebraic.State_Sequence]:
+    def abstract_path(self, path: algebraic.State_Sequence) -> Tuple[algebraic.Pointer_Sequence, algebraic.State_Sequence]:
+        # return clusters of states under the same pivots
         pass
 
 
     def abstract(self, start: algebraic.State, action: algebraic.Action) -> Tuple[algebraic.State, algebraic.Action]:
+        # return next layer state and action
         pass
 
 
-    # inverse of abstract
-    def specify(self, start: algebraic.State, goal: algebraic.Action) -> algebraic.Action:
+    def specify(self, start: algebraic.State, nl_start: algebraic.State, nl_action: algebraic.Action) -> algebraic.Action:
+        # inverse of abstract
+        # return action 
         pass

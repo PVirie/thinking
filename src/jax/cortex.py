@@ -50,7 +50,7 @@ class Model(cortex_model.Model):
 
 
 
-    def incrementally_learn(self, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Index_Sequence, pivots: State_Sequence) -> float:
+    def incrementally_learn(self, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Pointer_Sequence, pivots: State_Sequence) -> float:
 
         distances = jnp.arange(len(path_encoding_sequence))
 
@@ -94,4 +94,4 @@ if __name__ == "__main__":
 
     states = Augmented_State_Squence(jax.random.normal(jax.random.PRNGKey(0), (10, 2, 4)))
 
-    model.incrementally_learn(states, Index_Sequence([5, 9]))
+    model.incrementally_learn(states, Pointer_Sequence([5, 9]))

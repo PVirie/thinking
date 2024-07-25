@@ -90,7 +90,7 @@ class Context(BaseModel):
         stamp = time.time()
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-            model.observe(states.generate_subsequence(alg.Index_Sequence(path)))
+            model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
             if i % (explore_steps // 100) == 0 and i > 0:
                 # print at every 1 % progress
                 # compute time to finish in seconds
