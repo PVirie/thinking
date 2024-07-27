@@ -9,10 +9,21 @@ else:
     from . import base
 
 
-def compute_error(M, Y, L, W):
-    # trace ( [Y - L W] M [Y - L W]^T )
-    E = Y - jnp.matmul(L, W)
-    return jnp.trace(jnp.matmul(E, jnp.matmul(M, E.T)))
+def compute_value_score(Q, K, Wv, Ws):
+    logit = jnp.matmul(Q, jnp.transpose(K))
+    return jnp.matmul(logit, Wv), jnp.matmul(logit, Ws)
+
+
+def compute_error(Q, V, S, M, K, Wv, Ws):
+    V_, S_ = compute_value_score(Q, K, Wv, Ws)
+    update_indices = (S > S_) * M
+    error_V = M * (V - V_)**2
+    error_S = M * (S - S_)**2
+    return jnp.mean(error_V) + jnp.mean(error_S)
+
+# extremely faster with jit
+value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6)))
+
 
 class Model(base.Model):
 
@@ -24,6 +35,9 @@ class Model(base.Model):
         self.key = jax.random.normal(jax.random.PRNGKey(0), (hidden_size, dims * 2))*0.01
         self.score = jnp.zeros([hidden_size, 1], jnp.float32)
         self.value = jnp.zeros([hidden_size, dims], jnp.float32)
+
+        self.lr = 0.1
+        self.epoch_size = 100
 
 
     def get_class_parameters(self):
@@ -52,20 +66,16 @@ class Model(base.Model):
         masks = jnp.reshape(masks, (-1, 1))
         x = jnp.reshape(x, (-1, self.input_dims))
 
-        queries = jnp.concatenate([s, t], axis=-1)
-        batch = jnp.reshape(queries, (-1, self.input_dims * 2))
+        batch = jnp.concatenate([s, t], axis=-1)
+        query = jnp.reshape(batch, (-1, self.input_dims * 2))
 
-        # access key
-        logits = jnp.matmul(batch, jnp.transpose(self.key))
-        
-        best_value = jnp.matmul(logits, self.value)
-        best_score = jnp.matmul(logits, self.score)
+        for i in range(self.epoch_size):
+            loss, (g_K, g_Wv, g_Ws) = value_grad_function(query, x, scores, masks, self.key, self.value, self.score)
 
-        update_indices = (scores > best_score) * masks
-
-        error_v = compute_error(update_indices, x, best_value, self.value)
-        error_s = compute_error(update_indices, scores, best_score, self.score)
-
+            # now update
+            self.key = self.key - self.lr*g_K
+            self.score = self.score - self.lr*g_Ws
+            self.value = self.value - self.lr*g_Wv
 
         # # score_updates = (1 - update_indices) * best_score + update_indices * scores
         # self.score = 0.95*self.score + 0.05*score_updates
@@ -73,21 +83,17 @@ class Model(base.Model):
         # # value_updates = (1 - update_indices) * best_value + update_indices * x
         # self.value = 0.95*self.value + 0.05*value_updates
 
-        return jnp.mean(score_updates)
+        return loss
 
 
     def infer(self, s, t):
         # s has shape (N, dim), t has shape (N, dim)
 
         # for simple model only use the last state
-        queries = jnp.concatenate([s, t], axis=-1)
-        batch = jnp.reshape(queries, (-1, self.input_dims * 2))
+        batch = jnp.concatenate([s, t], axis=-1)
+        query = jnp.reshape(batch, (-1, self.input_dims * 2))
 
-        # access key
-        logits = jnp.matmul(batch, jnp.transpose(self.key))
-
-        best_value = jnp.matmul(logits, self.value)
-        best_score = jnp.matmul(logits, self.score)
+        best_value, best_score = compute_value_score(query, self.key, self.value, self.score)
 
         return best_value, best_score
 
@@ -96,17 +102,16 @@ class Model(base.Model):
 
 if __name__ == "__main__":
     model = Model(8, 4)
-    print(model.key)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :]])
     x = jnp.array([eye[1, :], eye[2, :]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
-    model.fit(s, x, t, jnp.array([1, 0]))
+    loss = model.fit(s, x, t, jnp.array([1, 0]))
     score, value = model.infer(s, t)
-    print(score, value)
+    print(loss, score, value)
     
-    model.fit(s, x, t, jnp.array([0, 1]))
+    loss = model.fit(s, x, t, jnp.array([0, 1]))
     score, value = model.infer(s, t)
-    print(score, value)
+    print(loss, score, value)

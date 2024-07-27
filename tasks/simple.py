@@ -10,7 +10,8 @@ from humn import *
 from src.utilities import *
 from src.jax import algebric as alg
 from src.jax import cortex, hippocampus
-from src.core import table
+from src.core import table, linear
+import jax
 
 
 class Context(BaseModel):
@@ -72,7 +73,7 @@ class Context(BaseModel):
 
 
     @staticmethod
-    def setup():
+    def setup(setup_path):
         random_seed = random.randint(0, 1000)
         random.seed(random_seed)
 
@@ -82,16 +83,17 @@ class Context(BaseModel):
 
         graph = random_graph(graph_shape, 0.4)
 
-        layers = [Layer(cortex.Model(table.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape)), Layer(cortex.Model(table.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape))]
+        layers = [Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape))]
         model = HUMN(layers)
 
         explore_steps = 10000
+        print_steps = max(1, explore_steps // 100)
         logging.info("Training a cognitive map:")
         stamp = time.time()
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
             model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
-            if i % (explore_steps // 100) == 0 and i > 0:
+            if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 # compute time to finish in seconds
                 logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
@@ -103,10 +105,10 @@ class Context(BaseModel):
 
 @contextlib.contextmanager
 def experiment_session(path):
-    # empty_directory(path)
+    empty_directory(path)
     context = Context.load(path)
     if context is None:
-        context = Context.setup()
+        context = Context.setup(path)
         context.save(path)
     yield context
 
