@@ -32,7 +32,7 @@ class Layer:
 
         self.refresh()
         self.hippocampus_model.extend(path)
-        self.cortex.incrementally_learn(self.hippocampus_model.all(), clusters, pivots)
+        self.cortex.incrementally_learn(self.hippocampus_model.augmented_all(), clusters, pivots)
 
         if self.next_layer is not None:
             self.next_layer.incrementally_learn(pivots)
@@ -42,9 +42,11 @@ class Layer:
         if action.zero_length():
             return action
         
+        self.hippocampus_model.append(from_state)
+
         if self.next_layer is not None:
             if self.abstraction_model is not None:
-                nl_from_state, nl_action = self.abstraction_model.abstract(from_state, action)
+                nl_from_state, nl_action = self.abstraction_model.abstract(self.hippocampus_model.all(), action)
             else:
                 nl_from_state, nl_action = from_state, action
             nl_sub_action = self.next_layer.infer_sub_action(nl_from_state, nl_action)
@@ -55,8 +57,6 @@ class Layer:
                 else:
                     action = nl_sub_action
 
-        self.refresh()
-        self.hippocampus_model.append(from_state)
-        return self.cortex.infer_sub_action(self.hippocampus_model.all(), action)
+        return self.cortex.infer_sub_action(self.hippocampus_model.augmented_all(), action)
 
 

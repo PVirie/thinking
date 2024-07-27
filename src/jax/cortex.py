@@ -1,6 +1,7 @@
 from humn import cortex_model
 from typing import Tuple
 
+import jax.numpy as jnp
 import os
 import json
 

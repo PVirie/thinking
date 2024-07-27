@@ -11,10 +11,11 @@ class Model:
 
     def abstract_path(self, path: algebraic.State_Sequence) -> Tuple[algebraic.Pointer_Sequence, algebraic.State_Sequence]:
         # return clusters of states under the same pivots
+        # do not forget to include end
         pass
 
 
-    def abstract(self, start: algebraic.State, action: algebraic.Action) -> Tuple[algebraic.State, algebraic.Action]:
+    def abstract(self, from_sequence: algebraic.State_Sequence, action: algebraic.Action) -> Tuple[algebraic.State, algebraic.Action]:
         # return next layer state and action
         pass
 

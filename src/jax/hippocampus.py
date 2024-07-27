@@ -53,11 +53,15 @@ class Model(hippocampus_model.Model):
 
 
 
-    def all(self) -> Augmented_State_Squence:
+    def augmented_all(self) -> Augmented_State_Squence:
         # data has shape (N, 2, dim)
         return Augmented_State_Squence(
             jnp.stack([self.data[self.start:], self.positional_encoding[self.start:]], axis=1)
         )
+
+
+    def all(self) -> State_Sequence:
+        return State_Sequence(self.data[self.start:])
 
 
     def append(self, state: State):

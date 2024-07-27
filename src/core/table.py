@@ -27,7 +27,11 @@ class Model(base.Model):
 
 
     def get_class_parameters(self):
-        return {"class_name": self.class_name, "input_dims": self.input_dims}
+        return {
+            "class_type": "model",
+            "class_name": self.class_name, 
+            "input_dims": self.input_dims
+        }
 
 
     def save(self, path):

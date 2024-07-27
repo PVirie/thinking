@@ -42,7 +42,12 @@ class Model(base.Model):
 
 
     def get_class_parameters(self):
-        return {"class_name": self.class_name, "input_dims": self.input_dims, "hidden_size": self.hidden_size}
+        return {
+            "class_type": "model",
+            "class_name": self.class_name, 
+            "input_dims": self.input_dims, 
+            "hidden_size": self.hidden_size
+        }
 
 
     def save(self, path):
