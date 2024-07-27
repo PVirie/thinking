@@ -28,7 +28,7 @@ class Layer:
             clusters, pivots = self.abstraction_model.abstract_path(path)
             self.abstraction_model.incrementally_learn(path)
         else:
-            clusters, pivots = path.sample_skip(8, include_last = True)
+            clusters, pivots = path.sample_skip(2, include_last = True)
 
         self.refresh()
         self.hippocampus_model.extend(path)

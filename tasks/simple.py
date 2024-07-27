@@ -83,7 +83,12 @@ class Context(BaseModel):
 
         graph = random_graph(graph_shape, 0.4)
 
-        layers = [Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape))]
+        layers = [
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape))
+        ]
         model = HUMN(layers)
 
         explore_steps = 10000
@@ -104,8 +109,9 @@ class Context(BaseModel):
 
 
 @contextlib.contextmanager
-def experiment_session(path):
-    empty_directory(path)
+def experiment_session(path, force_clear=True):
+    if force_clear:
+        empty_directory(path)
     context = Context.load(path)
     if context is None:
         context = Context.setup(path)

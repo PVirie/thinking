@@ -31,7 +31,10 @@ An implementation of thinking models.
 -   [ ] Implement heuristically uncertainty minimization along networks (HUMN).
     -   [ ] Hierarchical goal pursuing
         -   [x] Table data
+        -   [x] Linear kernel
+        -   [ ] Entropic abstraction
         -   [ ] Maze experiment
+        -   [ ] Transformer kernel
     -   [ ] Experiment: incremental learning
     -   [ ] Experiment: added different positional encodings to the model.
--   [ ] jax enhance phase III: use jit (remove if else in training functions)
+-   [x] jax enhance: use jit (remove if else in training functions)

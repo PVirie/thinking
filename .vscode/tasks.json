@@ -2,16 +2,16 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "docker-compose-stop",
+            "label": "docker-compose-stop: gpu",
             "type": "shell",
-            "command": "docker compose -f docker_compose.yaml down",
+            "command": "docker compose -f docker_compose.yaml --profile gpu down",
             "isBackground": true
         },
         {
             "label": "docker-compose-start: gpu",
             "type": "shell",
             "command": "docker compose -f docker_compose.yaml --profile gpu up -d --build --force-recreate",
-            "dependsOn": ["docker-compose-stop"],
+            "dependsOn": ["docker-compose-stop: gpu"],
             "isBackground": true,
             "problemMatcher": [
                 {
@@ -25,10 +25,16 @@
             ]
         },
         {
+            "label": "docker-compose-stop: cpu",
+            "type": "shell",
+            "command": "docker compose -f docker_compose.yaml --profile cpu down",
+            "isBackground": true
+        },
+        {
             "label": "docker-compose-start: cpu (internal)",
             "type": "shell",
             "command": "docker compose -f docker_compose.yaml --profile cpu up -d --build --force-recreate",
-            "dependsOn": ["docker-compose-stop"],
+            "dependsOn": ["docker-compose-stop: cpu"],
             "isBackground": true,
             "problemMatcher": [
                 {
@@ -53,7 +59,7 @@
             "label": "docker-compose-start: current file (internal)",
             "type": "shell",
             "command": "docker compose -f docker_compose.yaml --profile cpu run --rm -d --build --service-ports main python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ${relativeFile}",
-            "dependsOn": ["docker-compose-stop"],
+            "dependsOn": ["docker-compose-stop: cpu"],
             "isBackground": true,
             "problemMatcher": [
                 {

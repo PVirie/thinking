@@ -16,7 +16,8 @@ def compute_value_score(Q, K, Wv, Ws):
 
 def compute_error(Q, V, S, M, K, Wv, Ws):
     V_, S_ = compute_value_score(Q, K, Wv, Ws)
-    update_indices = (S > S_) * M
+    # update_indices = (S > S_) * M
+    update_indices = M
     error_V = M * (V - V_)**2
     error_S = M * (S - S_)**2
     return jnp.mean(error_V) + jnp.mean(error_S)
@@ -27,16 +28,16 @@ value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, dims):
+    def __init__(self, hidden_size, input_dims):
         self.class_name = "linear"
         self.hidden_size = hidden_size
-        self.input_dims = dims
+        self.input_dims = input_dims
 
-        self.key = jax.random.normal(jax.random.PRNGKey(0), (hidden_size, dims * 2))*0.01
+        self.key = jax.random.normal(jax.random.PRNGKey(0), (hidden_size, input_dims * 2))*0.01
         self.score = jnp.zeros([hidden_size, 1], jnp.float32)
-        self.value = jnp.zeros([hidden_size, dims], jnp.float32)
+        self.value = jnp.zeros([hidden_size, input_dims], jnp.float32)
 
-        self.lr = 0.1
+        self.lr = 0.01
         self.epoch_size = 100
 
 
@@ -52,7 +53,7 @@ class Model(base.Model):
 
     @staticmethod
     def load(path, class_parameters):
-        model = Model(class_parameters["input_dims"])
+        model = Model(class_parameters["hidden_size"], class_parameters["input_dims"])
         model.key = jnp.load(os.path.join(path, "key.npy"))
         model.score = jnp.load(os.path.join(path, "score.npy"))
         model.value = jnp.load(os.path.join(path, "value.npy"))
