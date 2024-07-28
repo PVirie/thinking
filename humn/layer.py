@@ -1,5 +1,6 @@
 from .interfaces import algebraic, cortex_model, hippocampus_model, abstraction_model
 from typing import List, Tuple, Union
+import math
 
 class Layer:
     def __init__(self, cortex_model: cortex_model.Model, hippocampus_model: hippocampus_model.Model):
@@ -24,11 +25,14 @@ class Layer:
         if len(path) < 2:
             return
 
-        if self.abstraction_model is not None:
-            clusters, pivots = self.abstraction_model.abstract_path(path)
-            self.abstraction_model.incrementally_learn(path)
+        if self.next_layer is not None:
+            if self.abstraction_model is not None:
+                clusters, pivots = self.abstraction_model.abstract_path(path)
+                self.abstraction_model.incrementally_learn(path)
+            else:
+                clusters, pivots = path.sample_skip(2, include_last = True)
         else:
-            clusters, pivots = path.sample_skip(2, include_last = True)
+            clusters, pivots = path.sample_skip(math.inf, include_last = True)
 
         self.refresh()
         self.hippocampus_model.extend(path)

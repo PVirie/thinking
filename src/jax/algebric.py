@@ -3,6 +3,7 @@ from jax import device_put
 from typing import List
 import humn
 import os
+import math
 
 class Action(humn.algebraic.Action):
     def __init__(self, data):
@@ -109,6 +110,10 @@ class State_Sequence(humn.algebraic.State_Sequence):
 
 
     def sample_skip(self, n, include_last=False):
+        if n == math.inf:
+            # return last index only
+            return Pointer_Sequence([len(self) - 1]), State_Sequence(self.data[-1:, :])
+
         # return indices and states
         indices = []
         i = n

@@ -5,6 +5,7 @@ import inspect
 
 
 current_path = None
+model_caches = {}
 
 def initialize(path):
     global current_path
@@ -25,19 +26,29 @@ def recursive_load_model(class_params, model_class):
 
 
 def load(model_id: str):
-    with open(os.path.join(current_path, model_id, "class_params.json"), "r") as f:
+    if model_id in model_caches:
+        return model_caches[model_id]
+    model_path = os.path.join(current_path, model_id)
+    if not os.path.exists(model_path):
+        return None
+    model = None
+    with open(os.path.join(model_path, "class_params.json"), "r") as f:
         class_params = json.load(f)
     class_type = class_params["class_type"]
     class_name = class_params["class_name"]
     if class_type == "model":
         if class_name == "table":
-            return recursive_load_model(class_params, table.Model)
+            model = recursive_load_model(class_params, table.Model)
         elif class_name == "linear":
-            return recursive_load_model(class_params, linear.Model)
+            model = recursive_load_model(class_params, linear.Model)
     elif class_type == "stat":
         if class_name == "linear":
-            return recursive_load_model(class_params, linear_stat.Model)
-    return None
+            model = recursive_load_model(class_params, linear_stat.Model)
+    if model is None:
+        return None
+    model.load(model_path)
+    model_caches[model_id] = model
+    return model
 
 
 def save(model):

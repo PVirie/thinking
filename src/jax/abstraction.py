@@ -1,6 +1,7 @@
 from humn import abstraction_model
 from typing import Tuple
 
+import jax
 import jax.numpy as jnp
 import os
 import json
@@ -17,6 +18,17 @@ except:
     sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
     import core
 
+
+@jax.jit
+def compute_maxima_from_stat(stat, first=False, last=True):
+    # compute local maxima, include last
+    # suppression: maxima is the first down hill after the last maximum
+    # False True True True False True False, will be suppressed to False True False False False True False
+
+    down_hill = stat[:-1] > stat[1:]
+    peeks = ~down_hill[:-1] & down_hill[1:]
+    maxima = jnp.concatenate([jnp.array([first]), peeks, jnp.array([last])])
+    return maxima
 
 
 class Model(abstraction_model.Model):
@@ -48,15 +60,14 @@ class Model(abstraction_model.Model):
 
     def abstract_path(self, path: State_Sequence) -> Tuple[Pointer_Sequence, State_Sequence]:
         stat = self.model.infer(path.data)
-        # compute local maxima, include last
-        maxima = jnp.concatenate([stat[:-1] > stat[1:], jnp.array([True])])
+        maxima = compute_maxima_from_stat(stat)
         maxima_indices = jnp.arange(len(maxima))[maxima]
         return Pointer_Sequence(maxima_indices), State_Sequence(path.data[maxima_indices])
 
 
     def abstract(self, from_sequence: State_Sequence, action: Action) -> Tuple[State, Action]:
         stat = self.model.infer(from_sequence.data)
-        maxima = jnp.concatenate([stat[:-1] > stat[1:], jnp.array([False])])
+        maxima = compute_maxima_from_stat(stat, True, False)
 
         # get the last maximum
         # get last true
@@ -73,4 +84,14 @@ class Model(abstraction_model.Model):
 
 
 if __name__ == "__main__":
-    import jax
+
+    test = jnp.array([1, 2, 3, 3, 2, 1, 1, 2, 3, 2, 1, 0, -1, 1, 2], dtype=jnp.float32)
+    maxima = compute_maxima_from_stat(test)
+    print(maxima)
+    maxima_indices = jnp.arange(len(maxima))[maxima]
+    print(maxima_indices)
+    maxima = compute_maxima_from_stat(test, True, False)
+    print(maxima)
+    last_maxima_indice = jnp.arange(len(maxima))[maxima][-1]
+    print(last_maxima_indice)
+

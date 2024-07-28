@@ -4,7 +4,7 @@ An implementation of thinking models.
 
 | Version | Model                                   | Description                                                                                          |
 | ------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 44      | **Transformer core**                    | Use transformers as the core to model argmax x given s and t                                         |
+| 44      | **Hippocampal Augmented**               | Use hippocampus for tagging                                                                          |
 | 43      | Recursive sub-action inference          | Infer sub-actions instead of states                                                                  |
 | 42      | Guided Non-deterministic Turing Machine | Use hippocampus neighboring and superpositional sum to bypass the requirement for negative examples. |
 | 41      | Freewill                                | Control actions                                                                                      |
@@ -32,7 +32,7 @@ An implementation of thinking models.
     -   [ ] Hierarchical goal pursuing
         -   [x] Table data
         -   [x] Linear kernel
-        -   [ ] Entropic abstraction
+        -   [x] Entropic abstraction
         -   [ ] Maze experiment
         -   [ ] Transformer kernel
     -   [ ] Experiment: incremental learning

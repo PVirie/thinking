@@ -75,7 +75,8 @@ class Model(base.Stat_Model):
         query = jnp.reshape(s, (-1, self.input_dims))
         # get only the first half of the linear core's key
         stats = compute_stats(query, self.linear_core.key[:, :self.input_dims], self.stats)
-        return stats
+        # return shape (N)
+        return jnp.reshape(stats, (-1))
     
 
 

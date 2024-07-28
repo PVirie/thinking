@@ -16,32 +16,43 @@ import jax
 
 
 class Context(BaseModel):
-    layers: List[Any]
+    parameter_sets: List[Any]
     states: Any
     goals: Any
     graph: Any
     random_seed: int = 0
-
 
     @staticmethod
     def load(path):
         try:
             with open(os.path.join(path, "metadata.json"), "r") as f:
                 metadata = json.load(f)
-                layers = []
-                for i in range(metadata["num_layers"]):
-                    layer_path = os.path.join(path, "layers", f"layer_{i}")
-                    cortex_path = os.path.join(layer_path, "cortex")
-                    hippocampus_path = os.path.join(layer_path, "hippocampus")
-                    layer = Layer(cortex.Model.load(cortex_path), hippocampus.Model.load(hippocampus_path))
-                    if os.path.exists(os.path.join(layer_path, "abstraction")):
-                        abstraction_path = os.path.join(layer_path, "abstraction")
-                        layer.abstraction_model = cortex.Model.load(abstraction_path)
-                    layers.append(layer)
+                parameter_sets = []
+                for j in range(len(metadata["parameter_sets"])):
+                    set_metadata = metadata["parameter_sets"][j]
+                    set_path = os.path.join(path, f"parameter_set_{j}")
+                    layers = []
+                    for i in range(set_metadata["num_layers"]):
+                        layer_path = os.path.join(set_path, "layers", f"layer_{i}")
+                        cortex_path = os.path.join(layer_path, "cortex")
+                        hippocampus_path = os.path.join(layer_path, "hippocampus")
+                        layer = Layer(cortex.Model.load(cortex_path), hippocampus.Model.load(hippocampus_path))
+                        layers.append(layer)
+                    abstraction_models = []
+                    for i in range(set_metadata["num_abstraction_models"]):
+                        abstraction_path = os.path.join(set_path, "abstraction_models", f"abstraction_{i}")
+                        abstraction_model = None
+                        if os.path.exists(abstraction_path):
+                            abstraction_model = abstraction.Model.load(abstraction_path)
+                        abstraction_models.append(abstraction_model)
+                    parameter_sets.append({
+                        "layers": layers,
+                        "abstraction_models": abstraction_models
+                    })
                 states = alg.State_Sequence.load(os.path.join(path, "states"))
                 goals = np.load(os.path.join(path, "goals.npy"))
                 graph = np.load(os.path.join(path, "graph.npy"))
-                context = Context(layers=layers, states=states, goals=goals, graph=graph, random_seed=metadata["random_seed"])
+                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, states=states, goals=goals, graph=graph, random_seed=metadata["random_seed"])
             return context
         except Exception as e:
             logging.error(e)
@@ -51,15 +62,19 @@ class Context(BaseModel):
     @staticmethod
     def save(self, path):
         os.makedirs(path, exist_ok=True)
-        for i, layer in enumerate(self.layers):
-            layer_path = os.path.join(path, "layers", f"layer_{i}")
-            cortex_path = os.path.join(layer_path, "cortex")
-            hippocampus_path = os.path.join(layer_path, "hippocampus")
-            cortex.Model.save(layer.cortex_model, cortex_path)
-            hippocampus.Model.save(layer.hippocampus_model, hippocampus_path)
-            if layer.abstraction_model is not None:
-                abstraction_path = os.path.join(layer_path, "abstraction")
-                abstraction.Model.save(layer.abstraction_model, abstraction_path)
+        for j, parameter_set in enumerate(self.parameter_sets):
+            set_path = os.path.join(path, f"parameter_set_{j}")
+            for i, layer in enumerate(parameter_set["layers"]):
+                layer_path = os.path.join(set_path, "layers", f"layer_{i}")
+                cortex_path = os.path.join(layer_path, "cortex")
+                hippocampus_path = os.path.join(layer_path, "hippocampus")
+                cortex.Model.save(layer.cortex_model, cortex_path)
+                hippocampus.Model.save(layer.hippocampus_model, hippocampus_path)
+            for i, model in enumerate(parameter_set["abstraction_models"]):
+                if model is None:
+                    continue
+                abstraction_path = os.path.join(set_path, "abstraction_models", f"abstraction_{i}")
+                abstraction.Model.save(model, abstraction_path)
         alg.State_Sequence.save(self.states, os.path.join(path, "states"))
         goal_path = os.path.join(path, "goals.npy")
         np.save(goal_path, self.goals)
@@ -67,7 +82,13 @@ class Context(BaseModel):
         np.save(graph_path, self.graph)
         with open(os.path.join(path, "metadata.json"), "w") as f:
             json.dump({
-                "num_layers": len(self.layers),
+                "parameter_sets": [
+                    {
+                        "num_layers": len(parameter_set["layers"]),
+                        "num_abstraction_models": len(parameter_set["abstraction_models"]),
+                    }
+                    for parameter_set in self.parameter_sets
+                ],
                 "num_states": len(self.states),
                 "random_seed": self.random_seed
             }, f, indent=4)
@@ -85,22 +106,18 @@ class Context(BaseModel):
 
         graph = random_graph(graph_shape, 0.4)
 
+        parameter_sets = []
+        ############################# SET 1 ################################
+
         layers = [
             Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
             Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
             Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
             Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape))
         ]
+        abstraction_models = []
 
-        # layers = []
-        # for i in range(3):
-        #     linear_core = linear.Model(graph_shape, graph_shape)
-        #     c = cortex.Model(linear_core)
-        #     h = hippocampus.Model(graph_shape, graph_shape)
-        #     a = abstraction.Model(linear_stat.Model(linear_core))
-        #     layers.append(Layer(c, h, a))
-
-        model = HUMN(layers)
+        model = HUMN(layers, abstraction_models)
 
         explore_steps = 10000
         print_steps = max(1, explore_steps // 100)
@@ -113,9 +130,52 @@ class Context(BaseModel):
                 # print at every 1 % progress
                 # compute time to finish in seconds
                 logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
-        logging.info(f"\nTotal learning time {time.time() - stamp}s")
+        logging.info(f"Total learning time {time.time() - stamp}s")
 
-        return Context(layers=layers, states=states, goals=np.arange(graph_shape), graph=graph, random_seed=random_seed)
+        parameter_sets.append({
+            "layers": layers,
+            "abstraction_models": abstraction_models
+        })
+
+        ############################# SET 2 ################################
+
+        linear_cores = []
+        for i in range(3):
+            linear_core = linear.Model(graph_shape, graph_shape)
+            linear_cores.append(linear_core)
+
+        layers = []
+        for i in range(3):
+            c = cortex.Model(linear_cores[i])
+            h = hippocampus.Model(graph_shape, graph_shape)
+            layers.append(Layer(c, h))
+            
+        abstraction_models = []
+        for i in range(2):
+            a = abstraction.Model(linear_stat.Model(linear_cores[i]))
+            abstraction_models.append(a)
+
+        model = HUMN(layers, abstraction_models)
+
+        explore_steps = 10000
+        print_steps = max(1, explore_steps // 100)
+        logging.info("Training a cognitive map:")
+        stamp = time.time()
+        for i in range(explore_steps):
+            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+            model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
+            if i % print_steps == 0 and i > 0:
+                # print at every 1 % progress
+                # compute time to finish in seconds
+                logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
+        logging.info(f"Total learning time {time.time() - stamp}s")
+
+        parameter_sets.append({
+            "layers": layers,
+            "abstraction_models": abstraction_models
+        })
+
+        return Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, states=states, goals=np.arange(graph_shape), graph=graph, random_seed=random_seed)
 
 
 
@@ -137,9 +197,8 @@ if __name__ == "__main__":
 
     max_steps = 40
     with experiment_session(experiment_path) as context:
-        model = HUMN(context.layers)
 
-        def exp_loop(preference = None):
+        def exp_loop(model):
             total_length = 0
             stamp = time.time()
             for t_i in context.goals:
@@ -166,8 +225,14 @@ if __name__ == "__main__":
             return total_length, time.time() - stamp
 
         logging.info("-----------cognitive planner-----------")
-        total_length, elapsed_seconds = exp_loop()
+        total_length, elapsed_seconds = exp_loop(HUMN(**context.parameter_sets[0]))
         logging.info(f"cognitive planner: {elapsed_seconds:.2f}s, average length: {total_length / len(context.goals):.2f}")
+
+
+        logging.info("-----------cognitive planner (entropy) -----------")
+        total_length, elapsed_seconds = exp_loop(HUMN(**context.parameter_sets[1]))
+        logging.info(f"cognitive planner (entropy): {elapsed_seconds:.2f}s, average length: {total_length / len(context.goals):.2f}")
+
 
         logging.info("-----------random planner-----------")
         total_length = 0
