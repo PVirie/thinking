@@ -29,7 +29,8 @@ value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6
 class Model(base.Model):
 
     def __init__(self, hidden_size, input_dims, lr=0.01, epoch_size=100):
-        self.class_name = "linear"
+        super().__init__("model", "linear")
+
         self.hidden_size = hidden_size
         self.input_dims = input_dims
 
@@ -43,10 +44,10 @@ class Model(base.Model):
 
     def get_class_parameters(self):
         return {
-            "class_type": "model",
-            "class_name": self.class_name, 
-            "input_dims": self.input_dims, 
+            "class_type": self.class_type,
+            "class_name": self.class_name,
             "hidden_size": self.hidden_size,
+            "input_dims": self.input_dims, 
             "lr": self.lr,
             "epoch_size": self.epoch_size
         }
@@ -57,14 +58,12 @@ class Model(base.Model):
         jnp.save(os.path.join(path, "score.npy"), self.score)
         jnp.save(os.path.join(path, "value.npy"), self.value)
 
+        self.is_updated = False
 
-    @staticmethod
-    def load(path, class_parameters):
-        model = Model(class_parameters["hidden_size"], class_parameters["input_dims"])
-        model.key = jnp.load(os.path.join(path, "key.npy"))
-        model.score = jnp.load(os.path.join(path, "score.npy"))
-        model.value = jnp.load(os.path.join(path, "value.npy"))
-        return model
+    def load(self, path):
+        self.key = jnp.load(os.path.join(path, "key.npy"))
+        self.score = jnp.load(os.path.join(path, "score.npy"))
+        self.value = jnp.load(os.path.join(path, "value.npy"))
 
 
     def fit(self, s, x, t, scores, masks=1.0):
@@ -91,6 +90,7 @@ class Model(base.Model):
         # # value_updates = (1 - update_indices) * best_value + update_indices * x
         # self.value = 0.95*self.value + 0.05*value_updates
 
+        self.is_updated = True
         return loss
 
 

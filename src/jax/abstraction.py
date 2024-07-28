@@ -10,10 +10,12 @@ try:
 except:
     from algebric import *
 
-
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-import core
+try:
+    from .. import core
+except:
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+    import core
 
 
 
@@ -27,15 +29,17 @@ class Model(abstraction_model.Model):
     def load(path):
         with open(os.path.join(path, "metadata.json"), "r") as f:
             metadata = json.load(f)
-        model = core.load(os.path.join(path, "model"))
+        model = core.load(metadata["model"])
         return Model(model)
                                                               
 
+    @staticmethod
     def save(self, path):
         os.makedirs(path, exist_ok=True)
-        core.save(os.path.join(path, "model"), self.model)
         with open(os.path.join(path, "metadata.json"), "w") as f:
-            json.dump({}, f)
+            json.dump({
+                "model": core.save(self.model)
+            }, f)
 
 
     def incrementally_learn(self, path: State_Sequence) -> float:

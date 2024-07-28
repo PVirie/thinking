@@ -3,7 +3,7 @@ from typing import List, Tuple, Union
 
 class Layer:
     def __init__(self, cortex_model: cortex_model.Model, hippocampus_model: hippocampus_model.Model):
-        self.cortex = cortex_model
+        self.cortex_model = cortex_model
         self.hippocampus_model = hippocampus_model
         self.next_layer = None
         self.abstraction_model = None
@@ -32,7 +32,7 @@ class Layer:
 
         self.refresh()
         self.hippocampus_model.extend(path)
-        self.cortex.incrementally_learn(self.hippocampus_model.augmented_all(), clusters, pivots)
+        self.cortex_model.incrementally_learn(self.hippocampus_model.augmented_all(), clusters, pivots)
 
         if self.next_layer is not None:
             self.next_layer.incrementally_learn(pivots)
@@ -57,6 +57,6 @@ class Layer:
                 else:
                     action = nl_sub_action
 
-        return self.cortex.infer_sub_action(self.hippocampus_model.augmented_all(), action)
+        return self.cortex_model.infer_sub_action(self.hippocampus_model.augmented_all(), action)
 
 

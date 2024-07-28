@@ -10,7 +10,8 @@ except:
 class Model(base.Model):
 
     def __init__(self, dims):
-        self.class_name = "table"
+        super().__init__("model", "table")
+
         self.input_dims = dims
         # make [[1, 0, 0, 1, 0, 0], [1, 0, 0, 0, 1, 0], [1, 0, 0, 0, 0, 1], [0, 1, 0, 1, 0, 0] ...]]
         eye = jnp.eye(dims, dtype=jnp.float32)
@@ -28,9 +29,9 @@ class Model(base.Model):
 
     def get_class_parameters(self):
         return {
-            "class_type": "model",
-            "class_name": self.class_name, 
-            "input_dims": self.input_dims
+            "class_type": self.class_type,
+            "class_name": self.class_name,
+            "dims": self.input_dims
         }
 
 
@@ -38,13 +39,11 @@ class Model(base.Model):
         jnp.save(os.path.join(path, "score.npy"), self.score)
         jnp.save(os.path.join(path, "value.npy"), self.value)
 
+        self.is_updated = False
 
-    @staticmethod
-    def load(path, class_parameters):
-        model = Model(class_parameters["input_dims"])
-        model.score = jnp.load(os.path.join(path, "score.npy"))
-        model.value = jnp.load(os.path.join(path, "value.npy"))
-        return model
+    def load(self, path):
+        self.score = jnp.load(os.path.join(path, "score.npy"))
+        self.value = jnp.load(os.path.join(path, "value.npy"))
     
 
     def fit(self, s, x, t, scores, masks=1.0):
@@ -74,6 +73,7 @@ class Model(base.Model):
         # update values at argmax_logits with value_updates
         self.value = self.value.at[argmax_logits].set(value_updates)
 
+        self.is_updated = True
         return jnp.mean(score_updates)
 
 

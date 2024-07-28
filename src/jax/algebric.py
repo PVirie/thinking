@@ -74,6 +74,7 @@ class State_Sequence(humn.algebraic.State_Sequence):
         return State_Sequence(jnp.load(path + ".npy"))
 
 
+    @staticmethod
     def save(self, path):
         # save jax array to path
         jnp.save(path + ".npy", self.data)

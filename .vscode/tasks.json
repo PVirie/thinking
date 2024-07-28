@@ -4,7 +4,7 @@
         {
             "label": "docker-compose-stop: gpu",
             "type": "shell",
-            "command": "docker compose -f docker_compose.yaml --profile gpu down",
+            "command": "docker compose -f docker_compose.yaml down",
             "isBackground": true
         },
         {
@@ -27,7 +27,7 @@
         {
             "label": "docker-compose-stop: cpu",
             "type": "shell",
-            "command": "docker compose -f docker_compose.yaml --profile cpu down",
+            "command": "docker compose -f docker_compose.yaml down",
             "isBackground": true
         },
         {

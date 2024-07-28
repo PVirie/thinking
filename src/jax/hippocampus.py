@@ -46,6 +46,7 @@ class Model(hippocampus_model.Model):
         return model
                                                               
 
+    @staticmethod
     def save(self, path):
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, "metadata.json"), "w") as f:

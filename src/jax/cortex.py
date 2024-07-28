@@ -10,9 +10,12 @@ try:
 except:
     from algebric import *
 
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-import core
+try:
+    from .. import core
+except:
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+    import core
 
 
 def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
@@ -39,15 +42,18 @@ class Model(cortex_model.Model):
     def load(path):
         with open(os.path.join(path, "metadata.json"), "r") as f:
             metadata = json.load(f)
-        model = core.load(os.path.join(path, "model"))
+        model = core.load(metadata["model"])
         return Model(model, step_discount_factor=metadata["step_discount_factor"])
                                                               
 
+    @staticmethod
     def save(self, path):
         os.makedirs(path, exist_ok=True)
-        core.save(os.path.join(path, "model"), self.model)
         with open(os.path.join(path, "metadata.json"), "w") as f:
-            json.dump({"step_discount_factor": self.step_discount_factor}, f)
+            json.dump({
+                "step_discount_factor": self.step_discount_factor,
+                "model": core.save(self.model)
+            }, f)
 
 
 
@@ -95,4 +101,4 @@ if __name__ == "__main__":
 
     states = Augmented_State_Squence(jax.random.normal(jax.random.PRNGKey(0), (10, 2, 4)))
 
-    model.incrementally_learn(states, Pointer_Sequence([5, 9]))
+    model.incrementally_learn(states, Pointer_Sequence([5, 9]), None)

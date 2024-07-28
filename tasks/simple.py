@@ -10,6 +10,7 @@ from humn import *
 from src.utilities import *
 from src.jax import algebric as alg
 from src.jax import cortex, hippocampus, abstraction
+import src.core as core
 from src.core import table, linear, linear_stat
 import jax
 
@@ -47,18 +48,19 @@ class Context(BaseModel):
         return None
                                  
 
+    @staticmethod
     def save(self, path):
         os.makedirs(path, exist_ok=True)
         for i, layer in enumerate(self.layers):
             layer_path = os.path.join(path, "layers", f"layer_{i}")
             cortex_path = os.path.join(layer_path, "cortex")
             hippocampus_path = os.path.join(layer_path, "hippocampus")
-            layer.cortex.save(cortex_path)
-            layer.hippocampus_model.save(hippocampus_path)
+            cortex.Model.save(layer.cortex_model, cortex_path)
+            hippocampus.Model.save(layer.hippocampus_model, hippocampus_path)
             if layer.abstraction_model is not None:
                 abstraction_path = os.path.join(layer_path, "abstraction")
-                layer.abstraction_model.save(abstraction_path)
-        self.states.save(os.path.join(path, "states"))
+                abstraction.Model.save(layer.abstraction_model, abstraction_path)
+        alg.State_Sequence.save(self.states, os.path.join(path, "states"))
         goal_path = os.path.join(path, "goals.npy")
         np.save(goal_path, self.goals)
         graph_path = os.path.join(path, "graph.npy")
@@ -83,20 +85,20 @@ class Context(BaseModel):
 
         graph = random_graph(graph_shape, 0.4)
 
-        # layers = [
-        #     Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
-        #     Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
-        #     Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
-        #     Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape))
-        # ]
+        layers = [
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape))
+        ]
 
-        layers = []
-        for i in range(3):
-            linear_core = linear.Model(graph_shape, graph_shape)
-            c = cortex.Model(linear_core)
-            h = hippocampus.Model(graph_shape, graph_shape)
-            a = abstraction.Model(linear_stat.Model(linear_core))
-            layers.append(Layer(c, h, a))
+        # layers = []
+        # for i in range(3):
+        #     linear_core = linear.Model(graph_shape, graph_shape)
+        #     c = cortex.Model(linear_core)
+        #     h = hippocampus.Model(graph_shape, graph_shape)
+        #     a = abstraction.Model(linear_stat.Model(linear_core))
+        #     layers.append(Layer(c, h, a))
 
         model = HUMN(layers)
 
@@ -118,13 +120,14 @@ class Context(BaseModel):
 
 
 @contextlib.contextmanager
-def experiment_session(path, force_clear=True):
+def experiment_session(path, force_clear=False):
+    core.initialize(os.path.join(path, "core"))
     if force_clear:
         empty_directory(path)
     context = Context.load(path)
     if context is None:
         context = Context.setup(path)
-        context.save(path)
+        Context.save(context, path)
     yield context
 
 

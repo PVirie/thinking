@@ -31,7 +31,8 @@ update_function = jax.jit(compute_gradient)
 class Model(base.Stat_Model):
 
     def __init__(self, linear_core: linear.Model, lr=0.01, epoch_size=100):
-        self.class_name = "linear"
+        super().__init__("stat", "linear")
+
         self.hidden_size = linear_core.hidden_size
         self.input_dims = linear_core.input_dims
         self.linear_core = linear_core
@@ -44,10 +45,9 @@ class Model(base.Stat_Model):
 
     def get_class_parameters(self):
         return {
-            "class_type": "stat_model",
+            "class_type": self.class_type,
             "class_name": self.class_name,
-            "hidden_size": self.hidden_size,
-            "input_dims": self.input_dims,
+            "linear_core": self.linear_core.instance_id,
             "lr": self.lr,
             "epoch_size": self.epoch_size
         }
@@ -55,13 +55,11 @@ class Model(base.Stat_Model):
 
     def save(self, path):
         jnp.save(os.path.join(path, "stats.npy"), self.stats)
+        self.is_updated = False
 
 
-    @staticmethod
-    def load(path, class_parameters):
-        model = Model(class_parameters["hidden_size"], class_parameters["input_dims"])
-        model.stats = jnp.load(os.path.join(path, "stats.npy"))
-        return model
+    def load(self, path):
+        self.stats = jnp.load(os.path.join(path, "stats.npy"))
 
 
     def accumulate(self, s):
@@ -70,6 +68,7 @@ class Model(base.Stat_Model):
         for i in range(self.epoch_size):
             self.stats = update_function(query, self.linear_core.key[:, :self.input_dims], self.stats, self.lr)
 
+        self.is_updated = True
 
     def infer(self, s):
         # s has shape (N, dim)
