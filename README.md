@@ -30,7 +30,7 @@ An implementation of thinking models.
 
 -   [ ] Implement heuristically uncertainty minimization along networks (HUMN).
     -   [ ] Hierarchical goal pursuing
-        -   [x] Table data
+        -   [x] Table kernel
         -   [x] Linear kernel
         -   [x] Entropic abstraction
         -   [ ] Maze experiment
