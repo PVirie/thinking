@@ -1,10 +1,10 @@
 import jax.numpy as jnp
 import os
 
-if __name__ == "__main__":
-    import base
-else:
+try:
     from . import base
+except:
+    import base
 
 
 class Model(base.Model):

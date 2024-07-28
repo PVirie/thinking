@@ -1,12 +1,12 @@
-import jax.random
 import jax
+import jax.random
 import jax.numpy as jnp
 import os
 
-if __name__ == "__main__":
-    import base
-else:
+try:
     from . import base
+except:
+    import base
 
 
 def compute_value_score(Q, K, Wv, Ws):
@@ -28,7 +28,7 @@ value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims):
+    def __init__(self, hidden_size, input_dims, lr=0.01, epoch_size=100):
         self.class_name = "linear"
         self.hidden_size = hidden_size
         self.input_dims = input_dims
@@ -37,8 +37,8 @@ class Model(base.Model):
         self.score = jnp.zeros([hidden_size, 1], jnp.float32)
         self.value = jnp.zeros([hidden_size, input_dims], jnp.float32)
 
-        self.lr = 0.01
-        self.epoch_size = 100
+        self.lr = lr
+        self.epoch_size = epoch_size
 
 
     def get_class_parameters(self):
@@ -46,7 +46,9 @@ class Model(base.Model):
             "class_type": "model",
             "class_name": self.class_name, 
             "input_dims": self.input_dims, 
-            "hidden_size": self.hidden_size
+            "hidden_size": self.hidden_size,
+            "lr": self.lr,
+            "epoch_size": self.epoch_size
         }
 
 
@@ -107,7 +109,7 @@ class Model(base.Model):
 
 
 if __name__ == "__main__":
-    model = Model(8, 4)
+    model = Model(8, 4, 0.1, 100)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :]])

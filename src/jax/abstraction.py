@@ -5,10 +5,11 @@ import jax.numpy as jnp
 import os
 import json
 
-if __name__ == "__main__":
-    from algebric import *
-else:
+try:
     from .algebric import *
+except:
+    from algebric import *
+
 
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))

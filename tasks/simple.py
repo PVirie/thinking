@@ -9,8 +9,8 @@ from pydantic import BaseModel
 from humn import *
 from src.utilities import *
 from src.jax import algebric as alg
-from src.jax import cortex, hippocampus
-from src.core import table, linear
+from src.jax import cortex, hippocampus, abstraction
+from src.core import table, linear, linear_stat
 import jax
 
 
@@ -83,12 +83,21 @@ class Context(BaseModel):
 
         graph = random_graph(graph_shape, 0.4)
 
-        layers = [
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape))
-        ]
+        # layers = [
+        #     Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
+        #     Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
+        #     Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
+        #     Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape))
+        # ]
+
+        layers = []
+        for i in range(3):
+            linear_core = linear.Model(graph_shape, graph_shape)
+            c = cortex.Model(linear_core)
+            h = hippocampus.Model(graph_shape, graph_shape)
+            a = abstraction.Model(linear_stat.Model(linear_core))
+            layers.append(Layer(c, h, a))
+
         model = HUMN(layers)
 
         explore_steps = 10000

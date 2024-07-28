@@ -1,6 +1,6 @@
 import os
 import json
-from . import base, table, linear
+from . import base, table, linear, linear_stat
 
 
 
@@ -14,6 +14,9 @@ def load(path: str) -> None:
             return table.Model.load(path, metadata)
         elif class_name == "linear":
             return linear.Model.load(path, metadata)
+    elif class_type == "stat_model":
+        if class_name == "linear":
+            return linear_stat.Model.load(path, metadata)
     return None
 
 
