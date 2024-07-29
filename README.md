@@ -33,8 +33,11 @@ An implementation of thinking models.
         -   [x] Table kernel
         -   [x] Linear kernel
         -   [x] Entropic abstraction
+        -   [x] Transformer kernel
+        -   [ ] Use scores for tracking best so far
         -   [ ] Maze experiment
-        -   [ ] Transformer kernel
+        -   [ ] Cart pole experiment
+        -   [ ] Calculator experiment
     -   [ ] Experiment: incremental learning
     -   [ ] Experiment: added different positional encodings to the model.
 -   [x] jax enhance: use jit (remove if else in training functions)

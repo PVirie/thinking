@@ -117,9 +117,9 @@ if __name__ == "__main__":
     t = jnp.array([eye[3, :], eye[3, :]])
 
     loss = model.fit(s, x, t, jnp.array([1, 0]))
-    score, value = model.infer(s, t)
+    value, score = model.infer(s, t)
     print(loss, score, value)
     
     loss = model.fit(s, x, t, jnp.array([0, 1]))
-    score, value = model.infer(s, t)
+    value, score = model.infer(s, t)
     print(loss, score, value)
