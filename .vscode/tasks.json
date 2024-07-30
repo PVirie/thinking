@@ -2,61 +2,13 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "docker-compose-stop: gpu",
-            "type": "shell",
-            "command": "docker compose -f docker_compose.yaml down",
-            "isBackground": true
-        },
-        {
-            "label": "docker-compose-start: gpu",
-            "type": "shell",
-            "command": "docker compose -f docker_compose.yaml --profile gpu up -d --build --force-recreate",
-            "dependsOn": ["docker-compose-stop: gpu"],
-            "isBackground": true,
-            "problemMatcher": [
-                {
-                    "pattern": [{ "regexp": ".", "file": 1, "location": 2, "message": 3 }],
-                    "background": {
-                        "activeOnStart": true,
-                        "beginsPattern": "^(Building py-service)$",
-                        "endsPattern": "^(Creating|Recreating|Starting) (py-container) ... (done)$"
-                    }
-                }
-            ]
-        },
-        {
             "label": "docker-compose-stop: cpu",
             "type": "shell",
             "command": "docker compose -f docker_compose.yaml down",
             "isBackground": true
         },
         {
-            "label": "docker-compose-start: cpu (internal)",
-            "type": "shell",
-            "command": "docker compose -f docker_compose.yaml --profile cpu up -d --build --force-recreate",
-            "dependsOn": ["docker-compose-stop: cpu"],
-            "isBackground": true,
-            "problemMatcher": [
-                {
-                    "pattern": [{ "regexp": ".", "file": 1, "location": 2, "message": 3 }],
-                    "background": {
-                        "activeOnStart": true,
-                        "beginsPattern": "^(Building py-service)$",
-                        "endsPattern": "^(Creating|Recreating|Starting) (py-container) ... (done)$"
-                    }
-                }
-            ]
-        },
-        // add delay task for docker to start
-        {
-            "label": "docker-compose-start: cpu",
-            "type": "shell",
-            "command": "sleep 3",
-            "dependsOn": ["docker-compose-start: cpu (internal)"],
-            "isBackground": false
-        },
-        {
-            "label": "docker-compose-start: current file (internal)",
+            "label": "Current file: cpu (internal)",
             "type": "shell",
             "command": "docker compose -f docker_compose.yaml --profile cpu run --rm -d --build --service-ports main python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ${relativeFile}",
             "dependsOn": ["docker-compose-stop: cpu"],
@@ -72,12 +24,41 @@
                 }
             ]
         },
-        // add delay task for docker to start
         {
-            "label": "docker-compose-start: current file",
+            "label": "Current file: cpu",
             "type": "shell",
             "command": "sleep 3",
-            "dependsOn": ["docker-compose-start: current file (internal)"],
+            "dependsOn": ["Current file: cpu (internal)"],
+            "isBackground": false
+        },
+        {
+            "label": "docker-compose-stop: gpu",
+            "type": "shell",
+            "command": "docker compose -f docker_compose.yaml down",
+            "isBackground": true
+        },
+        {
+            "label": "Current file: gpu (internal)",
+            "type": "shell",
+            "command": "docker compose -f docker_compose.yaml --profile gpu run --rm -d --build --service-ports main-gpu python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ${relativeFile}",
+            "dependsOn": ["docker-compose-stop: gpu"],
+            "isBackground": true,
+            "problemMatcher": [
+                {
+                    "pattern": [{ "regexp": ".", "file": 1, "location": 2, "message": 3 }],
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": "^(Building py-service)$",
+                        "endsPattern": "^(Creating|Recreating|Starting) (py-container) ... (done)$"
+                    }
+                }
+            ]
+        },
+        {
+            "label": "Current file: gpu",
+            "type": "shell",
+            "command": "sleep 3",
+            "dependsOn": ["Current file: gpu (internal)"],
             "isBackground": false
         }
     ]

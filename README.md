@@ -23,8 +23,8 @@ An implementation of thinking models.
 
 ## Run experiments
 
--   `./run_manual.sh` The program will automatically random graph and train the parameter. If you want to retrain the parameter, you can run simply delete the weight direction in `./artifacts`.
--   For VSCode, launch `Docker: Python - GPU` configuration. (Docker: Python - NOGPU) for no gpu environment.
+-   `./run_manual.sh {path to file}` The program will automatically random graph and train the parameter. If you want to retrain the parameter, you can run simply delete the weight direction in `./artifacts`.
+-   For VSCode, launch `Python - Current file in gpu docker` configuration. `Python - Current file in cpu docker` for no gpu environment.
 
 ## To do
 
@@ -34,6 +34,7 @@ An implementation of thinking models.
         -   [x] Linear kernel
         -   [x] Entropic abstraction
         -   [x] Transformer kernel
+        -   [ ] Make transfomer accept context of shape (batch, context length, feature length)
         -   [ ] Use scores for tracking best so far
         -   [ ] Maze experiment
         -   [ ] Cart pole experiment

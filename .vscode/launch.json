@@ -1,10 +1,10 @@
 {
     "configurations": [
         {
-            "name": "Docker: Python - GPU",
+            "name": "Python - Current file in gpu docker",
             "type": "debugpy",
             "request": "attach",
-            "preLaunchTask": "docker-compose-start: gpu",
+            "preLaunchTask": "Current file: gpu",
             "pathMappings": [
                 {
                     "localRoot": "${workspaceFolder}/src",
@@ -25,34 +25,10 @@
             }
         },
         {
-            "name": "Docker: Python - NOGPU",
+            "name": "Python - Current file in cpu docker",
             "type": "debugpy",
             "request": "attach",
-            "preLaunchTask": "docker-compose-start: cpu",
-            "pathMappings": [
-                {
-                    "localRoot": "${workspaceFolder}/src",
-                    "remoteRoot": "/app/src"
-                },
-                {
-                    "localRoot": "${workspaceFolder}/humn",
-                    "remoteRoot": "/app/humn"
-                },
-                {
-                    "localRoot": "${workspaceFolder}/tasks",
-                    "remoteRoot": "/app/tasks"
-                }
-            ],
-            "connect": {
-                "host": "127.0.0.1",
-                "port": 5678
-            }
-        },
-        {
-            "name": "Docker: Python - Currentfile cpu",
-            "type": "debugpy",
-            "request": "attach",
-            "preLaunchTask": "docker-compose-start: current file",
+            "preLaunchTask": "Current file: cpu",
             "pathMappings": [
                 {
                     "localRoot": "${workspaceFolder}/src",
