@@ -47,7 +47,8 @@ class Context(BaseModel):
                         abstraction_models.append(abstraction_model)
                     parameter_sets.append({
                         "layers": layers,
-                        "abstraction_models": abstraction_models
+                        "abstraction_models": abstraction_models,
+                        "name": set_metadata["name"]
                     })
                 states = alg.State_Sequence.load(os.path.join(path, "states"))
                 goals = np.load(os.path.join(path, "goals.npy"))
@@ -86,6 +87,7 @@ class Context(BaseModel):
                     {
                         "num_layers": len(parameter_set["layers"]),
                         "num_abstraction_models": len(parameter_set["abstraction_models"]),
+                        "name": parameter_set["name"]
                     }
                     for parameter_set in self.parameter_sets
                 ],
@@ -134,10 +136,50 @@ class Context(BaseModel):
 
         parameter_sets.append({
             "layers": layers,
-            "abstraction_models": abstraction_models
+            "abstraction_models": abstraction_models,
+            "name": "Skip step"
         })
 
         ############################# SET 2 ################################
+
+        linear_cores = []
+        for i in range(2):
+            linear_core = linear.Model(graph_shape, graph_shape)
+            linear_cores.append(linear_core)
+
+        layers = []
+        for i in range(2):
+            c = cortex.Model(linear_cores[i])
+            h = hippocampus.Model(graph_shape, graph_shape)
+            layers.append(Layer(c, h))
+            
+        abstraction_models = []
+        for i in range(1):
+            a = abstraction.Model(linear_stat.Model(linear_cores[i]))
+            abstraction_models.append(a)
+
+        model = HUMN(layers, abstraction_models)
+
+        explore_steps = 10000
+        print_steps = max(1, explore_steps // 100)
+        logging.info("Training a cognitive map:")
+        stamp = time.time()
+        for i in range(explore_steps):
+            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+            model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
+            if i % print_steps == 0 and i > 0:
+                # print at every 1 % progress
+                # compute time to finish in seconds
+                logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
+        logging.info(f"Total learning time {time.time() - stamp}s")
+
+        parameter_sets.append({
+            "layers": layers,
+            "abstraction_models": abstraction_models,
+            "name": "Entropy 2 layers"
+        })
+
+        ############################# SET 3 ################################
 
         linear_cores = []
         for i in range(3):
@@ -172,7 +214,8 @@ class Context(BaseModel):
 
         parameter_sets.append({
             "layers": layers,
-            "abstraction_models": abstraction_models
+            "abstraction_models": abstraction_models,
+            "name": "Entropy 3 layers"
         })
 
         return Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, states=states, goals=np.arange(graph_shape), graph=graph, random_seed=random_seed)
@@ -224,15 +267,10 @@ if __name__ == "__main__":
                 logging.info(f"s: {0} t: {t_i} {ps}")
             return total_length, time.time() - stamp
 
-        logging.info("-----------cognitive planner-----------")
-        total_length, elapsed_seconds = exp_loop(HUMN(**context.parameter_sets[0]))
-        logging.info(f"cognitive planner: {elapsed_seconds:.2f}s, average length: {total_length / len(context.goals):.2f}")
-
-
-        logging.info("-----------cognitive planner (entropy) -----------")
-        total_length, elapsed_seconds = exp_loop(HUMN(**context.parameter_sets[1]))
-        logging.info(f"cognitive planner (entropy): {elapsed_seconds:.2f}s, average length: {total_length / len(context.goals):.2f}")
-
+        for i, parameter_set in enumerate(context.parameter_sets):
+            logging.info(f"-----------cognitive planner {parameter_set['name']}-----------")
+            total_length, elapsed_seconds = exp_loop(HUMN(**parameter_set))
+            logging.info(f"cognitive planner {parameter_set['name']}: {elapsed_seconds:.2f}s, average length: {total_length / len(context.goals):.2f}")
 
         logging.info("-----------random planner-----------")
         total_length = 0

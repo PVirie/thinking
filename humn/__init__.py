@@ -5,7 +5,7 @@ from typing import List, Tuple
 
 
 class HUMN:
-    def __init__(self, layers: List[Layer], abstraction_models: List[abstraction_model.Model] = []):
+    def __init__(self, layers: List[Layer], abstraction_models: List[abstraction_model.Model] = [], name="HUMN model"):
         if layers == None or len(layers) == 0:
             raise ValueError("At least one layer is required")
         
@@ -17,6 +17,7 @@ class HUMN:
             l.set_next_layer(l_, ab)
         
         self.root = layers[0]
+        self.name = name
         
 
     def refresh(self):
