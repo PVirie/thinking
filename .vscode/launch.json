@@ -1,6 +1,30 @@
 {
     "configurations": [
         {
+            "name": "Python - Current file clear",
+            "type": "debugpy",
+            "request": "attach",
+            "preLaunchTask": "Current file: clear",
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/src",
+                    "remoteRoot": "/app/src"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/humn",
+                    "remoteRoot": "/app/humn"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/tasks",
+                    "remoteRoot": "/app/tasks"
+                }
+            ],
+            "connect": {
+                "host": "127.0.0.1",
+                "port": 5678
+            }
+        },
+        {
             "name": "Python - Current file in gpu docker",
             "type": "debugpy",
             "request": "attach",

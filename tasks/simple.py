@@ -5,6 +5,7 @@ import random
 import json
 from typing import List, Any
 from pydantic import BaseModel
+import argparse
 
 from humn import *
 from src.utilities import *
@@ -13,6 +14,12 @@ from src.jax import cortex, hippocampus, abstraction
 import src.core as core
 from src.core import table, linear, linear_stat
 import jax
+
+
+# check --clear flag (default False)
+parser = argparse.ArgumentParser()
+parser.add_argument("--clear", action="store_true")
+args = parser.parse_args()
 
 
 class Context(BaseModel):
@@ -112,10 +119,10 @@ class Context(BaseModel):
         ############################# SET 1 ################################
 
         layers = [
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)), 
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape))
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape, epoch_size=100)), hippocampus.Model(graph_shape, graph_shape)), 
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape, epoch_size=100)), hippocampus.Model(graph_shape, graph_shape)), 
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape, epoch_size=100)), hippocampus.Model(graph_shape, graph_shape)), 
+            Layer(cortex.Model(linear.Model(graph_shape, graph_shape, epoch_size=100)), hippocampus.Model(graph_shape, graph_shape))
         ]
         abstraction_models = []
 
@@ -144,7 +151,7 @@ class Context(BaseModel):
 
         linear_cores = []
         for i in range(2):
-            linear_core = linear.Model(graph_shape, graph_shape)
+            linear_core = linear.Model(graph_shape, graph_shape, epoch_size=100)
             linear_cores.append(linear_core)
 
         layers = []
@@ -183,7 +190,7 @@ class Context(BaseModel):
 
         linear_cores = []
         for i in range(3):
-            linear_core = linear.Model(graph_shape, graph_shape)
+            linear_core = linear.Model(graph_shape, graph_shape, epoch_size=100)
             linear_cores.append(linear_core)
 
         layers = []
@@ -223,9 +230,10 @@ class Context(BaseModel):
 
 
 @contextlib.contextmanager
-def experiment_session(path, force_clear=False):
+def experiment_session(path, force_clear=None):
     core.initialize(os.path.join(path, "core"))
-    if force_clear:
+    if force_clear is not None and force_clear:
+        logging.info(f"Clearing the experiment directory: {path}")
         empty_directory(path)
     context = Context.load(path)
     if context is None:
@@ -237,6 +245,11 @@ def experiment_session(path, force_clear=False):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "simple")
+
+    if args.clear:
+        # just clear and return
+        empty_directory(experiment_path)
+        exit(0)
 
     max_steps = 40
     with experiment_session(experiment_path) as context:

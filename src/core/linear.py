@@ -2,6 +2,7 @@ import jax
 import jax.random
 import jax.numpy as jnp
 import os
+from functools import partial
 
 try:
     from . import base
@@ -24,6 +25,18 @@ def compute_error(Q, V, S, M, K, Wv, Ws):
 
 # extremely faster with jit
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6)))
+
+
+# loop training jit
+
+@partial(jax.jit, static_argnames=['lr', 'epoch_size'])
+def loop_training(Q, V, S, M, K, Wv, Ws, lr, epoch_size):
+    for i in range(epoch_size):
+        loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, V, S, M, K, Wv, Ws)
+        K = K - lr*g_K
+        Wv = Wv - lr*g_Wv
+        Ws = Ws - lr*g_Ws
+    return K, Wv, Ws, loss
 
 
 class Model(base.Model):
@@ -76,13 +89,7 @@ class Model(base.Model):
         batch = jnp.concatenate([s, t], axis=-1)
         query = jnp.reshape(batch, (-1, self.input_dims * 2))
 
-        for i in range(self.epoch_size):
-            loss, (g_K, g_Wv, g_Ws) = value_grad_function(query, x, scores, masks, self.key, self.value, self.score)
-
-            # now update
-            self.key = self.key - self.lr*g_K
-            self.score = self.score - self.lr*g_Ws
-            self.value = self.value - self.lr*g_Wv
+        self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.lr, self.epoch_size)
 
         # # score_updates = (1 - update_indices) * best_score + update_indices * scores
         # self.score = 0.95*self.score + 0.05*score_updates
