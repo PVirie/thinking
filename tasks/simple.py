@@ -6,6 +6,9 @@ import json
 from typing import List, Any
 from pydantic import BaseModel
 import argparse
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
 from src.utilities import *
