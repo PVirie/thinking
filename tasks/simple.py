@@ -7,6 +7,9 @@ from typing import List, Any
 from pydantic import BaseModel
 from functools import partial
 import argparse
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
 from src.utilities import *
