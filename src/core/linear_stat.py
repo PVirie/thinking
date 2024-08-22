@@ -2,6 +2,7 @@ import jax
 import jax.random
 import jax.numpy as jnp
 import os
+from functools import partial
 
 try:
     from . import base, linear
@@ -27,6 +28,16 @@ def compute_gradient(Q, K, S, lr):
 
 # extremely faster with jit
 update_function = jax.jit(compute_gradient)
+
+
+# loop training jit
+
+@partial(jax.jit, static_argnames=['lr', 'epoch_size'])
+def loop_training(Q, V, S, lr, epoch_size):
+    for i in range(epoch_size):
+        S = update_function(Q, V, S, lr)
+    return S
+
 
 class Model(base.Stat_Model):
 
@@ -65,8 +76,10 @@ class Model(base.Stat_Model):
     def accumulate(self, s):
         # s has shape (N, dim)
         query = jnp.reshape(s, (-1, self.input_dims))
-        for i in range(self.epoch_size):
-            self.stats = update_function(query, self.linear_core.key[:, :self.input_dims], self.stats, self.lr)
+        # for i in range(self.epoch_size):
+        #     self.stats = update_function(query, self.linear_core.key[:, :self.input_dims], self.stats, self.lr)
+
+        self.stats = loop_training(query, self.linear_core.key[:, :self.input_dims], self.stats, self.lr, self.epoch_size)
 
         self.is_updated = True
 

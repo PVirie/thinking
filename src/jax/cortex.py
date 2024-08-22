@@ -22,6 +22,7 @@ def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1)
     # pivots = jnp.array(pivots, dtype=jnp.int32)
     pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
     
+    pre_steps = min(pre_steps, len(pivots))
     pre_pivots = jnp.concatenate([jnp.full([pre_steps], -1, dtype=jnp.int32), pivots[:-pre_steps]], axis=0)
 
     masks = jnp.logical_and(pos > jnp.expand_dims(pre_pivots, axis=0), pos <= jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
@@ -36,6 +37,11 @@ class Model(cortex_model.Model):
     def __init__(self, model: core.base.Model, step_discount_factor=0.9):
         self.step_discount_factor = step_discount_factor
         self.model = model
+        self.printer = None
+
+
+    def set_printer(self, printer):
+        self.printer = printer
 
 
     @staticmethod
@@ -62,7 +68,7 @@ class Model(cortex_model.Model):
         distances = jnp.arange(len(path_encoding_sequence))
 
         # learn to predict the next state and its probability from the current state given goal
-        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence))
+        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), self.step_discount_factor, 2)
 
         pivots = path_encoding_sequence[pivot_indices].data[:, 0, :]
         sequence_data = path_encoding_sequence.data[:, 0, :]
@@ -72,7 +78,7 @@ class Model(cortex_model.Model):
         a = x - s
         t = jnp.tile(jnp.expand_dims(pivots, axis=0), (len(path_encoding_sequence), 1, 1))
 
-        # s has shape (N, dim), a has shape (N, dim), t has shape (N, dim), scores has shape (N)
+        # s has shape (N, dim), a has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
         return self.model.fit(s, a, t, scores, masks)
 
 
@@ -83,7 +89,10 @@ class Model(cortex_model.Model):
             jnp.expand_dims(from_encoding_sequence.data[-1, 0, :], axis=0), 
             jnp.expand_dims(goal_state.data, axis=0)
             )
-        return Action(next_action_data[0])
+        a = Action(next_action_data[0])
+        if self.printer is not None:
+            self.printer(from_encoding_sequence + a)
+        return a
 
 
 
@@ -92,7 +101,7 @@ class Model(cortex_model.Model):
 if __name__ == "__main__":
     import jax
 
-    masks, scores = generate_mask_and_score(jnp.array([1, 3, 8]), 8)
+    masks, scores = generate_mask_and_score(jnp.array([1, 3, 8]), 8, 0.9, 2)
     print(masks)
     print(scores)
 

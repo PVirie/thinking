@@ -5,6 +5,7 @@ import random
 import json
 from typing import List, Any
 from pydantic import BaseModel
+from functools import partial
 import argparse
 
 from humn import *
@@ -281,6 +282,13 @@ if __name__ == "__main__":
             return total_length, time.time() - stamp
 
         for i, parameter_set in enumerate(context.parameter_sets):
+            # if i == 2:
+            #     for j, l in enumerate(parameter_set["layers"]):
+            #         def printer(level, s):
+            #             s_i = context.states[s]
+            #             logging.info(f"Level: {level} State: {s_i}")
+            #         l.cortex_model.printer = partial(printer, j)
+
             logging.info(f"-----------cognitive planner {parameter_set['name']}-----------")
             total_length, elapsed_seconds = exp_loop(HUMN(**parameter_set))
             logging.info(f"cognitive planner {parameter_set['name']}: {elapsed_seconds:.2f}s, average length: {total_length / len(context.goals):.2f}")
