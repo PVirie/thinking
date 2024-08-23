@@ -17,8 +17,8 @@ def compute_value_score(Q, K, Wv, Ws):
 
 def compute_error(Q, V, S, M, K, Wv, Ws):
     V_, S_ = compute_value_score(Q, K, Wv, Ws)
-    # update_indices = (S > S_) * M
-    update_indices = M
+    update_indices = jnp.max(S - S_, 0) * M
+    # update_indices = M
     error_V = M * (V - V_)**2
     error_S = M * (S - S_)**2
     return jnp.mean(error_V) + jnp.mean(error_S)

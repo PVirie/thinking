@@ -65,7 +65,7 @@ class Layer:
 
 
 
-    def generate_steps(self, state, target_state):
+    def __generate_steps(self, state, target_state):
         while True:
             self.hippocampus_model.append(state)
             sub_action = self.cortex_model.infer_sub_action(self.hippocampus_model.augmented_all(), target_state - state)
@@ -102,7 +102,7 @@ class Layer:
                 else:
                     target_state = nl_target_state
 
-                yield from self.generate_steps(state, target_state)
+                yield from self.__generate_steps(state, target_state)
                 state = target_state
         
-        yield from self.generate_steps(state, goal_state)
+        yield from self.__generate_steps(state, goal_state)
