@@ -1,6 +1,6 @@
 from .interfaces import algebraic, cortex_model, hippocampus_model, abstraction_model
 from .layer import Layer
-from typing import List, Tuple
+from typing import List, Tuple, Union, Generator
 
 
 
@@ -28,6 +28,10 @@ class HUMN:
         self.root.incrementally_learn(path)
 
 
-    def think(self, from_state: algebraic.State, action: algebraic.Action) -> algebraic.Action:
+    def infer_sub_action(self, from_state: algebraic.State, action: algebraic.Action) -> algebraic.Action:
         return self.root.infer_sub_action(from_state, action)
+
+
+    def think(self, from_state: algebraic.State, action: algebraic.Action) -> Generator[algebraic.State, None, None]:
+        return self.root.think(from_state, action)
 

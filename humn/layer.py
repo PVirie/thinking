@@ -1,5 +1,5 @@
 from .interfaces import algebraic, cortex_model, hippocampus_model, abstraction_model
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Generator
 import math
 
 class Layer:
@@ -57,10 +57,52 @@ class Layer:
             if not nl_sub_action.zero_length():
                 # if the next step is not the goal, specify the goal
                 if self.abstraction_model is not None:
-                    action = self.abstraction_model.specify(from_state, nl_from_state, nl_sub_action)
+                    action = self.abstraction_model.specify(nl_from_state, nl_sub_action, from_state)
                 else:
                     action = nl_sub_action
 
         return self.cortex_model.infer_sub_action(self.hippocampus_model.augmented_all(), action)
 
 
+
+    def generate_steps(self, state, target_state):
+        while True:
+            self.hippocampus_model.append(state)
+            sub_action = self.cortex_model.infer_sub_action(self.hippocampus_model.augmented_all(), target_state - state)
+            state = state + sub_action
+            yield state
+            if state == target_state:
+                break
+            
+
+    def think(self, from_state: algebraic.State, action: algebraic.Action) -> Generator[algebraic.State, None, None]:
+        if action.zero_length():
+            return
+    
+        state = from_state
+        goal_state = state + action
+        
+
+        if self.next_layer is not None:
+
+            if self.abstraction_model is not None:
+                nl_from_state, nl_action = self.abstraction_model.abstract(self.hippocampus_model.all(), action)
+            else:
+                nl_from_state, nl_action = from_state, action
+            goal_generator = self.next_layer.think(nl_from_state, nl_action)
+            
+            state = from_state
+            while True:
+                try:
+                    nl_target_state = next(goal_generator)
+                except StopIteration:
+                    break
+                if self.abstraction_model is not None:
+                    target_state = self.abstraction_model.specify(nl_target_state)
+                else:
+                    target_state = nl_target_state
+
+                yield from self.generate_steps(state, target_state)
+                state = target_state
+        
+        yield from self.generate_steps(state, goal_state)

@@ -4,11 +4,27 @@ from typing import Tuple
 
 class Action:
     def zero_length(self):
-        pass
+        raise NotImplementedError("Not implemented")
 
-
+    # interface for think method
+    def __add__(self, s): 
+        return s + self
+    
 class State:
-    pass
+
+    # interface for think method
+    def __add__(self, a):
+        raise NotImplementedError("Not implemented")
+
+
+    # interface for think method
+    def __sub__(self, s):
+        raise NotImplementedError("Not implemented")
+
+
+    # interface for think method
+    def __eq__(self, s):
+        raise NotImplementedError("Not implemented")
 
 
 class Pointer_Sequence:
@@ -18,7 +34,7 @@ class Pointer_Sequence:
 class State_Sequence:
     def sample_skip(self, n, include_last=False) -> Tuple[Pointer_Sequence, State_Sequence]:
         # if n is math.inf, return last index only
-        pass
+        raise NotImplementedError("Not implemented")
 
 
 class Augmented_State_Squence:

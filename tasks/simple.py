@@ -269,7 +269,7 @@ if __name__ == "__main__":
                 for i in range(max_steps):
                     if s == t:
                         break
-                    a = model.think(s, t - s)
+                    a = model.infer_sub_action(s, t - s)
                     p = s + a
                     p_i = context.states[p]
                     ps.append(p_i)

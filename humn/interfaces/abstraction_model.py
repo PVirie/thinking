@@ -1,5 +1,5 @@
 from . import algebraic
-from typing import Tuple
+from typing import Tuple, Union
 
 
 class Model:
@@ -20,7 +20,7 @@ class Model:
         pass
 
 
-    def specify(self, start: algebraic.State, nl_start: algebraic.State, nl_action: algebraic.Action) -> algebraic.Action:
+    def specify(self, nl_start: algebraic.State, nl_action: Union[algebraic.Action, None] = None, start: Union[algebraic.State, None] = None) -> Union[algebraic.Action, algebraic.State]:
         # inverse of abstract
-        # return action 
+        # return action if nl_action is not None, else return state
         pass

@@ -1,5 +1,5 @@
 from humn import abstraction_model
-from typing import Tuple
+from typing import Tuple, Union
 
 import jax
 import jax.numpy as jnp
@@ -75,7 +75,9 @@ class Model(abstraction_model.Model):
         return from_sequence[last_maxima_indice], action
 
 
-    def specify(self, start: State, nl_start: State, nl_action: Action) -> Action:
+    def specify(self, nl_start: State, nl_action: Union[Action, None] = None, start: Union[State, None] = None) -> Union[Action, State]:
+        if nl_action is None:
+            return nl_start
         return nl_action
 
 
