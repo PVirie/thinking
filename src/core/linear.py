@@ -10,18 +10,22 @@ except:
     import base
 
 
-def compute_value_score(Q, K, Wv, Ws):
-    logit = jnp.matmul(Q, jnp.transpose(K))
-    return jnp.matmul(logit, Wv), jnp.matmul(logit, Ws)
+def compute_value_score(Q, K, Wv, Ws, dim_size):
+    logit = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K))/jnp.sqrt(dim_size), axis=-1)
+    return jnp.matmul(logit, Wv), jax.nn.sigmoid(jnp.matmul(logit, Ws))
 
 
-def compute_error(Q, V, S, M, K, Wv, Ws):
-    V_, S_ = compute_value_score(Q, K, Wv, Ws)
-    update_indices = jnp.max(S - S_, 0) * M
+def compute_error(Q, V, S, M, K, Wv, Ws, dim_size):
+    V_, S_ = compute_value_score(Q, K, Wv, Ws, dim_size)
+
+    update_indices = M * (S > S_)
     # update_indices = M
-    error_V = M * (V - V_)**2
-    error_S = M * (S - S_)**2
-    return jnp.mean(error_V) + jnp.mean(error_S)
+    score_updates = (1 - update_indices) * S_ + update_indices * S
+    value_updates = (1 - update_indices) * V_ + update_indices * V
+
+    error_V = (value_updates - V_)**2
+    error_S = (score_updates - S_)**2
+    return jnp.mean(error_V)*jnp.sqrt(dim_size) + jnp.mean(error_S)
 
 # extremely faster with jit
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6)))
@@ -29,10 +33,10 @@ value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6
 
 # loop training jit
 
-@partial(jax.jit, static_argnames=['lr', 'epoch_size'])
-def loop_training(Q, V, S, M, K, Wv, Ws, lr, epoch_size):
+@partial(jax.jit, static_argnames=['lr', 'epoch_size', 'dim_size'])
+def loop_training(Q, V, S, M, K, Wv, Ws, lr, epoch_size, dim_size):
     for i in range(epoch_size):
-        loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, V, S, M, K, Wv, Ws)
+        loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, V, S, M, K, Wv, Ws, dim_size)
         K = K - lr*g_K
         Wv = Wv - lr*g_Wv
         Ws = Ws - lr*g_Ws
@@ -41,7 +45,7 @@ def loop_training(Q, V, S, M, K, Wv, Ws, lr, epoch_size):
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.01, epoch_size=100):
+    def __init__(self, hidden_size, input_dims, lr=0.1, epoch_size=10):
         super().__init__("model", "linear")
 
         self.hidden_size = hidden_size
@@ -89,7 +93,7 @@ class Model(base.Model):
         batch = jnp.concatenate([s, t], axis=-1)
         query = jnp.reshape(batch, (-1, self.input_dims * 2))
 
-        self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.lr, self.epoch_size)
+        self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.lr, self.epoch_size, self.input_dims)
 
         # # score_updates = (1 - update_indices) * best_score + update_indices * scores
         # self.score = 0.95*self.score + 0.05*score_updates
@@ -108,11 +112,9 @@ class Model(base.Model):
         batch = jnp.concatenate([s, t], axis=-1)
         query = jnp.reshape(batch, (-1, self.input_dims * 2))
 
-        best_value, best_score = compute_value_score(query, self.key, self.value, self.score)
+        best_value, best_score = compute_value_score(query, self.key, self.value, self.score, self.input_dims)
 
         return best_value, best_score
-
-
 
 
 if __name__ == "__main__":
@@ -123,10 +125,17 @@ if __name__ == "__main__":
     x = jnp.array([eye[1, :], eye[2, :]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
-    loss = model.fit(s, x, t, jnp.array([1, 0]))
+    for i in range(100):
+        loss = model.fit(s, x, t, jnp.array([1, 0]))
     value, score = model.infer(s, t)
-    print(loss, score, value)
+    print("Loss:", loss)
+    print("Score:", score)
+    print("Value:", value)
     
-    loss = model.fit(s, x, t, jnp.array([0, 1]))
+    for i in range(100):
+        loss = model.fit(s, x, t, jnp.array([0, 1]))
+        loss = model.fit(s, x, t, jnp.array([1, 0]))
     value, score = model.infer(s, t)
-    print(loss, score, value)
+    print("Loss:", loss)
+    print("Score:", score)
+    print("Value:", value)

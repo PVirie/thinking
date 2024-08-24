@@ -111,8 +111,10 @@ if __name__ == "__main__":
 
     model.fit(s, x, t, jnp.array([1, 0]))
     value, score = model.infer(s, t)
-    print(score, value)
+    print("Score:", score)
+    print("Value:", value)
     
     model.fit(s, x, t, jnp.array([0, 1]))
     value, score = model.infer(s, t)
-    print(score, value)
+    print("Score:", score)
+    print("Value:", value)

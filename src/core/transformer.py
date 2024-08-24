@@ -260,9 +260,9 @@ class Model(base.Model):
         x = jnp.reshape(x, (-1, self.input_dims))
 
         if masks is None:
-            masks = jnp.ones([s.shape[0], 1], jnp.float32)
+            masks = jnp.ones([s.shape[0], 1], jnp.float32) * jnp.reshape(scores, (-1, 1))
         else:
-            masks = jnp.reshape(masks, (-1, 1))
+            masks = jnp.reshape(masks, (-1, 1)) * jnp.reshape(scores, (-1, 1))
 
         for i in range(self.epoch_size):
             self.state, loss = train_step(self.state, t, s, x, masks, self.state.dropout_key)
@@ -297,17 +297,24 @@ class Model(base.Model):
 
 if __name__ == "__main__":
     
-    model = Model(input_dims=4, lr=0.01, epoch_size=200)
+    model = Model(input_dims=4, lr=0.01, epoch_size=10)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :]])
     x = jnp.array([eye[1, :], eye[2, :]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
-    loss = model.fit(s, x, t, jnp.array([1, 0]))
+    for i in range(100):
+        loss = model.fit(s, x, t, jnp.array([1, 0]))
     value, score = model.infer(s, t)
-    print(loss, score, value)
+    print("Loss:", loss)
+    print("Score:", score)
+    print("Value:", value)
     
-    loss = model.fit(s, x, t, jnp.array([0, 1]))
+    for i in range(100):
+        loss = model.fit(s, x, t, jnp.array([0, 1]))
+        loss = model.fit(s, x, t, jnp.array([1, 0]))
     value, score = model.infer(s, t)
-    print(loss, score, value)
+    print("Loss:", loss)
+    print("Score:", score)
+    print("Value:", value)

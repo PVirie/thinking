@@ -30,7 +30,7 @@ class Layer:
                 clusters, pivots = self.abstraction_model.abstract_path(path)
                 self.abstraction_model.incrementally_learn(path)
             else:
-                clusters, pivots = path.sample_skip(3, include_last = True)
+                clusters, pivots = path.sample_skip(2, include_last = True)
         else:
             clusters, pivots = path.sample_skip(math.inf, include_last = True)
 

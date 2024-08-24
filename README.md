@@ -34,9 +34,10 @@ An implementation of thinking models.
         -   [x] Linear kernel
         -   [x] Entropic abstraction
         -   [x] Transformer kernel
-        -   [ ] Make transfomer accept context of shape (batch, context length, feature length)
         -   [ ] Use scores for tracking best so far
-        -   [ ] Maze experiment
+        -   [ ] Make transfomer accept context of shape (batch, context length, feature length)
+        -   [ ] Language model experiment (abstraction with embedding)
+            -   [ ] Predicting finite token is easier than predicting continuous value
         -   [ ] Cart pole experiment
         -   [ ] Calculator experiment
     -   [ ] Experiment: incremental learning

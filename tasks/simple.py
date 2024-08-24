@@ -122,58 +122,18 @@ class Context(BaseModel):
         parameter_sets = []
         ############################# SET 1 ################################
 
-        layers = [
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape, epoch_size=100)), hippocampus.Model(graph_shape, graph_shape)), 
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape, epoch_size=100)), hippocampus.Model(graph_shape, graph_shape)), 
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape, epoch_size=100)), hippocampus.Model(graph_shape, graph_shape)), 
-            Layer(cortex.Model(linear.Model(graph_shape, graph_shape, epoch_size=100)), hippocampus.Model(graph_shape, graph_shape))
-        ]
-        abstraction_models = []
-
-        model = HUMN(layers, abstraction_models)
-
-        explore_steps = 10000
-        print_steps = max(1, explore_steps // 100)
-        logging.info("Training a cognitive map:")
-        stamp = time.time()
-        for i in range(explore_steps):
-            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-            model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
-            if i % print_steps == 0 and i > 0:
-                # print at every 1 % progress
-                # compute time to finish in seconds
-                logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
-        logging.info(f"Total learning time {time.time() - stamp}s")
-
-        parameter_sets.append({
-            "layers": layers,
-            "abstraction_models": abstraction_models,
-            "name": "Skip step"
-        })
-
-        ############################# SET 2 ################################
-
-        linear_cores = []
-        for i in range(2):
-            linear_core = linear.Model(graph_shape, graph_shape, epoch_size=100)
-            linear_cores.append(linear_core)
+        name = "Skip step"
 
         layers = []
-        for i in range(2):
-            c = cortex.Model(linear_cores[i])
-            h = hippocampus.Model(graph_shape, graph_shape)
-            layers.append(Layer(c, h))
-            
+        for i in range(4):
+            layers.append(Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
         abstraction_models = []
-        for i in range(1):
-            a = abstraction.Model(linear_stat.Model(linear_cores[i]))
-            abstraction_models.append(a)
 
         model = HUMN(layers, abstraction_models)
 
         explore_steps = 10000
         print_steps = max(1, explore_steps // 100)
-        logging.info("Training a cognitive map:")
+        logging.info(f"Training experiment {name}")
         stamp = time.time()
         for i in range(explore_steps):
             path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
@@ -187,68 +147,34 @@ class Context(BaseModel):
         parameter_sets.append({
             "layers": layers,
             "abstraction_models": abstraction_models,
-            "name": "Entropy 2 layers"
+            "name": name
         })
 
-        ############################# SET 3 ################################
+        # ############################# SET 2 ################################
 
-        linear_cores = []
-        for i in range(3):
-            linear_core = linear.Model(graph_shape, graph_shape, epoch_size=100)
-            linear_cores.append(linear_core)
+        # name = "Entropy 2 layers"
 
-        layers = []
-        for i in range(3):
-            c = cortex.Model(linear_cores[i])
-            h = hippocampus.Model(graph_shape, graph_shape)
-            layers.append(Layer(c, h))
-            
-        abstraction_models = []
-        for i in range(2):
-            a = abstraction.Model(linear_stat.Model(linear_cores[i]))
-            abstraction_models.append(a)
-
-        model = HUMN(layers, abstraction_models)
-
-        explore_steps = 10000
-        print_steps = max(1, explore_steps // 100)
-        logging.info("Training a cognitive map:")
-        stamp = time.time()
-        for i in range(explore_steps):
-            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
-            model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
-            if i % print_steps == 0 and i > 0:
-                # print at every 1 % progress
-                # compute time to finish in seconds
-                logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
-        logging.info(f"Total learning time {time.time() - stamp}s")
-
-        parameter_sets.append({
-            "layers": layers,
-            "abstraction_models": abstraction_models,
-            "name": "Entropy 3 layers"
-        })
-
-        ############################# SET 4 ################################
-
-        # table_cores = []
+        # linear_cores = []
         # for i in range(2):
-        #     table_core = table.Model(graph_shape)
-        #     table_cores.append(table_core)
+        #     linear_core = linear.Model(graph_shape, graph_shape)
+        #     linear_cores.append(linear_core)
 
         # layers = []
         # for i in range(2):
-        #     c = cortex.Model(table_cores[i])
+        #     c = cortex.Model(linear_cores[i])
         #     h = hippocampus.Model(graph_shape, graph_shape)
         #     layers.append(Layer(c, h))
             
         # abstraction_models = []
+        # for i in range(1):
+        #     a = abstraction.Model(linear_stat.Model(linear_cores[i]))
+        #     abstraction_models.append(a)
 
         # model = HUMN(layers, abstraction_models)
 
         # explore_steps = 10000
         # print_steps = max(1, explore_steps // 100)
-        # logging.info("Training a cognitive map:")
+        # logging.info(f"Training experiment {name}")
         # stamp = time.time()
         # for i in range(explore_steps):
         #     path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
@@ -262,8 +188,87 @@ class Context(BaseModel):
         # parameter_sets.append({
         #     "layers": layers,
         #     "abstraction_models": abstraction_models,
-        #     "name": "Table layers"
+        #     "name": name
         # })
+
+        # ############################# SET 3 ################################
+
+        # name = "Entropy 3 layers"
+
+        # linear_cores = []
+        # for i in range(3):
+        #     linear_core = linear.Model(graph_shape, graph_shape)
+        #     linear_cores.append(linear_core)
+
+        # layers = []
+        # for i in range(3):
+        #     c = cortex.Model(linear_cores[i])
+        #     h = hippocampus.Model(graph_shape, graph_shape)
+        #     layers.append(Layer(c, h))
+            
+        # abstraction_models = []
+        # for i in range(2):
+        #     a = abstraction.Model(linear_stat.Model(linear_cores[i]))
+        #     abstraction_models.append(a)
+
+        # model = HUMN(layers, abstraction_models)
+
+        # explore_steps = 10000
+        # print_steps = max(1, explore_steps // 100)
+        # logging.info(f"Training experiment {name}")
+        # stamp = time.time()
+        # for i in range(explore_steps):
+        #     path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+        #     model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
+        #     if i % print_steps == 0 and i > 0:
+        #         # print at every 1 % progress
+        #         # compute time to finish in seconds
+        #         logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
+        # logging.info(f"Total learning time {time.time() - stamp}s")
+
+        # parameter_sets.append({
+        #     "layers": layers,
+        #     "abstraction_models": abstraction_models,
+        #     "name": name
+        # })
+
+        ############################# SET 4 ################################
+
+        name = "Table layers"
+
+        table_cores = []
+        for i in range(2):
+            table_core = table.Model(graph_shape)
+            table_cores.append(table_core)
+
+        layers = []
+        for i in range(2):
+            c = cortex.Model(table_cores[i])
+            h = hippocampus.Model(graph_shape, graph_shape)
+            layers.append(Layer(c, h))
+            
+        abstraction_models = []
+
+        model = HUMN(layers, abstraction_models)
+
+        explore_steps = 1000
+        print_steps = max(1, explore_steps // 100)
+        logging.info(f"Training experiment {name}")
+        stamp = time.time()
+        for i in range(explore_steps):
+            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+            model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
+            if i % print_steps == 0 and i > 0:
+                # print at every 1 % progress
+                # compute time to finish in seconds
+                logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
+        logging.info(f"Total learning time {time.time() - stamp}s")
+
+        parameter_sets.append({
+            "layers": layers,
+            "abstraction_models": abstraction_models,
+            "name": "Table layers"
+        })
 
         return Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, states=states, goals=np.arange(graph_shape), graph=graph, random_seed=random_seed)
 
@@ -321,7 +326,7 @@ if __name__ == "__main__":
             return total_length, time.time() - stamp
 
         for i, parameter_set in enumerate(context.parameter_sets):
-            # if i == 2:
+            # if i == 0:
             #     for j, l in enumerate(parameter_set["layers"]):
             #         def printer(level, s):
             #             s_i = context.states[s]
