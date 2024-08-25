@@ -32,8 +32,8 @@ class Pointer_Sequence:
 
 
 class State_Sequence:
-    def sample_skip(self, n, include_last=False) -> Tuple[Pointer_Sequence, State_Sequence]:
-        # if n is math.inf, return last index only
+    def sample_skip(self, n) -> Tuple[Pointer_Sequence, State_Sequence]:
+        # if n is math.inf, return first and last indices
         raise NotImplementedError("Not implemented")
 
 

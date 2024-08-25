@@ -30,16 +30,17 @@ class Layer:
                 clusters, pivots = self.abstraction_model.abstract_path(path)
                 self.abstraction_model.incrementally_learn(path)
             else:
-                clusters, pivots = path.sample_skip(2, include_last = True)
+                clusters, pivots = path.sample_skip(2)
         else:
-            clusters, pivots = path.sample_skip(math.inf, include_last = True)
+            clusters, pivots = path.sample_skip(math.inf)
+
+        if self.next_layer is not None:
+            self.next_layer.incrementally_learn(pivots)
 
         self.refresh()
         self.hippocampus_model.extend(path)
         self.cortex_model.incrementally_learn(self.hippocampus_model.augmented_all(), clusters, pivots)
 
-        if self.next_layer is not None:
-            self.next_layer.incrementally_learn(pivots)
 
 
     def infer_sub_action(self, from_state: algebraic.State, action: algebraic.Action) -> algebraic.Action:

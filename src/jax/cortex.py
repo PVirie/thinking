@@ -101,7 +101,7 @@ class Model(cortex_model.Model):
 if __name__ == "__main__":
     import jax
 
-    masks, scores = generate_mask_and_score(jnp.array([1, 3, 8]), 8, 0.9, 2)
+    masks, scores = generate_mask_and_score(jnp.array([0, 3, 8]), 8, 0.9, 2)
     print(masks)
     print(scores)
 

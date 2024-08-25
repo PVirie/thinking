@@ -11,21 +11,22 @@ except:
 
 
 def compute_value_score(Q, K, Wv, Ws, dim_size):
-    logit = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K))/jnp.sqrt(dim_size), axis=-1)
-    return jnp.matmul(logit, Wv), jax.nn.sigmoid(jnp.matmul(logit, Ws))
+    logit = jnp.matmul(Q, jnp.transpose(K))
+    return jnp.matmul(logit, Wv), jax.nn.sigmoid(jnp.matmul(logit, Ws) - 4)
 
 
-def compute_error(Q, V, S, M, K, Wv, Ws, dim_size):
+def compute_error(Q, V, S, M, K, Wv, Ws, dim_size, temperature):
     V_, S_ = compute_value_score(Q, K, Wv, Ws, dim_size)
 
-    update_indices = M * (S > S_)
+    update_indices = M * ((S > S_) * 1.0 + (S <= S_) * temperature)
     # update_indices = M
     score_updates = (1 - update_indices) * S_ + update_indices * S
     value_updates = (1 - update_indices) * V_ + update_indices * V
 
-    error_V = (value_updates - V_)**2
     error_S = (score_updates - S_)**2
+    error_V = (value_updates - V_)**2
     return jnp.mean(error_V)*jnp.sqrt(dim_size) + jnp.mean(error_S)
+
 
 # extremely faster with jit
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6)))
@@ -34,9 +35,10 @@ value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6
 # loop training jit
 
 @partial(jax.jit, static_argnames=['lr', 'epoch_size', 'dim_size'])
-def loop_training(Q, V, S, M, K, Wv, Ws, lr, epoch_size, dim_size):
+def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, epoch_size, dim_size):
+    temperature = jnp.exp(-iteration/2000)
     for i in range(epoch_size):
-        loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, V, S, M, K, Wv, Ws, dim_size)
+        loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, V, S, M, K, Wv, Ws, dim_size, temperature)
         K = K - lr*g_K
         Wv = Wv - lr*g_Wv
         Ws = Ws - lr*g_Ws
@@ -45,7 +47,7 @@ def loop_training(Q, V, S, M, K, Wv, Ws, lr, epoch_size, dim_size):
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.1, epoch_size=10):
+    def __init__(self, hidden_size, input_dims, lr=0.1, epoch_size=10, iteration=0):
         super().__init__("model", "linear")
 
         self.hidden_size = hidden_size
@@ -57,6 +59,7 @@ class Model(base.Model):
 
         self.lr = lr
         self.epoch_size = epoch_size
+        self.iteration = iteration
 
 
     def get_class_parameters(self):
@@ -66,7 +69,8 @@ class Model(base.Model):
             "hidden_size": self.hidden_size,
             "input_dims": self.input_dims, 
             "lr": self.lr,
-            "epoch_size": self.epoch_size
+            "epoch_size": self.epoch_size,
+            "iteration": self.iteration
         }
 
 
@@ -93,7 +97,8 @@ class Model(base.Model):
         batch = jnp.concatenate([s, t], axis=-1)
         query = jnp.reshape(batch, (-1, self.input_dims * 2))
 
-        self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.lr, self.epoch_size, self.input_dims)
+        self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.iteration, self.lr, self.epoch_size, self.input_dims)
+        self.iteration += 1
 
         # # score_updates = (1 - update_indices) * best_score + update_indices * scores
         # self.score = 0.95*self.score + 0.05*score_updates

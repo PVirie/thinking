@@ -125,8 +125,10 @@ class Context(BaseModel):
         name = "Skip step"
 
         layers = []
-        for i in range(4):
-            layers.append(Layer(cortex.Model(linear.Model(graph_shape, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        layers.append(Layer(cortex.Model(linear.Model(128, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        layers.append(Layer(cortex.Model(linear.Model(64, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        layers.append(Layer(cortex.Model(linear.Model(32, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        layers.append(Layer(cortex.Model(linear.Model(16, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
         abstraction_models = []
 
         model = HUMN(layers, abstraction_models)
@@ -136,7 +138,7 @@ class Context(BaseModel):
         logging.info(f"Training experiment {name}")
         stamp = time.time()
         for i in range(explore_steps):
-            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+            path = random_walk(graph, 0, graph.shape[0] - 1)
             model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
@@ -177,7 +179,7 @@ class Context(BaseModel):
         # logging.info(f"Training experiment {name}")
         # stamp = time.time()
         # for i in range(explore_steps):
-        #     path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+        #     path = random_walk(graph, 0, graph.shape[0] - 1)
         #     model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
         #     if i % print_steps == 0 and i > 0:
         #         # print at every 1 % progress
@@ -218,7 +220,7 @@ class Context(BaseModel):
         # logging.info(f"Training experiment {name}")
         # stamp = time.time()
         # for i in range(explore_steps):
-        #     path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+        #     path = random_walk(graph, 0, graph.shape[0] - 1)
         #     model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
         #     if i % print_steps == 0 and i > 0:
         #         # print at every 1 % progress
@@ -237,7 +239,7 @@ class Context(BaseModel):
         name = "Table layers"
 
         table_cores = []
-        for i in range(2):
+        for i in range(3):
             table_core = table.Model(graph_shape)
             table_cores.append(table_core)
 
@@ -256,7 +258,7 @@ class Context(BaseModel):
         logging.info(f"Training experiment {name}")
         stamp = time.time()
         for i in range(explore_steps):
-            path = random_walk(graph, random.randint(0, graph.shape[0] - 1), graph.shape[0] - 1)
+            path = random_walk(graph, 0, graph.shape[0] - 1)
             model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress

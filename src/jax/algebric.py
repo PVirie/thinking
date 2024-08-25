@@ -27,7 +27,7 @@ class State(humn.algebraic.State):
         else:
             self.data = device_put(jnp.array(data, jnp.float32))
 
-    def __add__(self, a): 
+    def __add__(self, a):
         return State(self.data + a.data)
 
 
@@ -109,19 +109,19 @@ class State_Sequence(humn.algebraic.State_Sequence):
         self.data = jnp.concatenate([self.data, jnp.expand_dims(s.data, axis=0)], axis=0)
 
 
-    def sample_skip(self, n, include_last=False):
+    def sample_skip(self, n):
         if n == math.inf:
-            # return last index only
-            return Pointer_Sequence([len(self) - 1]), State_Sequence(self.data[-1:, :])
+        # if n is math.inf, return first and last indices
+            return Pointer_Sequence([0, len(self) - 1]), State_Sequence(self.data[[0, len(self) - 1], :])
 
         # return indices and states
-        indices = []
+        indices = [0]
         i = n
         while i < len(self):
             indices.append(i)
             i += n
 
-        if include_last and (len(indices) == 0 or indices[len(indices) - 1] != len(self) - 1):
+        if (indices[len(indices) - 1] != len(self) - 1):
             indices.append(len(self) - 1)
 
         indice_sequence = Pointer_Sequence(indices)

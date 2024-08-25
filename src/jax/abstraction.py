@@ -20,7 +20,7 @@ except:
 
 
 @jax.jit
-def compute_maxima_from_stat(stat, first=False, last=True):
+def compute_maxima_from_stat(stat, first=True, last=True):
     # compute local maxima, include last
     # suppression: maxima is the first down hill after the last maximum
     # False True True True False True False, will be suppressed to False True False False False True False
@@ -60,7 +60,7 @@ class Model(abstraction_model.Model):
 
     def abstract_path(self, path: State_Sequence) -> Tuple[Pointer_Sequence, State_Sequence]:
         stat = self.model.infer(path.data)
-        maxima = compute_maxima_from_stat(stat)
+        maxima = compute_maxima_from_stat(stat, True, True)
         maxima_indices = jnp.arange(len(maxima))[maxima]
         return Pointer_Sequence(maxima_indices), State_Sequence(path.data[maxima_indices])
 
