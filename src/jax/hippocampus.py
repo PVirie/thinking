@@ -61,8 +61,8 @@ class Model(hippocampus_model.Model):
         )
 
 
-    def all(self) -> State_Sequence:
-        return State_Sequence(self.data[self.start:])
+    # def all(self) -> State_Sequence:
+    #     return State_Sequence(self.data[self.start:])
 
 
     def append(self, state: State):

@@ -27,16 +27,16 @@ class State:
         raise NotImplementedError("Not implemented")
 
 
-class Pointer_Sequence:
+class Batch_Pointer_Sequence:
     pass
 
 
-class State_Sequence:
+class Batch_State_Sequence:
 
     def __len__(self):
         raise NotImplementedError("Not implemented")
 
-    def sample_skip(self, n) -> Tuple[Pointer_Sequence, State_Sequence]:
+    def sample_skip(self, n) -> Tuple[Batch_Pointer_Sequence, Batch_State_Sequence]:
         # if n is math.inf, return first and last indices
         raise NotImplementedError("Not implemented")
 
@@ -44,3 +44,6 @@ class State_Sequence:
 class Augmented_State_Squence:
     pass
 
+
+class Batch_Augmented_State_Squence:
+    pass

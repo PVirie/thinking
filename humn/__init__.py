@@ -24,7 +24,7 @@ class HUMN:
         self.root.refresh()
 
 
-    def observe(self, path: algebraic.State_Sequence):
+    def observe(self, path: algebraic.Batch_State_Sequence):
         self.root.incrementally_learn(path)
 
 

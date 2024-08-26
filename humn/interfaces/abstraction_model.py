@@ -5,17 +5,17 @@ from typing import Tuple, Union
 class Model:
 
 
-    def incrementally_learn(self, path: algebraic.State_Sequence) -> float:
+    def incrementally_learn(self, path: algebraic.Batch_State_Sequence) -> float:
         raise NotImplementedError("Not implemented")
 
 
-    def abstract_path(self, path: algebraic.State_Sequence) -> Tuple[algebraic.Pointer_Sequence, algebraic.State_Sequence]:
+    def abstract_path(self, path: algebraic.Batch_State_Sequence) -> Tuple[algebraic.Batch_Pointer_Sequence, algebraic.Batch_State_Sequence]:
         # return clusters of states under the same pivots
         # do not forget to include end
         raise NotImplementedError("Not implemented")
 
 
-    def abstract(self, from_sequence: algebraic.State_Sequence, action: algebraic.Action) -> Tuple[algebraic.State, algebraic.Action]:
+    def abstract(self, from_encoding_sequence: algebraic.Augmented_State_Squence, action: algebraic.Action) -> Tuple[algebraic.State, algebraic.Action]:
         # return next layer state and action
         raise NotImplementedError("Not implemented")
 
