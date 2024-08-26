@@ -304,16 +304,13 @@ if __name__ == "__main__":
     x = jnp.array([eye[1, :], eye[2, :]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
-    for i in range(100):
-        loss = model.fit(s, x, t, jnp.array([1, 0]))
+    loss = model.fit(s, x, t, jnp.array([1, 0]))
     value, score = model.infer(s, t)
     print("Loss:", loss)
     print("Score:", score)
     print("Value:", value)
     
-    for i in range(100):
-        loss = model.fit(s, x, t, jnp.array([0, 1]))
-        loss = model.fit(s, x, t, jnp.array([1, 0]))
+    loss = model.fit(s, x, t, jnp.array([0, 1]))
     value, score = model.infer(s, t)
     print("Loss:", loss)
     print("Score:", score)

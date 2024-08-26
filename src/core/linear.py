@@ -12,20 +12,20 @@ except:
 
 def compute_value_score(Q, K, Wv, Ws, dim_size):
     logit = jnp.matmul(Q, jnp.transpose(K))
-    return jnp.matmul(logit, Wv), jax.nn.sigmoid(jnp.matmul(logit, Ws) - 4)
+    return jnp.matmul(logit, Wv), jnp.matmul(logit, Ws)
 
 
 def compute_error(Q, V, S, M, K, Wv, Ws, dim_size, temperature):
     V_, S_ = compute_value_score(Q, K, Wv, Ws, dim_size)
 
-    update_indices = M * ((S > S_) * 1.0 + (S <= S_) * temperature)
+    update_indices = M * ((S >= S_) * 1.0 + (S < S_) * temperature)
     # update_indices = M
     score_updates = (1 - update_indices) * S_ + update_indices * S
     value_updates = (1 - update_indices) * V_ + update_indices * V
 
     error_S = (score_updates - S_)**2
     error_V = (value_updates - V_)**2
-    return jnp.mean(error_V)*jnp.sqrt(dim_size) + jnp.mean(error_S)
+    return jnp.mean(error_V) + jnp.mean(error_S)
 
 
 # extremely faster with jit
@@ -47,7 +47,7 @@ def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, epoch_size, dim_size):
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.1, epoch_size=10, iteration=0):
+    def __init__(self, hidden_size, input_dims, lr=0.1, epoch_size=100, iteration=0):
         super().__init__("model", "linear")
 
         self.hidden_size = hidden_size
@@ -123,23 +123,20 @@ class Model(base.Model):
 
 
 if __name__ == "__main__":
-    model = Model(8, 4, 0.1, 100)
+    model = Model(8, 4, 0.1, 100, iteration=0)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :]])
     x = jnp.array([eye[1, :], eye[2, :]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
-    for i in range(100):
-        loss = model.fit(s, x, t, jnp.array([1, 0]))
+    loss = model.fit(s, x, t, jnp.array([0.9, 0.5]))
     value, score = model.infer(s, t)
     print("Loss:", loss)
     print("Score:", score)
     print("Value:", value)
     
-    for i in range(100):
-        loss = model.fit(s, x, t, jnp.array([0, 1]))
-        loss = model.fit(s, x, t, jnp.array([1, 0]))
+    loss = model.fit(s, x, t, jnp.array([0.5, 0.6]))
     value, score = model.infer(s, t)
     print("Loss:", loss)
     print("Score:", score)

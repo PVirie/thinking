@@ -128,7 +128,6 @@ class Context(BaseModel):
         layers.append(Layer(cortex.Model(linear.Model(128, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
         layers.append(Layer(cortex.Model(linear.Model(64, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
         layers.append(Layer(cortex.Model(linear.Model(32, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
-        layers.append(Layer(cortex.Model(linear.Model(16, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
         abstraction_models = []
 
         model = HUMN(layers, abstraction_models)
@@ -198,9 +197,9 @@ class Context(BaseModel):
         # name = "Entropy 3 layers"
 
         # linear_cores = []
-        # for i in range(3):
-        #     linear_core = linear.Model(graph_shape, graph_shape)
-        #     linear_cores.append(linear_core)
+        # linear_cores.append(linear.Model(128, graph_shape, lr=0.01))
+        # linear_cores.append(linear.Model(64, graph_shape, lr=0.01))
+        # linear_cores.append(linear.Model(32, graph_shape, lr=0.01))
 
         # layers = []
         # for i in range(3):
@@ -244,7 +243,7 @@ class Context(BaseModel):
             table_cores.append(table_core)
 
         layers = []
-        for i in range(2):
+        for i in range(3):
             c = cortex.Model(table_cores[i])
             h = hippocampus.Model(graph_shape, graph_shape)
             layers.append(Layer(c, h))
@@ -328,7 +327,7 @@ if __name__ == "__main__":
             return total_length, time.time() - stamp
 
         for i, parameter_set in enumerate(context.parameter_sets):
-            # if i == 0:
+            # if i == 1:
             #     for j, l in enumerate(parameter_set["layers"]):
             #         def printer(level, s):
             #             s_i = context.states[s]
