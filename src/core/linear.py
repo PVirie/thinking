@@ -11,15 +11,15 @@ except:
 
 
 def compute_value_score(Q, K, Wv, Ws, dim_size):
-    logit = jnp.matmul(Q, jnp.transpose(K))
+    logit = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
     return jnp.matmul(logit, Wv), jnp.matmul(logit, Ws)
 
 
 def compute_error(Q, V, S, M, K, Wv, Ws, dim_size, temperature):
     V_, S_ = compute_value_score(Q, K, Wv, Ws, dim_size)
 
-    update_indices = M * ((S >= S_) * 1.0 + (S < S_) * temperature)
-    # update_indices = M
+    # update_indices = M * ((S >= S_) * 1.0 + (S < S_) * temperature)
+    update_indices = M * S
     score_updates = (1 - update_indices) * S_ + update_indices * S
     value_updates = (1 - update_indices) * V_ + update_indices * V
 
@@ -47,13 +47,15 @@ def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, epoch_size, dim_size):
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.1, epoch_size=100, iteration=0):
+    def __init__(self, hidden_size, input_dims, lr=0.1, epoch_size=1, iteration=0):
         super().__init__("model", "linear")
 
         self.hidden_size = hidden_size
         self.input_dims = input_dims
 
-        self.key = jax.random.normal(jax.random.PRNGKey(0), (hidden_size, input_dims * 2))*0.01
+        r_key = jax.random.key(42)
+        r_key, subkey = jax.random.split(r_key)
+        self.key = jax.random.normal(subkey, (hidden_size, input_dims * 2))*0.01
         self.score = jnp.zeros([hidden_size, 1], jnp.float32)
         self.value = jnp.zeros([hidden_size, input_dims], jnp.float32)
 

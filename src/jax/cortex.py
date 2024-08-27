@@ -107,7 +107,9 @@ if __name__ == "__main__":
 
     table_model = core.table.Model(4)
     model = Model(table_model)
-
-    states = Augmented_State_Squence(jax.random.normal(jax.random.PRNGKey(0), (10, 2, 4)))
+    
+    r_key = jax.random.key(42)
+    r_key, subkey = jax.random.split(r_key)
+    states = Augmented_State_Squence(jax.random.normal(subkey, (10, 2, 4)))
 
     model.incrementally_learn(states, Pointer_Sequence([5, 9]), None)

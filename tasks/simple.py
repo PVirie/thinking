@@ -179,8 +179,8 @@ class Context(BaseModel):
 
         cortex_models = [
             cortex.Model(linear.Model(128, graph_shape)),
-            cortex.Model(linear.Model(64, graph_shape)),
-            cortex.Model(linear.Model(32, graph_shape))
+            cortex.Model(linear.Model(128, graph_shape)),
+            cortex.Model(linear.Model(128, graph_shape))
         ]
         hippocampus_models = [
             hippocampus.Model(graph_shape, graph_shape),
@@ -192,16 +192,17 @@ class Context(BaseModel):
         model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
         logging.info(f"Training experiment {name}")
-        num_epoch = 10000
+        num_epoch = 1000000
         print_steps = max(1, num_epoch // 100)
         stamp = time.time()
         for i in range(num_epoch):
             path_tuples = data_skip_path[i % len(data_skip_path)]
-            model.observe(path_tuples)
+            loss = model.observe(path_tuples)
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 # compute time to finish in seconds
                 logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
+                logging.info(f"Layer loss: {', '.join([f'{l:.4f}' for l in loss])}")
         logging.info(f"Total learning time {time.time() - stamp}s")
 
         parameter_sets.append({
@@ -242,11 +243,12 @@ class Context(BaseModel):
         # stamp = time.time()
         # for i in range(num_epoch):
         #     path_tuples = data_abstract_path[i % len(data_abstract_path)]
-        #     model.observe(path_tuples)
+        #     loss = model.observe(path_tuples)
         #     if i % print_steps == 0 and i > 0:
         #         # print at every 1 % progress
         #         # compute time to finish in seconds
         #         logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
+        #         logging.info(f"Layer loss: {', '.join([f'{l:.4f}' for l in loss])}")
         # logging.info(f"Total learning time {time.time() - stamp}s")
 
         # parameter_sets.append({
@@ -284,11 +286,12 @@ class Context(BaseModel):
         stamp = time.time()
         for i in range(num_epoch):
             path_tuples = data_skip_path[i % len(data_skip_path)]
-            model.observe(path_tuples)
+            loss = model.observe(path_tuples)
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 # compute time to finish in seconds
                 logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
+                logging.info(f"Layer loss: {', '.join([f'{l:.4f}' for l in loss])}")
         logging.info(f"Total learning time {time.time() - stamp}s")
 
         parameter_sets.append({
@@ -354,7 +357,7 @@ if __name__ == "__main__":
             return total_length, time.time() - stamp
 
         for i, parameter_set in enumerate(context.parameter_sets):
-            # if i == 1:
+            # if i == 0:
             #     for j, c in enumerate(parameter_set["cortex_models"]):
             #         def printer(level, s):
             #             s_i = context.states[s]

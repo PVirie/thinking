@@ -195,7 +195,7 @@ class Model(base.Model):
     def __init__(self, input_dims, num_heads = None, hidden_dims = None, lr=1e-4, epoch_size=1):
         super().__init__("model", "transformer")
 
-        rng = jax.random.PRNGKey(42)
+        rng = jax.random.key(42)
         self.rng, self.dropout_rng = jax.random.split(rng)
         self.input_dims = input_dims
         if num_heads is None:

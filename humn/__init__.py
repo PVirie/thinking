@@ -25,17 +25,21 @@ class HUMN:
             h.refresh()
 
 
-    def observe(self, path_tuples: List[Tuple[algebraic.State_Sequence, algebraic.Pointer_Sequence, algebraic.State_Sequence]]):
+    def observe(self, path_tuples: List[Tuple[algebraic.State_Sequence, algebraic.Pointer_Sequence, algebraic.State_Sequence]]) -> List[float]:
         # not learning abstraction here, must be done externally
         if len(path_tuples) < self.depth:
             raise ValueError("Not enough layer data to learn")
         
         # learn, can be parallelized
+        loss = []
         for i, (path, pivot_indices, pivots) in enumerate(path_tuples[:self.depth]):
             c = self.cortices[i]
             h = self.hippocampi[i]
 
-            c.incrementally_learn(h.augment(path), pivot_indices, pivots)
+            l = c.incrementally_learn(h.augment(path), pivot_indices, pivots)
+            loss.append(l)
+
+        return loss
 
 
     def __sub_action_recursion(self, i, state, action):

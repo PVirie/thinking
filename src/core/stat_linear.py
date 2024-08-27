@@ -49,7 +49,9 @@ class Model(base.Stat_Model):
         self.hidden_size = hidden_size
         self.input_dims = input_dims
 
-        self.key = jax.random.normal(jax.random.PRNGKey(0), (hidden_size, input_dims * 2))*0.01
+        r_key = jax.random.key(42)
+        r_key, subkey = jax.random.split(r_key)
+        self.key = jax.random.normal(subkey, (hidden_size, input_dims * 2))*0.01
         self.stats = jnp.ones([self.hidden_size, 1], jnp.float32) / self.hidden_size
 
         self.lr = lr

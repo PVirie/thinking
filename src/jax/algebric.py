@@ -1,9 +1,11 @@
 import jax.numpy as jnp
+import jax.random
 from jax import device_put
 from typing import List
 import humn
 import os
 import math
+
 
 class Action(humn.algebraic.Action):
     def __init__(self, data):
@@ -21,18 +23,30 @@ class Action(humn.algebraic.Action):
     
 
 class State(humn.algebraic.State):
+    
+    # static variable
+    r_key = jax.random.key(42)
+
     def __init__(self, data):
         if isinstance(data, jnp.ndarray):
             self.data = data
         else:
             self.data = device_put(jnp.array(data, jnp.float32))
 
+
     def __add__(self, a):
-        return State(self.data + a.data)
+        s_data = jnp.zeros_like(self.data)
+        # State.r_key, subkey = jax.random.split(State.r_key)
+        # index = jax.random.categorical(subkey, a.data)
+        index = jnp.argmax(a.data)
+        s_data = s_data.at[index].set(1)
+        return State(s_data)
 
 
     def __sub__(self, s):
-        return Action(self.data - s.data)
+        a_data = jnp.zeros_like(self.data)
+        a_data = a_data.at[jnp.argmax(self.data)].set(1)
+        return Action(a_data)
 
 
     def __eq__(self, s):
