@@ -16,7 +16,7 @@ from src.utilities import *
 from src.jax import algebric as alg
 from src.jax import cortex, hippocampus, abstraction
 import src.core as core
-from src.core import table, linear, linear_stat
+from src.core import table, linear, linear_stat, transformer
 import jax
 
 
@@ -118,6 +118,11 @@ class Context(BaseModel):
         states = alg.State_Sequence(one_hot)
 
         graph = random_graph(graph_shape, 0.4)
+        explore_steps = 1000
+        path_sequences = []
+        for i in range(explore_steps):
+            path = random_walk(graph, 0, graph.shape[0] - 1)
+            path_sequences.append(alg.Pointer_Sequence(path))
 
         parameter_sets = []
         ############################# SET 1 ################################
@@ -125,24 +130,27 @@ class Context(BaseModel):
         name = "Skip step"
 
         layers = []
-        layers.append(Layer(cortex.Model(linear.Model(128, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
-        layers.append(Layer(cortex.Model(linear.Model(64, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
-        layers.append(Layer(cortex.Model(linear.Model(32, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        # layers.append(Layer(cortex.Model(linear.Model(128, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        # layers.append(Layer(cortex.Model(linear.Model(64, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        # layers.append(Layer(cortex.Model(linear.Model(32, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        layers.append(Layer(cortex.Model(transformer.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        layers.append(Layer(cortex.Model(transformer.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        layers.append(Layer(cortex.Model(transformer.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
         abstraction_models = []
 
         model = HUMN(layers, abstraction_models)
 
-        explore_steps = 10000
-        print_steps = max(1, explore_steps // 100)
+        num_epoch = 500000
+        print_steps = max(1, num_epoch // 100)
         logging.info(f"Training experiment {name}")
         stamp = time.time()
-        for i in range(explore_steps):
-            path = random_walk(graph, 0, graph.shape[0] - 1)
-            model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
+        for i in range(num_epoch):
+            p_seq = path_sequences[i % len(path_sequences)]
+            model.observe(states.generate_subsequence(p_seq))
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 # compute time to finish in seconds
-                logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
+                logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
         logging.info(f"Total learning time {time.time() - stamp}s")
 
         parameter_sets.append({
@@ -173,17 +181,17 @@ class Context(BaseModel):
 
         # model = HUMN(layers, abstraction_models)
 
-        # explore_steps = 10000
-        # print_steps = max(1, explore_steps // 100)
+        # num_epoch = 10000
+        # print_steps = max(1, num_epoch // 100)
         # logging.info(f"Training experiment {name}")
         # stamp = time.time()
-        # for i in range(explore_steps):
-        #     path = random_walk(graph, 0, graph.shape[0] - 1)
-        #     model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
+        # for i in range(num_epoch):
+        #     p_seq = path_sequences[i % len(path_sequences)]
+        #     model.observe(states.generate_subsequence(p_seq))
         #     if i % print_steps == 0 and i > 0:
         #         # print at every 1 % progress
         #         # compute time to finish in seconds
-        #         logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
+        #         logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
         # logging.info(f"Total learning time {time.time() - stamp}s")
 
         # parameter_sets.append({
@@ -214,17 +222,17 @@ class Context(BaseModel):
 
         # model = HUMN(layers, abstraction_models)
 
-        # explore_steps = 10000
-        # print_steps = max(1, explore_steps // 100)
+        # num_epoch = 10000
+        # print_steps = max(1, num_epoch // 100)
         # logging.info(f"Training experiment {name}")
         # stamp = time.time()
-        # for i in range(explore_steps):
-        #     path = random_walk(graph, 0, graph.shape[0] - 1)
-        #     model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
+        # for i in range(num_epoch):
+        #     p_seq = path_sequences[i % len(path_sequences)]
+        #     model.observe(states.generate_subsequence(p_seq))
         #     if i % print_steps == 0 and i > 0:
         #         # print at every 1 % progress
         #         # compute time to finish in seconds
-        #         logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
+        #         logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
         # logging.info(f"Total learning time {time.time() - stamp}s")
 
         # parameter_sets.append({
@@ -252,17 +260,17 @@ class Context(BaseModel):
 
         model = HUMN(layers, abstraction_models)
 
-        explore_steps = 1000
-        print_steps = max(1, explore_steps // 100)
+        num_epoch = 1000
+        print_steps = max(1, num_epoch // 100)
         logging.info(f"Training experiment {name}")
         stamp = time.time()
-        for i in range(explore_steps):
-            path = random_walk(graph, 0, graph.shape[0] - 1)
-            model.observe(states.generate_subsequence(alg.Pointer_Sequence(path)))
+        for i in range(num_epoch):
+            p_seq = path_sequences[i % len(path_sequences)]
+            model.observe(states.generate_subsequence(p_seq))
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 # compute time to finish in seconds
-                logging.info(f"Training progress: {(i * 100 / explore_steps):.2f}, time to finish: {((time.time() - stamp) * (explore_steps - i) / i):.2f}s")
+                logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
         logging.info(f"Total learning time {time.time() - stamp}s")
 
         parameter_sets.append({

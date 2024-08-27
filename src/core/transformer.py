@@ -192,7 +192,7 @@ def mse_loss(logit, label, masks):
 
 class Model(base.Model):
 
-    def __init__(self, input_dims, num_heads = None, hidden_dims = None, lr=1e-4, epoch_size=100):
+    def __init__(self, input_dims, num_heads = None, hidden_dims = None, lr=1e-4, epoch_size=1):
         super().__init__("model", "transformer")
 
         rng = jax.random.PRNGKey(42)
@@ -208,14 +208,14 @@ class Model(base.Model):
         self.predict_model = StackedTransformer(layers=[(num_heads, hidden_dims), (num_heads, hidden_dims)], output_dim=input_dims, training=False)
 
         self.epoch_size = epoch_size
-        learning_rate = lr
-        momentum = 0.9
+        self.learning_rate = lr
+        self.momentum = 0.9
         variables = self.model.init(
             {'params': self.rng, 'dropout': self.dropout_rng}, 
             jnp.empty((1, input_dims), jnp.float32), 
             jnp.empty((1, input_dims), jnp.float32)
         )
-        tx = optax.sgd(learning_rate, momentum)
+        tx = optax.sgd(self.learning_rate, self.momentum)
 
         self.state = TrainState.create(
             apply_fn=self.model.apply, 
@@ -233,7 +233,7 @@ class Model(base.Model):
             "input_dims": self.input_dims,
             "num_heads": self.num_heads,
             "hidden_dims": self.hidden_dims,
-            "lr": self.lr,
+            "lr": self.learning_rate,
             "epoch_size": self.epoch_size
         }
 
