@@ -16,7 +16,7 @@ from src.utilities import *
 from src.jax import algebric as alg
 from src.jax import cortex, hippocampus, abstraction
 import src.core as core
-from src.core import table, linear, linear_stat, transformer
+from src.core import table, linear, transformer, stat_head, stat_linear
 import jax
 
 
@@ -42,13 +42,14 @@ class Context(BaseModel):
                 for j in range(len(metadata["parameter_sets"])):
                     set_metadata = metadata["parameter_sets"][j]
                     set_path = os.path.join(path, f"parameter_set_{j}")
-                    layers = []
+                    cortex_models = []
+                    hippocampus_models = []
                     for i in range(set_metadata["num_layers"]):
                         layer_path = os.path.join(set_path, "layers", f"layer_{i}")
                         cortex_path = os.path.join(layer_path, "cortex")
                         hippocampus_path = os.path.join(layer_path, "hippocampus")
-                        layer = Layer(cortex.Model.load(cortex_path), hippocampus.Model.load(hippocampus_path))
-                        layers.append(layer)
+                        cortex_models.append(cortex.Model.load(cortex_path))
+                        hippocampus_models.append(hippocampus.Model.load(hippocampus_path))
                     abstraction_models = []
                     for i in range(set_metadata["num_abstraction_models"]):
                         abstraction_path = os.path.join(set_path, "abstraction_models", f"abstraction_{i}")
@@ -57,7 +58,8 @@ class Context(BaseModel):
                             abstraction_model = abstraction.Model.load(abstraction_path)
                         abstraction_models.append(abstraction_model)
                     parameter_sets.append({
-                        "layers": layers,
+                        "cortex_models": cortex_models,
+                        "hippocampus_models": hippocampus_models,
                         "abstraction_models": abstraction_models,
                         "name": set_metadata["name"]
                     })
@@ -76,12 +78,12 @@ class Context(BaseModel):
         os.makedirs(path, exist_ok=True)
         for j, parameter_set in enumerate(self.parameter_sets):
             set_path = os.path.join(path, f"parameter_set_{j}")
-            for i, layer in enumerate(parameter_set["layers"]):
+            for i, (c, h) in enumerate(zip(parameter_set["cortex_models"], parameter_set["hippocampus_models"])):
                 layer_path = os.path.join(set_path, "layers", f"layer_{i}")
                 cortex_path = os.path.join(layer_path, "cortex")
                 hippocampus_path = os.path.join(layer_path, "hippocampus")
-                cortex.Model.save(layer.cortex_model, cortex_path)
-                hippocampus.Model.save(layer.hippocampus_model, hippocampus_path)
+                cortex.Model.save(c, cortex_path)
+                hippocampus.Model.save(h, hippocampus_path)
             for i, model in enumerate(parameter_set["abstraction_models"]):
                 if model is None:
                     continue
@@ -96,7 +98,7 @@ class Context(BaseModel):
             json.dump({
                 "parameter_sets": [
                     {
-                        "num_layers": len(parameter_set["layers"]),
+                        "num_layers": len(parameter_set["cortex_models"]),
                         "num_abstraction_models": len(parameter_set["abstraction_models"]),
                         "name": parameter_set["name"]
                     }
@@ -124,29 +126,78 @@ class Context(BaseModel):
             path = random_walk(graph, 0, graph.shape[0] - 1)
             path_sequences.append(alg.Pointer_Sequence(path))
 
+        data_skip_path = []
+        max_layers = 3
+        for p_seq in path_sequences:
+            path = states.generate_subsequence(p_seq)
+            layer_paths = []
+            for i in range(max_layers):
+                if i == max_layers - 1:
+                    pivot_indices, pivots = path.sample_skip(math.inf)
+                    layer_paths.append((path, pivot_indices, pivots))
+                else:
+                    pivot_indices, pivots = path.sample_skip(2)
+                    layer_paths.append((path, pivot_indices, pivots))
+                path = pivots
+            data_skip_path.append(layer_paths)
+
+
+        # abstractor = abstraction.Model(stat_linear.Model(32, graph_shape))
+
+        # logging.info(f"Learning abstraction")
+        # num_epoch = 10000
+        # stamp = time.time()
+        # for i in range(num_epoch):
+        #     p_seq = path_sequences[i % len(path_sequences)]
+        #     abstractor.incrementally_learn(states.generate_subsequence(p_seq))
+        #     if i % print_steps == 0 and i > 0:
+        #         # print at every 1 % progress
+        #         # compute time to finish in seconds
+        #         logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
+        # logging.info(f"Total learning time {time.time() - stamp}s")
+        
+        # data_abstract_path = []
+        # max_layers = 3
+        # for p_seq in path_sequences:
+        #     path = states.generate_subsequence(p_seq)
+        #     layer_paths = []
+        #     for i in range(max_layers):
+        #         if i == max_layers - 1:
+        #             pivot_indices, pivots = path.sample_skip(math.inf)
+        #             layer_paths.append((path, pivot_indices, pivots))
+        #         else:
+        #             pivot_indices, pivots = abstractor.abstract_path(path)
+        #             layer_paths.append((path, pivot_indices, pivots))
+        #         path = pivots
+        #     data_abstract_path.append(layer_paths)
+
+
         parameter_sets = []
         ############################# SET 1 ################################
 
         name = "Skip step"
 
-        layers = []
-        # layers.append(Layer(cortex.Model(linear.Model(128, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
-        # layers.append(Layer(cortex.Model(linear.Model(64, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
-        # layers.append(Layer(cortex.Model(linear.Model(32, graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
-        layers.append(Layer(cortex.Model(transformer.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
-        layers.append(Layer(cortex.Model(transformer.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
-        layers.append(Layer(cortex.Model(transformer.Model(graph_shape)), hippocampus.Model(graph_shape, graph_shape)))
+        cortex_models = [
+            cortex.Model(linear.Model(128, graph_shape)),
+            cortex.Model(linear.Model(64, graph_shape)),
+            cortex.Model(linear.Model(32, graph_shape))
+        ]
+        hippocampus_models = [
+            hippocampus.Model(graph_shape, graph_shape),
+            hippocampus.Model(graph_shape, graph_shape),
+            hippocampus.Model(graph_shape, graph_shape)
+        ]
         abstraction_models = []
+        
+        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
-        model = HUMN(layers, abstraction_models)
-
-        num_epoch = 500000
-        print_steps = max(1, num_epoch // 100)
         logging.info(f"Training experiment {name}")
+        num_epoch = 10000
+        print_steps = max(1, num_epoch // 100)
         stamp = time.time()
         for i in range(num_epoch):
-            p_seq = path_sequences[i % len(path_sequences)]
-            model.observe(states.generate_subsequence(p_seq))
+            path_tuples = data_skip_path[i % len(data_skip_path)]
+            model.observe(path_tuples)
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 # compute time to finish in seconds
@@ -154,81 +205,44 @@ class Context(BaseModel):
         logging.info(f"Total learning time {time.time() - stamp}s")
 
         parameter_sets.append({
-            "layers": layers,
+            "cortex_models": cortex_models,
+            "hippocampus_models": hippocampus_models,
             "abstraction_models": abstraction_models,
             "name": name
         })
 
         # ############################# SET 2 ################################
 
-        # name = "Entropy 2 layers"
-
-        # linear_cores = []
-        # for i in range(2):
-        #     linear_core = linear.Model(graph_shape, graph_shape)
-        #     linear_cores.append(linear_core)
-
-        # layers = []
-        # for i in range(2):
-        #     c = cortex.Model(linear_cores[i])
-        #     h = hippocampus.Model(graph_shape, graph_shape)
-        #     layers.append(Layer(c, h))
-            
-        # abstraction_models = []
-        # for i in range(1):
-        #     a = abstraction.Model(linear_stat.Model(linear_cores[i]))
-        #     abstraction_models.append(a)
-
-        # model = HUMN(layers, abstraction_models)
-
-        # num_epoch = 10000
-        # print_steps = max(1, num_epoch // 100)
-        # logging.info(f"Training experiment {name}")
-        # stamp = time.time()
-        # for i in range(num_epoch):
-        #     p_seq = path_sequences[i % len(path_sequences)]
-        #     model.observe(states.generate_subsequence(p_seq))
-        #     if i % print_steps == 0 and i > 0:
-        #         # print at every 1 % progress
-        #         # compute time to finish in seconds
-        #         logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-        # logging.info(f"Total learning time {time.time() - stamp}s")
-
-        # parameter_sets.append({
-        #     "layers": layers,
-        #     "abstraction_models": abstraction_models,
-        #     "name": name
-        # })
-
-        # ############################# SET 3 ################################
-
         # name = "Entropy 3 layers"
 
         # linear_cores = []
-        # linear_cores.append(linear.Model(128, graph_shape, lr=0.01))
-        # linear_cores.append(linear.Model(64, graph_shape, lr=0.01))
-        # linear_cores.append(linear.Model(32, graph_shape, lr=0.01))
+        # for i in range(3):
+        #     linear_core = linear.Model(graph_shape, graph_shape)
+        #     linear_cores.append(linear_core)
 
-        # layers = []
+        # cortex_models = []
+        # hippocampus_models = []
         # for i in range(3):
         #     c = cortex.Model(linear_cores[i])
+        #     cortex_models.append(c)
+
         #     h = hippocampus.Model(graph_shape, graph_shape)
-        #     layers.append(Layer(c, h))
+        #     hippocampus_models.append(h)
             
+
         # abstraction_models = []
         # for i in range(2):
-        #     a = abstraction.Model(linear_stat.Model(linear_cores[i]))
-        #     abstraction_models.append(a)
+        #     abstraction_models.append(abstractor)
 
-        # model = HUMN(layers, abstraction_models)
+        # model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
+        # logging.info(f"Training experiment {name}")
         # num_epoch = 10000
         # print_steps = max(1, num_epoch // 100)
-        # logging.info(f"Training experiment {name}")
         # stamp = time.time()
         # for i in range(num_epoch):
-        #     p_seq = path_sequences[i % len(path_sequences)]
-        #     model.observe(states.generate_subsequence(p_seq))
+        #     path_tuples = data_abstract_path[i % len(data_abstract_path)]
+        #     model.observe(path_tuples)
         #     if i % print_steps == 0 and i > 0:
         #         # print at every 1 % progress
         #         # compute time to finish in seconds
@@ -236,12 +250,13 @@ class Context(BaseModel):
         # logging.info(f"Total learning time {time.time() - stamp}s")
 
         # parameter_sets.append({
-        #     "layers": layers,
+        #     "cortex_models": cortex_models,
+        #     "hippocampus_models": hippocampus_models,
         #     "abstraction_models": abstraction_models,
         #     "name": name
         # })
 
-        ############################# SET 4 ################################
+        ############################# SET 3 ################################
 
         name = "Table layers"
 
@@ -250,23 +265,26 @@ class Context(BaseModel):
             table_core = table.Model(graph_shape)
             table_cores.append(table_core)
 
-        layers = []
+        cortex_models = []
+        hippocampus_models = []
         for i in range(3):
             c = cortex.Model(table_cores[i])
+            cortex_models.append(c)
+
             h = hippocampus.Model(graph_shape, graph_shape)
-            layers.append(Layer(c, h))
-            
+            hippocampus_models.append(h)
+
         abstraction_models = []
 
-        model = HUMN(layers, abstraction_models)
+        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
+        logging.info(f"Training experiment {name}")
         num_epoch = 1000
         print_steps = max(1, num_epoch // 100)
-        logging.info(f"Training experiment {name}")
         stamp = time.time()
         for i in range(num_epoch):
-            p_seq = path_sequences[i % len(path_sequences)]
-            model.observe(states.generate_subsequence(p_seq))
+            path_tuples = data_skip_path[i % len(data_skip_path)]
+            model.observe(path_tuples)
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 # compute time to finish in seconds
@@ -274,7 +292,8 @@ class Context(BaseModel):
         logging.info(f"Total learning time {time.time() - stamp}s")
 
         parameter_sets.append({
-            "layers": layers,
+            "cortex_models": cortex_models,
+            "hippocampus_models": hippocampus_models,
             "abstraction_models": abstraction_models,
             "name": "Table layers"
         })
@@ -336,11 +355,11 @@ if __name__ == "__main__":
 
         for i, parameter_set in enumerate(context.parameter_sets):
             # if i == 1:
-            #     for j, l in enumerate(parameter_set["layers"]):
+            #     for j, c in enumerate(parameter_set["cortex_models"]):
             #         def printer(level, s):
             #             s_i = context.states[s]
             #             logging.info(f"Level: {level} State: {s_i}")
-            #         l.cortex_model.printer = partial(printer, j)
+            #         c.printer = partial(printer, j)
 
             logging.info(f"-----------cognitive planner {parameter_set['name']}-----------")
             total_length, elapsed_seconds = exp_loop(HUMN(**parameter_set))

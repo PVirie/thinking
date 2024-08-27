@@ -1,6 +1,6 @@
 import os
 import json
-from . import base, table, linear, linear_stat
+from . import base, table, linear, stat_linear, stat_head
 import inspect
 
 
@@ -43,7 +43,9 @@ def load(model_id: str):
             model = recursive_load_model(class_params, linear.Model)
     elif class_type == "stat":
         if class_name == "linear":
-            model = recursive_load_model(class_params, linear_stat.Model)
+            model = recursive_load_model(class_params, stat_linear.Model)
+        elif class_name == "head":
+            model = recursive_load_model(class_params, stat_head.Model)
     if model is None:
         return None
     model.load(model_path)

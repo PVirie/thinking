@@ -15,7 +15,7 @@ class Model:
         raise NotImplementedError("Not implemented")
 
 
-    def abstract(self, from_sequence: algebraic.State_Sequence, action: algebraic.Action) -> Tuple[algebraic.State, algebraic.Action]:
+    def abstract(self, from_sequence: algebraic.Augmented_State_Squence, action: algebraic.Action) -> Tuple[algebraic.State, algebraic.Action]:
         # return next layer state and action
         raise NotImplementedError("Not implemented")
 

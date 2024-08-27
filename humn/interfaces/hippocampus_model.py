@@ -9,7 +9,7 @@ class Model:
         raise NotImplementedError("Not implemented")
 
 
-    def all(self) -> algebraic.State_Sequence:
+    def augment(self, path: algebraic.State_Sequence) -> algebraic.Augmented_State_Squence:
         # return pathway encoding of all the states in the context
         raise NotImplementedError("Not implemented")
 

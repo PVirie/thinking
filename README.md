@@ -34,6 +34,7 @@ An implementation of thinking models.
         -   [x] Linear kernel
         -   [x] Entropic abstraction
         -   [x] Transformer kernel
+        -   [ ] Implement entropy abstraction in stat_linear.py
         -   [ ] Use scores for tracking best so far
         -   [ ] Make transfomer accept context of shape (batch, context length, feature length)
         -   [ ] Language model experiment (abstraction with embedding)
