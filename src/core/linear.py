@@ -10,35 +10,52 @@ except:
     import base
 
 
-def compute_value_score(Q, K, Wv, Ws, dim_size):
+@partial(jax.jit, static_argnames=['dim_size', 'memory_size', 'batch_size'])
+def compute_value_score(Q, K, Wv, Ws, dim_size, memory_size, batch_size):
     logit = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
-    return jnp.matmul(logit, Wv), jnp.matmul(logit, Ws)
+    Ss = jnp.matmul(logit, Ws)
+    Vs = jnp.matmul(logit, Wv)
+    Vs = jnp.reshape(Vs, (batch_size, memory_size, dim_size))
 
-
-def compute_error(Q, V, S, M, K, Wv, Ws, dim_size, temperature):
-    V_, S_ = compute_value_score(Q, K, Wv, Ws, dim_size)
-
-    # update_indices = M * ((S >= S_) * 1.0 + (S < S_) * temperature)
-    update_indices = M * S
-    score_updates = (1 - update_indices) * S_ + update_indices * S
-    value_updates = (1 - update_indices) * V_ + update_indices * V
-
-    error_S = (score_updates - S_)**2
-    error_V = (value_updates - V_)**2
-    return jnp.mean(error_V) + jnp.mean(error_S)
-
-
-# extremely faster with jit
-value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6)))
+    # S has shape [batch, memory_size]
+    max_index = jnp.argmax(Ss, axis=1, keepdims=True)
+    s = jnp.take_along_axis(Ss, max_index, axis=1)
+    v = jnp.reshape(jnp.take_along_axis(Vs, jnp.expand_dims(max_index, axis=-1), axis=1), (batch_size, dim_size))
+    return v, s
 
 
 # loop training jit
+@partial(jax.jit, static_argnames=['epoch_size', 'dim_size', 'memory_size', 'batch_size'])
+def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, epoch_size, dim_size, memory_size, batch_size):
 
-@partial(jax.jit, static_argnames=['lr', 'epoch_size', 'dim_size'])
-def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, epoch_size, dim_size):
     temperature = jnp.exp(-iteration/2000)
+
+    def compute_error(K, Wv, Ws):
+        logit = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
+        Ss = jnp.matmul(logit, Ws)
+        Vs = jnp.matmul(logit, Wv)
+        Vs = jnp.reshape(Vs, (batch_size, memory_size, dim_size))
+        
+        # V has shape [batch, dim_size]
+        # Vs has shape [batch, memory_size, dim_size]
+        # find the best match index in the memory using cosine similarity
+
+        Vl = jnp.expand_dims(V, axis=2)
+        denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
+        dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
+        max_indices = jnp.argmax(dot_scores, axis=1)
+
+        S_ = jnp.take_along_axis(Ss, max_indices, axis=1)
+        V_ = jnp.reshape(jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1), (batch_size, dim_size))
+
+        error_S = M * (S - S_)**2
+        error_V = M * (V - V_)**2
+        return jnp.mean(error_V) + jnp.mean(error_S)
+
+    value_grad_function = jax.value_and_grad(compute_error, argnums=(0, 1, 2))
+
     for i in range(epoch_size):
-        loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, V, S, M, K, Wv, Ws, dim_size, temperature)
+        loss, (g_K, g_Wv, g_Ws) = value_grad_function(K, Wv, Ws)
         K = K - lr*g_K
         Wv = Wv - lr*g_Wv
         Ws = Ws - lr*g_Ws
@@ -47,17 +64,21 @@ def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, epoch_size, dim_size):
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.1, epoch_size=1, iteration=0):
+    def __init__(self, hidden_size, input_dims, lr=0.01, epoch_size=1, iteration=0):
         super().__init__("model", "linear")
 
         self.hidden_size = hidden_size
         self.input_dims = input_dims
+        self.memory_size = 16
 
         r_key = jax.random.key(42)
         r_key, subkey = jax.random.split(r_key)
-        self.key = jax.random.normal(subkey, (hidden_size, input_dims * 2))*0.01
-        self.score = jnp.zeros([hidden_size, 1], jnp.float32)
-        self.value = jnp.zeros([hidden_size, input_dims], jnp.float32)
+        self.key = jax.random.normal(subkey, (hidden_size, input_dims * 2)) * 0.01
+        
+        r_key, subkey = jax.random.split(r_key)
+        self.score = jax.random.normal(subkey, [hidden_size, self.memory_size * 1]) * 0.01
+        r_key, subkey = jax.random.split(r_key)
+        self.value = jax.random.normal(subkey, [hidden_size, self.memory_size * input_dims]) * 0.01
 
         self.lr = lr
         self.epoch_size = epoch_size
@@ -99,14 +120,9 @@ class Model(base.Model):
         batch = jnp.concatenate([s, t], axis=-1)
         query = jnp.reshape(batch, (-1, self.input_dims * 2))
 
-        self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.iteration, self.lr, self.epoch_size, self.input_dims)
+        batch_size = query.shape[0]
+        self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.iteration, self.lr, self.epoch_size, self.input_dims, self.memory_size, batch_size)
         self.iteration += 1
-
-        # # score_updates = (1 - update_indices) * best_score + update_indices * scores
-        # self.score = 0.95*self.score + 0.05*score_updates
-
-        # # value_updates = (1 - update_indices) * best_value + update_indices * x
-        # self.value = 0.95*self.value + 0.05*value_updates
 
         self.is_updated = True
         return loss
@@ -119,7 +135,8 @@ class Model(base.Model):
         batch = jnp.concatenate([s, t], axis=-1)
         query = jnp.reshape(batch, (-1, self.input_dims * 2))
 
-        best_value, best_score = compute_value_score(query, self.key, self.value, self.score, self.input_dims)
+        batch_size = query.shape[0]
+        best_value, best_score = compute_value_score(query, self.key, self.value, self.score, self.input_dims, self.memory_size, batch_size)
 
         return best_value, best_score
 

@@ -27,12 +27,10 @@ def compute_error(Q, K, S):
     return 0
 
 
-# extremely faster with jit
-value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(1, 2)))
+value_grad_function = jax.value_and_grad(compute_error, argnums=(1, 2))
 
 
 # loop training jit
-
 @partial(jax.jit, static_argnames=['lr', 'epoch_size'])
 def loop_training(Q, K, S, lr, epoch_size):
     for i in range(epoch_size):

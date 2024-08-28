@@ -10,32 +10,25 @@ except:
     import base, linear
 
 
-def compute_logit(Q, K):
-    return jnp.matmul(Q, jnp.transpose(K))
-
-
+@jax.jit
 def compute_stats(Q, K, S):
-    logit = compute_logit(Q, K)
+    logit = jnp.matmul(Q, jnp.transpose(K))
     normed_logit = jnp.linalg.norm(logit, axis=1, keepdims=True)
     normed_S = jnp.linalg.norm(S, axis=0, keepdims=True)
     return jnp.abs(jnp.matmul(logit, S) / (normed_logit * normed_S))
 
 
-def compute_gradient(Q, K, S, lr):
-    logit = compute_logit(Q, K)
-    sum_logit = jnp.mean(logit, axis=0, keepdims=True)
-    return S * (1-lr) + lr * jnp.transpose(sum_logit)
-
-# extremely faster with jit
-update_function = jax.jit(compute_gradient)
-
-
 # loop training jit
-
-@partial(jax.jit, static_argnames=['lr', 'epoch_size'])
+@partial(jax.jit, static_argnames=['epoch_size'])
 def loop_training(Q, V, S, lr, epoch_size):
+
+    def compute_gradient(S):
+        logit = jnp.matmul(Q, jnp.transpose(K))
+        sum_logit = jnp.mean(logit, axis=0, keepdims=True)
+        return S * (1-lr) + lr * jnp.transpose(sum_logit)
+
     for i in range(epoch_size):
-        S = update_function(Q, V, S, lr)
+        S = compute_gradient(S)
     return S
 
 

@@ -4,6 +4,7 @@ import contextlib
 import random
 import json
 from typing import List, Any
+import jax.numpy
 from pydantic import BaseModel
 from functools import partial
 import argparse
@@ -69,7 +70,7 @@ class Context(BaseModel):
                 context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, states=states, goals=goals, graph=graph, random_seed=metadata["random_seed"])
             return context
         except Exception as e:
-            logging.error(e)
+            logging.warning(e)
         return None
                                  
 
@@ -127,7 +128,7 @@ class Context(BaseModel):
             path_sequences.append(alg.Pointer_Sequence(path))
 
         data_skip_path = []
-        max_layers = 3
+        max_layers = 4
         for p_seq in path_sequences:
             path = states.generate_subsequence(p_seq)
             layer_paths = []
@@ -140,6 +141,13 @@ class Context(BaseModel):
                     layer_paths.append((path, pivot_indices, pivots))
                 path = pivots
             data_skip_path.append(layer_paths)
+
+
+        for datum in data_skip_path:
+            path = datum[-1][0]
+            print("-", jax.numpy.argmax(path.data, axis=1))
+            pivots = datum[-1][2]
+            print(">", jax.numpy.argmax(pivots.data, axis=1))
 
 
         # abstractor = abstraction.Model(stat_linear.Model(32, graph_shape))
@@ -179,10 +187,12 @@ class Context(BaseModel):
 
         cortex_models = [
             cortex.Model(linear.Model(128, graph_shape)),
-            cortex.Model(linear.Model(128, graph_shape)),
-            cortex.Model(linear.Model(128, graph_shape))
+            cortex.Model(linear.Model(64, graph_shape)),
+            cortex.Model(linear.Model(32, graph_shape)),
+            cortex.Model(linear.Model(32, graph_shape))
         ]
         hippocampus_models = [
+            hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape)
@@ -192,7 +202,7 @@ class Context(BaseModel):
         model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
         logging.info(f"Training experiment {name}")
-        num_epoch = 1000000
+        num_epoch = 100000
         print_steps = max(1, num_epoch // 100)
         stamp = time.time()
         for i in range(num_epoch):
