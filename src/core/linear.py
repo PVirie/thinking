@@ -18,44 +18,44 @@ def compute_value_score(Q, K, Wv, Ws, dim_size, memory_size, batch_size):
     Vs = jnp.reshape(Vs, (batch_size, memory_size, dim_size))
 
     # S has shape [batch, memory_size]
-    max_index = jnp.argmax(Ss, axis=1, keepdims=True)
-    s = jnp.take_along_axis(Ss, max_index, axis=1)
-    v = jnp.reshape(jnp.take_along_axis(Vs, jnp.expand_dims(max_index, axis=-1), axis=1), (batch_size, dim_size))
+    max_indices = jnp.argmax(Ss, axis=1, keepdims=True)
+    s = jnp.take_along_axis(Ss, max_indices, axis=1)
+    v = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
     return v, s
 
+
+def compute_error(Q, S, V, M, K, Wv, Ws, dim_size, memory_size, batch_size):
+    logit = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
+    Ss = jnp.matmul(logit, Ws)
+    Vs = jnp.matmul(logit, Wv)
+    Vs = jnp.reshape(Vs, (batch_size, memory_size, dim_size))
+    
+    # V has shape [batch, dim_size]
+    # Vs has shape [batch, memory_size, dim_size]
+    # find the best match index in the memory using cosine similarity
+
+    Vl = jnp.expand_dims(V, axis=2)
+    denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
+    dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
+
+    max_indices = jnp.argmax(dot_scores, axis=1, keepdims=True)
+    S_ = jnp.take_along_axis(jnp.expand_dims(Ss, axis=-1), max_indices, axis=1)
+    V_ = jnp.take_along_axis(Vs, max_indices, axis=1)
+
+    error_S = M * (S - S_)**2
+    error_V = M * (V - V_)**2
+    return jnp.mean(error_V) + jnp.mean(error_S)
+
+
+value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6)), static_argnames=['dim_size', 'memory_size', 'batch_size'])
 
 # loop training jit
 @partial(jax.jit, static_argnames=['epoch_size', 'dim_size', 'memory_size', 'batch_size'])
 def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, epoch_size, dim_size, memory_size, batch_size):
 
     temperature = jnp.exp(-iteration/2000)
-
-    def compute_error(K, Wv, Ws):
-        logit = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
-        Ss = jnp.matmul(logit, Ws)
-        Vs = jnp.matmul(logit, Wv)
-        Vs = jnp.reshape(Vs, (batch_size, memory_size, dim_size))
-        
-        # V has shape [batch, dim_size]
-        # Vs has shape [batch, memory_size, dim_size]
-        # find the best match index in the memory using cosine similarity
-
-        Vl = jnp.expand_dims(V, axis=2)
-        denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
-        dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
-        max_indices = jnp.argmax(dot_scores, axis=1)
-
-        S_ = jnp.take_along_axis(Ss, max_indices, axis=1)
-        V_ = jnp.reshape(jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1), (batch_size, dim_size))
-
-        error_S = M * (S - S_)**2
-        error_V = M * (V - V_)**2
-        return jnp.mean(error_V) + jnp.mean(error_S)
-
-    value_grad_function = jax.value_and_grad(compute_error, argnums=(0, 1, 2))
-
     for i in range(epoch_size):
-        loss, (g_K, g_Wv, g_Ws) = value_grad_function(K, Wv, Ws)
+        loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, S, V, M, K, Wv, Ws, dim_size, memory_size, batch_size)
         K = K - lr*g_K
         Wv = Wv - lr*g_Wv
         Ws = Ws - lr*g_Ws

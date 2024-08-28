@@ -18,17 +18,19 @@ def compute_stats(Q, K, S):
     return jnp.abs(jnp.matmul(logit, S) / (normed_logit * normed_S))
 
 
+@jax.jit
+def compute_gradient(Q, K, S, lr):
+    logit = jnp.matmul(Q, jnp.transpose(K))
+    sum_logit = jnp.mean(logit, axis=0, keepdims=True)
+    return S * (1-lr) + lr * jnp.transpose(sum_logit)
+
+
 # loop training jit
 @partial(jax.jit, static_argnames=['epoch_size'])
 def loop_training(Q, V, S, lr, epoch_size):
 
-    def compute_gradient(S):
-        logit = jnp.matmul(Q, jnp.transpose(K))
-        sum_logit = jnp.mean(logit, axis=0, keepdims=True)
-        return S * (1-lr) + lr * jnp.transpose(sum_logit)
-
     for i in range(epoch_size):
-        S = compute_gradient(S)
+        S = compute_gradient(Q, V, S, lr)
     return S
 
 

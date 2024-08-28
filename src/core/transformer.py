@@ -164,30 +164,27 @@ class TrainState(train_state.TrainState):
   dropout_key: jax.Array
 
 
+@jax.vmap
+def mse_loss(logit, label, masks):
+    return ((logit - label) ** 2) * masks
+
+
+def loss_fn(params, encoder_input, decoder_input, labels, masks, state, dropout_train_key):
+    logits = state.apply_fn(
+        {'params': params}, 
+        encoder_input,
+        decoder_input, 
+        rngs={'dropout': dropout_train_key})
+    loss = jnp.mean(mse_loss(logits, labels, masks))
+    return loss
+
+jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)))
 
 @jax.jit
 def train_step(state, encoder_input, decoder_input, labels, masks, dropout_key):
     dropout_train_key = jax.random.fold_in(key=dropout_key, data=state.step)
-
-    def loss_fn(params):
-        logits = state.apply_fn(
-            {'params': params}, 
-            encoder_input,
-            decoder_input, 
-            rngs={'dropout': dropout_train_key})
-        loss = jnp.mean(mse_loss(logits, labels, masks))
-        return loss
-    
-    loss, grads = jax.value_and_grad(loss_fn)(state.params)
-    
-    return state.apply_gradients(
-        grads=grads,
-    ), loss
-
-
-@jax.vmap
-def mse_loss(logit, label, masks):
-    return ((logit - label) ** 2) * masks
+    loss, grads = jitted_loss(state.params, encoder_input, decoder_input, labels, masks, state, dropout_train_key)
+    return state.apply_gradients(grads=grads), loss
 
 
 class Model(base.Model):

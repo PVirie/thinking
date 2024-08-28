@@ -1,6 +1,6 @@
 # Thinking model
 
-An implementation of thinking models.
+An implementation of heuristically uncertainty minimization along networks (HUMN).
 
 | Version | Model                                   | Description                                                                                          |
 | ------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -24,23 +24,26 @@ An implementation of thinking models.
 ## Run experiments
 
 -   `./run_manual.sh {path to file}` The program will automatically random graph and train the parameter. If you want to retrain the parameter, you can run simply delete the weight direction in `./artifacts`.
--   For VSCode, launch `Python - Current file in gpu docker` configuration. `Python - Current file in cpu docker` for no gpu environment.
+-   For VSCode,
+    -   launch `Python - Current file clear` configuration to clear weights.
+    -   launch `Python - Current file in gpu docker` configuration.
+    -   launch `Python - Current file in cpu docker` for no gpu environment.
 
 ## To do
 
--   [ ] Implement heuristically uncertainty minimization along networks (HUMN).
-    -   [ ] Hierarchical goal pursuing
-        -   [x] Table kernel
-        -   [x] Linear kernel
-        -   [x] Entropic abstraction
-        -   [x] Transformer kernel
-        -   [ ] Implement entropy abstraction in stat_linear.py
-        -   [ ] Use scores for tracking best so far
-        -   [ ] Make transfomer accept context of shape (batch, context length, feature length)
-        -   [ ] Language model experiment (abstraction with embedding)
-            -   [ ] Predicting finite token is easier than predicting continuous value
-        -   [ ] Cart pole experiment
-        -   [ ] Calculator experiment
-    -   [ ] Experiment: incremental learning
-    -   [ ] Experiment: added different positional encodings to the model.
--   [x] jax enhance: use jit (remove if else in training functions)
+-   [ ] Hierarchical goal pursuing
+    -   [x] Table kernel
+    -   [x] Linear kernel
+    -   [x] Entropic abstraction
+    -   [x] Parallelize layers
+    -   [x] Use asymetric gradient update to keep track of the best so far
+    -   [ ] Implement entropy abstraction in stat_linear.py
+-   [ ] Enhancement
+    -   [x] jax enhance: use jit (remove if else in training functions)
+    -   [x] Transformer kernel
+    -   [ ] Make transfomer accept context of shape (batch, context length, feature length)
+-   [ ] Cart pole experiment
+-   [ ] Calculator experiment
+-   [ ] Language model experiment (abstraction with embedding)
+    -   [ ] Predicting finite token is easier than predicting continuous value
+-   [ ] Experiment: added different positional encodings to the model
