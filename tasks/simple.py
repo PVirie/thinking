@@ -186,10 +186,10 @@ class Context(BaseModel):
         name = "Skip step"
 
         cortex_models = [
-            cortex.Model(linear.Model(128, graph_shape)),
-            cortex.Model(linear.Model(64, graph_shape)),
-            cortex.Model(linear.Model(32, graph_shape)),
-            cortex.Model(linear.Model(32, graph_shape))
+            cortex.Model(0, linear.Model(128, graph_shape)),
+            cortex.Model(1, linear.Model(64, graph_shape)),
+            cortex.Model(2, linear.Model(32, graph_shape)),
+            cortex.Model(3, linear.Model(32, graph_shape))
         ]
         hippocampus_models = [
             hippocampus.Model(graph_shape, graph_shape),
@@ -234,7 +234,7 @@ class Context(BaseModel):
         # cortex_models = []
         # hippocampus_models = []
         # for i in range(3):
-        #     c = cortex.Model(linear_cores[i])
+        #     c = cortex.Model(i, linear_cores[i])
         #     cortex_models.append(c)
 
         #     h = hippocampus.Model(graph_shape, graph_shape)
@@ -280,7 +280,7 @@ class Context(BaseModel):
         cortex_models = []
         hippocampus_models = []
         for i in range(3):
-            c = cortex.Model(table_cores[i])
+            c = cortex.Model(i, table_cores[i])
             cortex_models.append(c)
 
             h = hippocampus.Model(graph_shape, graph_shape)

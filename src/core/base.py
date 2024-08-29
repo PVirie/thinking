@@ -21,11 +21,11 @@ class Persistent_Model:
 class Model(Persistent_Model):
 
 
-    def fit(self, s, x, t, scores, masks=1.0):
+    def fit(self, s, x, t, scores, masks=1.0, context=None):
         pass
 
 
-    def infer(self, s, t):
+    def infer(self, s, t, context=None):
         pass
 
 

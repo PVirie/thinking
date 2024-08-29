@@ -249,7 +249,7 @@ class Model(base.Model):
         # logging.info(serialization.to_state_dict(self.state))
 
 
-    def fit(self, s, x, t, scores, masks=None):
+    def fit(self, s, x, t, scores, masks=None, context=None):
         # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
 
         s = jnp.reshape(s, (-1, self.input_dims))
@@ -268,7 +268,7 @@ class Model(base.Model):
         return 1.0
 
 
-    def infer(self, s, t):
+    def infer(self, s, t, context=None):
         # s has shape (N, dim), t has shape (N, dim)
         # t will be fed to encoder input while s will be fed to decoder input
         

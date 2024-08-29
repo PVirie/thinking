@@ -44,7 +44,7 @@ def compute_error(Q, S, V, M, K, Wv, Ws, dim_size, memory_size, batch_size):
 
     error_S = M * (S - S_)**2
     error_V = M * (V - V_)**2
-    return jnp.mean(error_V) + jnp.mean(error_S)
+    return jnp.mean(error_V) * dim_size + jnp.mean(error_S)
 
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6)), static_argnames=['dim_size', 'memory_size', 'batch_size'])
@@ -64,7 +64,7 @@ def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, epoch_size, dim_size, me
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.01, epoch_size=1, iteration=0):
+    def __init__(self, hidden_size, input_dims, lr=0.01, epoch_size=10, iteration=0):
         super().__init__("model", "linear")
 
         self.hidden_size = hidden_size
@@ -110,7 +110,7 @@ class Model(base.Model):
         self.value = jnp.load(os.path.join(path, "value.npy"))
 
 
-    def fit(self, s, x, t, scores, masks=1.0):
+    def fit(self, s, x, t, scores, masks=1.0, context=None):
         # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
 
         scores = jnp.reshape(scores, (-1, 1))
@@ -128,7 +128,7 @@ class Model(base.Model):
         return loss
 
 
-    def infer(self, s, t):
+    def infer(self, s, t, context=None):
         # s has shape (N, dim), t has shape (N, dim)
 
         # for simple model only use the last state

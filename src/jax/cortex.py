@@ -34,7 +34,9 @@ def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1)
 
 class Model(cortex_model.Model):
     
-    def __init__(self, model: core.base.Model, step_discount_factor=0.9):
+    def __init__(self, layer: int, model: core.base.Model, step_discount_factor=0.9):
+        # if you wish to share the model, pass layer into learning and inference functions to differentiate
+        self.layer = layer
         self.step_discount_factor = step_discount_factor
         self.model = model
         self.printer = None
@@ -49,7 +51,7 @@ class Model(cortex_model.Model):
         with open(os.path.join(path, "metadata.json"), "r") as f:
             metadata = json.load(f)
         model = core.load(metadata["model"])
-        return Model(model, step_discount_factor=metadata["step_discount_factor"])
+        return Model(layer=metadata["layer"], model=model, step_discount_factor=metadata["step_discount_factor"])
                                                               
 
     @staticmethod
@@ -57,6 +59,7 @@ class Model(cortex_model.Model):
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, "metadata.json"), "w") as f:
             json.dump({
+                "layer": self.layer,
                 "step_discount_factor": self.step_discount_factor,
                 "model": core.save(self.model)
             }, f)
@@ -108,7 +111,7 @@ if __name__ == "__main__":
     print(scores)
 
     table_model = core.table.Model(4)
-    model = Model(table_model)
+    model = Model(0, table_model)
     
     r_key = jax.random.key(42)
     r_key, subkey = jax.random.split(r_key)

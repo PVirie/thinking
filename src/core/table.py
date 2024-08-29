@@ -46,7 +46,7 @@ class Model(base.Model):
         self.value = jnp.load(os.path.join(path, "value.npy"))
     
 
-    def fit(self, s, x, t, scores, masks=1.0):
+    def fit(self, s, x, t, scores, masks=1.0, context=None):
         # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
 
         scores = jnp.reshape(scores, (-1, 1))
@@ -77,7 +77,7 @@ class Model(base.Model):
         return jnp.mean(score_updates)
 
 
-    def infer(self, s, t):
+    def infer(self, s, t, context=None):
         # s has shape (N, dim), t has shape (N, dim)
 
         # for simple model only use the last state
