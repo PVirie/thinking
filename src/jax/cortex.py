@@ -65,7 +65,6 @@ class Model(cortex_model.Model):
             }, f)
 
 
-
     def incrementally_learn(self, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Pointer_Sequence, pivots: State_Sequence) -> float:
 
         distances = jnp.arange(len(path_encoding_sequence))
@@ -87,7 +86,6 @@ class Model(cortex_model.Model):
         return self.model.fit(s, a, t, scores, masks)
 
 
-
     def infer_sub_action(self, from_encoding_sequence: Augmented_State_Squence, expect_action: Action) -> Action:
         goal_state = from_encoding_sequence + expect_action
         next_action_data, score = self.model.infer(
@@ -106,7 +104,7 @@ class Model(cortex_model.Model):
 if __name__ == "__main__":
     import jax
 
-    masks, scores = generate_mask_and_score(jnp.array([0, 3, 8]), 8, 0.9, 2)
+    masks, scores = generate_mask_and_score(jnp.array([0, 3, 7]), 8, 0.9, 2)
     print(masks)
     print(scores)
 

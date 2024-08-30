@@ -186,13 +186,11 @@ class Context(BaseModel):
         name = "Skip step"
 
         cortex_models = [
-            cortex.Model(0, linear.Model(128, graph_shape)),
+            cortex.Model(0, linear.Model(64, graph_shape)),
             cortex.Model(1, linear.Model(64, graph_shape)),
-            cortex.Model(2, linear.Model(32, graph_shape)),
-            cortex.Model(3, linear.Model(32, graph_shape))
+            cortex.Model(2, linear.Model(32, graph_shape))
         ]
         hippocampus_models = [
-            hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape)
@@ -202,7 +200,7 @@ class Context(BaseModel):
         model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
         logging.info(f"Training experiment {name}")
-        num_epoch = 100000
+        num_epoch = 1000000
         print_steps = max(1, num_epoch // 100)
         stamp = time.time()
         for i in range(num_epoch):
