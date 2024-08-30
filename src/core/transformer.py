@@ -6,7 +6,6 @@ import jax
 import jax.random
 import jax.numpy as jnp
 import flax.linen as nn
-
 from clu import metrics
 import flax
 from flax.training import train_state  # Useful dataclass to keep train state

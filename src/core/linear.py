@@ -1,8 +1,10 @@
+import jax.debug
 import jax
 import jax.random
 import jax.numpy as jnp
 import os
 from functools import partial
+import optax
 
 try:
     from . import base
@@ -17,15 +19,15 @@ def query(Q, K, Wv, Ws):
     
     logit = jnp.matmul(Q, jnp.transpose(K))
     weights = jax.nn.softmax(logit, axis=-1)
-    Ss = jnp.matmul(weights, Ws)
     Vs = jnp.matmul(weights, Wv)
+    Ss = jnp.matmul(weights, Ws)
 
     # logit is square diff
     # logit = jnp.sum((jnp.expand_dims(Q, axis=1) - jnp.expand_dims(K, axis=0))**2, axis=2)
     # min_indices = jnp.argmin(logit, axis=1, keepdims=True)
     # L = jnp.take_along_axis(logit, min_indices, axis=1)
-    # Ss = jnp.take_along_axis(Ws, min_indices, axis=0) * L
     # Vs = jnp.take_along_axis(Wv, min_indices, axis=0) * L
+    # Ss = jnp.take_along_axis(Ws, min_indices, axis=0) * L
 
     return Vs, Ss
 
@@ -39,6 +41,7 @@ def compute_value_score(Q, K, Wv, Ws, dim_size, memory_size, batch_size):
     max_indices = jnp.argmax(Ss, axis=1, keepdims=True)
     s = jnp.take_along_axis(Ss, max_indices, axis=1)
     v = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
+    v = jnp.reshape(v, (batch_size, dim_size))
     return v, s
 
 
@@ -70,23 +73,21 @@ def compute_error(Q, V, S, M, K, Wv, Ws, r_key, dim_size, memory_size, batch_siz
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4, 5, 6)), static_argnames=['dim_size', 'memory_size', 'batch_size'])
 
-# loop training jit
-@partial(jax.jit, static_argnames=['epoch_size', 'dim_size', 'memory_size', 'batch_size'])
-def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, epoch_size, r_key, dim_size, memory_size, batch_size):
-
-    temperature = jnp.exp(-iteration/2000)
-    for i in range(epoch_size):
-        r_key, subkey = jax.random.split(r_key)
-        loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, V, S, M, K, Wv, Ws, subkey, dim_size, memory_size, batch_size)
-        K = K - lr*g_K
-        Wv = Wv - lr*g_Wv
-        Ws = Ws - lr*g_Ws
-    return K, Wv, Ws, loss
+# # loop training jit
+# @partial(jax.jit, static_argnames=['dim_size', 'memory_size', 'batch_size'])
+# def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, r_key, dim_size, memory_size, batch_size):
+#     temperature = jnp.exp(-iteration/2000)
+#     r_key, subkey = jax.random.split(r_key)
+#     loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, V, S, M, K, Wv, Ws, subkey, dim_size, memory_size, batch_size)
+#     K = K - lr*g_K
+#     Wv = Wv - lr*g_Wv
+#     Ws = Ws - lr*g_Ws
+#     return K, Wv, Ws, loss
 
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.01, epoch_size=1, iteration=0):
+    def __init__(self, hidden_size, input_dims, lr=0.01, iteration=0):
         super().__init__("model", "linear")
 
         self.hidden_size = hidden_size
@@ -98,15 +99,18 @@ class Model(base.Model):
         self.key = jax.random.normal(subkey, (hidden_size, input_dims * 2)) * 0.1
         
         r_key, subkey = jax.random.split(r_key)
-        self.score = jax.random.normal(subkey, [hidden_size, self.memory_size * 1]) * 0.01
-        r_key, subkey = jax.random.split(r_key)
         self.value = jax.random.normal(subkey, [hidden_size, self.memory_size * input_dims]) * 0.1
+
+        r_key, subkey = jax.random.split(r_key)
+        self.score = jax.random.normal(subkey, [hidden_size, self.memory_size * 1]) * 0.01
 
         self.r_key = r_key
 
         self.lr = lr
-        self.epoch_size = epoch_size
         self.iteration = iteration
+
+        self.optimizer = optax.adam(self.lr)
+        self.opt_state = self.optimizer.init((self.key, self.value, self.score))
 
 
     def get_class_parameters(self):
@@ -116,24 +120,24 @@ class Model(base.Model):
             "hidden_size": self.hidden_size,
             "input_dims": self.input_dims, 
             "lr": self.lr,
-            "epoch_size": self.epoch_size,
             "iteration": self.iteration
         }
 
 
     def save(self, path):
         jnp.save(os.path.join(path, "key.npy"), self.key)
-        jnp.save(os.path.join(path, "score.npy"), self.score)
         jnp.save(os.path.join(path, "value.npy"), self.value)
+        jnp.save(os.path.join(path, "score.npy"), self.score)
 
         self.is_updated = False
 
     def load(self, path):
         self.key = jnp.load(os.path.join(path, "key.npy"))
-        self.score = jnp.load(os.path.join(path, "score.npy"))
         self.value = jnp.load(os.path.join(path, "value.npy"))
+        self.score = jnp.load(os.path.join(path, "score.npy"))
 
 
+    # @partial(jax.jit, static_argnames=['self', 'masks', 'context'])
     def fit(self, s, x, t, scores, masks=1.0, context=None):
         # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
 
@@ -145,13 +149,20 @@ class Model(base.Model):
         query = jnp.reshape(batch, (-1, self.input_dims * 2))
 
         batch_size = query.shape[0]
-        self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.iteration, self.lr, self.epoch_size, self.r_key, self.input_dims, self.memory_size, batch_size)
+        # self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.iteration, self.lr, self.r_key, self.input_dims, self.memory_size, batch_size)
+        
+        self.r_key, subkey = jax.random.split(self.r_key)
+        loss, (g_K, g_Wv, g_Ws) = value_grad_function(query, x, scores, masks, self.key, self.value, self.score, subkey, self.input_dims, self.memory_size, batch_size)
+        updates, self.opt_state = self.optimizer.update((g_K, g_Wv, g_Ws), self.opt_state)
+        (self.key, self.value, self.score) = optax.apply_updates((self.key, self.value, self.score), updates)
+
         self.iteration += 1
 
         self.is_updated = True
         return loss
 
 
+    # @partial(jax.jit, static_argnames=['self', 'context'])
     def infer(self, s, t, context=None):
         # s has shape (N, dim), t has shape (N, dim)
 
@@ -162,27 +173,29 @@ class Model(base.Model):
         batch_size = query.shape[0]
         best_value, best_score = compute_value_score(query, self.key, self.value, self.score, self.input_dims, self.memory_size, batch_size)
 
-        best_score = jnp.reshape(best_score, [batch_size])
         best_value = jnp.reshape(best_value, [batch_size, -1])
+        best_score = jnp.reshape(best_score, [batch_size])
 
         return best_value, best_score
 
 
 if __name__ == "__main__":
-    model = Model(8, 4, 0.1, 100, iteration=0)
+    model = Model(16, 4, 0.01, iteration=0)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :]])
     x = jnp.array([eye[1, :], eye[2, :]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
-    loss = model.fit(s, x, t, jnp.array([0.9, 0.5]))
+    for i in range(1000):
+        loss = model.fit(s, x, t, jnp.array([0.9, 0.5]))
     value, score = model.infer(s, t)
     print("Loss:", loss)
     print("Score:", score)
     print("Value:", value)
     
-    loss = model.fit(s, x, t, jnp.array([0.5, 0.6]))
+    for i in range(1000):
+        loss = model.fit(s, x, t, jnp.array([0.5, 0.6]))
     value, score = model.infer(s, t)
     print("Loss:", loss)
     print("Score:", score)

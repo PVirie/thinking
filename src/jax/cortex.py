@@ -77,9 +77,7 @@ class Model(cortex_model.Model):
 
         s = jnp.tile(jnp.expand_dims(sequence_data, axis=1), (1, len(pivots), 1))
         x = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=1), (1, len(pivots), 1))
-        # a = x - s
-        # remove negative values
-        a = x 
+        a = x - s
         t = jnp.tile(jnp.expand_dims(pivots, axis=0), (len(path_encoding_sequence), 1, 1))
 
         # s has shape (N, dim), a has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
