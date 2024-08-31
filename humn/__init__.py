@@ -1,6 +1,7 @@
-from .interfaces import algebraic, cortex_model, hippocampus_model, abstraction_model
-from typing import List, Tuple, Union, Generator
+from .interfaces import trainer, algebraic, cortex_model, hippocampus_model, abstraction_model
+from typing import List, Tuple, Union, Generator, Any
 import math
+
 
 class HUMN:
     def __init__(self, cortex_models: List[cortex_model.Model], hippocampus_models: List[hippocampus_model.Model], abstraction_models: List[abstraction_model.Model] = [], name="HUMN model"):
@@ -25,22 +26,22 @@ class HUMN:
             h.refresh()
 
 
-    def observe(self, path_tuples: List[Tuple[algebraic.State_Sequence, algebraic.Pointer_Sequence, algebraic.State_Sequence]]) -> List[float]:
+    def observe(self, path_tuples: List[Tuple[algebraic.State_Sequence, algebraic.Pointer_Sequence, algebraic.State_Sequence]]) -> List[trainer.Trainer]:
         # not learning abstraction here, must be done externally
         if len(path_tuples) < self.depth:
             raise ValueError("Not enough layer data to learn")
         
         # learn, can be parallelized
-        loss = []
+        trainers = []
         for i, (path, pivot_indices, pivots) in enumerate(path_tuples[:self.depth]):
             c = self.cortices[i]
             h = self.hippocampi[i]
 
-            l = c.incrementally_learn(h.augment(path), pivot_indices, pivots)
-            loss.append(l)
+            t = c.incrementally_learn(h.augment(path), pivot_indices, pivots)
+            trainers.append(t)
 
-        return loss
-
+        return trainers
+    
 
     def __sub_action_recursion(self, i, state, action):
         if action.zero_length():
