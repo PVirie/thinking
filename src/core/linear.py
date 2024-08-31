@@ -1,3 +1,10 @@
+"""
+Linear kernel for storing and fetching versioned values
+Author: P.Virie
+
+This is a simple asymmetric linear model implementing with JAX.
+"""
+
 import jax
 import jax.random
 import jax.numpy as jnp
@@ -5,7 +12,6 @@ import os
 import pickle
 from functools import partial
 import optax
-from optax import contrib
 
 try:
     from . import base
@@ -27,13 +33,6 @@ def query(Q, params):
 
     Vs = jnp.matmul(weights, Wv_0)
     Ss = jnp.matmul(weights, Ws_0)
-
-    # logit is square diff
-    # logit = jnp.sum((jnp.expand_dims(Q, axis=1) - jnp.expand_dims(K, axis=0))**2, axis=2)
-    # min_indices = jnp.argmin(logit, axis=1, keepdims=True)
-    # L = jnp.take_along_axis(logit, min_indices, axis=1)
-    # Vs = jnp.take_along_axis(Wv, min_indices, axis=0) * L
-    # Ss = jnp.take_along_axis(Ws, min_indices, axis=0) * L
 
     return Vs, Ss
 
@@ -64,10 +63,6 @@ def compute_error(Q, V, S, M, params, r_key, dim_size, memory_size, batch_size):
     dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
     max_indices = jnp.argmax(dot_scores, axis=1)
 
-    # S__ = jnp.take_along_axis(Ss, max_indices, axis=1)
-    # random_indices = jax.random.randint(r_key, (batch_size, 1), 0, memory_size)
-    # max_indices = jnp.where(S__ < 0.01, random_indices, max_indices)
-
     S_ = jnp.take_along_axis(Ss, max_indices, axis=1)
     V_ = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
     V_ = jnp.reshape(V_, (batch_size, dim_size))
@@ -81,18 +76,6 @@ def compute_error(Q, V, S, M, params, r_key, dim_size, memory_size, batch_size):
 
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4)), static_argnames=['dim_size', 'memory_size', 'batch_size'])
-
-# # loop training jit
-# @partial(jax.jit, static_argnames=['dim_size', 'memory_size', 'batch_size'])
-# def loop_training(Q, V, S, M, K, Wv, Ws, iteration, lr, r_key, dim_size, memory_size, batch_size):
-#     temperature = jnp.exp(-iteration/2000)
-#     r_key, subkey = jax.random.split(r_key)
-#     loss, (g_K, g_Wv, g_Ws) = value_grad_function(Q, V, S, M, K, Wv, Ws, subkey, dim_size, memory_size, batch_size)
-#     K = K - lr*g_K
-#     Wv = Wv - lr*g_Wv
-#     Ws = Ws - lr*g_Ws
-#     return K, Wv, Ws, loss
-
 
 @partial(jax.jit, static_argnames=['input_dims'])
 def make_query(s, t, input_dims):
@@ -193,8 +176,6 @@ class Model(base.Model):
         query = make_query(s, t, self.input_dims)
         batch_size = query.shape[0]
 
-        # self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.iteration, self.lr, self.r_key, self.input_dims, self.memory_size, batch_size)
-        
         loss, self.params, self.r_key, self.opt_state = train_step(self.optimizer, self.params, self.r_key, self.opt_state, query, x, scores, masks, self.input_dims, self.memory_size, batch_size)
 
         self.iteration += 1

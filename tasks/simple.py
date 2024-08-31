@@ -259,9 +259,9 @@ class Context(BaseModel):
         # for path_tuples in data_abstract_path:
         #     trainers = model.observe(path_tuples)
         # for trainer in trainers:
-        #     trainer.prepare_batch(32)
+        #     trainer.prepare_batch(64)
 
-        # loop_train(trainers)
+        # loop_train(trainers, 100000)
 
         # parameter_sets.append({
         #     "cortex_models": cortex_models,
