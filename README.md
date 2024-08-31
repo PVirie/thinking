@@ -31,19 +31,22 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
 
 ## To do
 
--   [ ] Hierarchical goal pursuing
+-   [x] Hierarchical goal pursuing
     -   [x] Table kernel
     -   [x] Linear kernel
     -   [x] Entropic abstraction
     -   [x] Parallelize layers
     -   [x] Use asymetric gradient update to keep track of the best so far
-    -   [ ] Implement entropy abstraction in stat_linear.py
+-   [ ] Abstraction
+    -   [ ] Implement entropy abstraction
 -   [ ] Enhancement
     -   [x] jax enhance: use jit (remove if else in training functions)
+    -   [x] Use optax
     -   [x] Transformer kernel
     -   [ ] Make transfomer accept context of shape (batch, context length, feature length)
+-   [ ] Hippocampus
+    -   [ ] added different encodings to the model
 -   [ ] Cart pole experiment
 -   [ ] Calculator experiment
 -   [ ] Language model experiment (abstraction with embedding)
     -   [ ] Predicting finite token is easier than predicting continuous value
--   [ ] Experiment: added different positional encodings to the model

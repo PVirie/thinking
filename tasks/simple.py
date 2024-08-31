@@ -121,7 +121,7 @@ class Context(BaseModel):
         states = alg.State_Sequence(one_hot)
 
         graph = random_graph(graph_shape, 0.4)
-        explore_steps = 1000
+        explore_steps = 2000
         path_sequences = []
         for i in range(explore_steps):
             path = random_walk(graph, 0, graph.shape[0] - 1)
@@ -202,7 +202,7 @@ class Context(BaseModel):
         cortex_models = [
             cortex.Model(0, linear.Model(64, graph_shape)),
             cortex.Model(1, linear.Model(64, graph_shape)),
-            cortex.Model(2, linear.Model(32, graph_shape))
+            cortex.Model(2, linear.Model(64, graph_shape))
         ]
         hippocampus_models = [
             hippocampus.Model(graph_shape, graph_shape),
@@ -218,9 +218,9 @@ class Context(BaseModel):
         for path_tuples in data_skip_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
-            trainer.prepare_batch(32)
+            trainer.prepare_batch(64)
 
-        loop_train(trainers, 5000)
+        loop_train(trainers, 100000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,

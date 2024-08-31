@@ -1,5 +1,6 @@
 from humn import cortex_model, trainer
 from typing import Tuple
+import random
 
 from functools import partial
 import jax.numpy as jnp
@@ -65,6 +66,10 @@ class Trainer(trainer.Trainer):
             scores = jnp.concatenate(self.scores[i:i+mini_batch_size], axis=0)
             masks = jnp.concatenate(self.masks[i:i+mini_batch_size], axis=0)
             self.epoch_batch.append((s, x, t, scores, masks))
+
+        # shuffle
+        random.shuffle(self.epoch_batch)
+        
 
 
     def step_update(self):

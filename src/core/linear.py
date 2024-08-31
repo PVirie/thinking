@@ -1,11 +1,11 @@
-import jax.debug
 import jax
 import jax.random
 import jax.numpy as jnp
 import os
+import pickle
 from functools import partial
 import optax
-import pickle
+from optax import contrib
 
 try:
     from . import base
@@ -74,7 +74,10 @@ def compute_error(Q, V, S, M, params, r_key, dim_size, memory_size, batch_size):
 
     error_S = M * (S - S_)**2
     error_V = M * (V - V_)**2
-    return jnp.mean(error_V) + jnp.mean(error_S)
+
+    # suppress other slot score to 0
+    error_C = jnp.mean(Ss ** 2)
+    return jnp.mean(error_V) + jnp.mean(error_S) + error_C * 0.1
 
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4)), static_argnames=['dim_size', 'memory_size', 'batch_size'])
@@ -91,14 +94,31 @@ value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4)), st
 #     return K, Wv, Ws, loss
 
 
+@partial(jax.jit, static_argnames=['input_dims'])
+def make_query(s, t, input_dims):
+    batch = jnp.concatenate([s, t], axis=-1)
+    query = jnp.reshape(batch, (-1, input_dims * 2))
+    return query
+
+
+@partial(jax.jit, static_argnames=['optimizer', 'input_dims', 'memory_size', 'batch_size'])
+def train_step(optimizer, params, r_key, opt_state, query, x, scores, masks, input_dims, memory_size, batch_size):
+    r_key, subkey = jax.random.split(r_key)
+    loss, grads = value_grad_function(query, x, scores, masks, params, subkey, input_dims, memory_size, batch_size)
+    updates, opt_state = optimizer.update(grads, opt_state, params)
+    params = optax.apply_updates(params, updates)
+    return loss, params, r_key, opt_state
+
+
+
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.01, iteration=0):
+    def __init__(self, hidden_size, input_dims, memory_size=16, lr=0.01, iteration=0):
         super().__init__("model", "linear")
 
         self.hidden_size = hidden_size
         self.input_dims = input_dims
-        self.memory_size = 16
+        self.memory_size = memory_size
 
         r_key = jax.random.key(42)
         r_key, subkey = jax.random.split(r_key)
@@ -117,7 +137,7 @@ class Model(base.Model):
         self.lr = lr
         self.iteration = iteration
 
-        self.optimizer = optax.adam(self.lr)
+        self.optimizer = optax.adamw(self.lr)
         self.opt_state = self.optimizer.init(self.params)
 
 
@@ -163,7 +183,6 @@ class Model(base.Model):
         self.is_updated = False
 
 
-    # @partial(jax.jit, static_argnames=['self', 'context'])
     def fit(self, s, x, t, scores, masks, context=None):
         # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
 
@@ -171,16 +190,12 @@ class Model(base.Model):
         masks = jnp.reshape(masks, (-1, 1))
         x = jnp.reshape(x, (-1, self.input_dims))
 
-        batch = jnp.concatenate([s, t], axis=-1)
-        query = jnp.reshape(batch, (-1, self.input_dims * 2))
-
+        query = make_query(s, t, self.input_dims)
         batch_size = query.shape[0]
+
         # self.key, self.value, self.score, loss = loop_training(query, x, scores, masks, self.key, self.value, self.score, self.iteration, self.lr, self.r_key, self.input_dims, self.memory_size, batch_size)
         
-        self.r_key, subkey = jax.random.split(self.r_key)
-        loss, grads = value_grad_function(query, x, scores, masks, self.params, subkey, self.input_dims, self.memory_size, batch_size)
-        updates, self.opt_state = self.optimizer.update(grads, self.opt_state)
-        self.params = optax.apply_updates(self.params, updates)
+        loss, self.params, self.r_key, self.opt_state = train_step(self.optimizer, self.params, self.r_key, self.opt_state, query, x, scores, masks, self.input_dims, self.memory_size, batch_size)
 
         self.iteration += 1
 
@@ -188,15 +203,12 @@ class Model(base.Model):
         return loss
 
 
-    # @partial(jax.jit, static_argnames=['self', 'context'])
     def infer(self, s, t, context=None):
         # s has shape (N, dim), t has shape (N, dim)
 
-        # for simple model only use the last state
-        batch = jnp.concatenate([s, t], axis=-1)
-        query = jnp.reshape(batch, (-1, self.input_dims * 2))
-
+        query = make_query(s, t, self.input_dims)
         batch_size = query.shape[0]
+
         best_value, best_score = compute_value_score(query, self.params, self.input_dims, self.memory_size, batch_size)
 
         best_value = jnp.reshape(best_value, [batch_size, -1])
@@ -206,7 +218,7 @@ class Model(base.Model):
 
 
 if __name__ == "__main__":
-    model = Model(16, 4, 0.01, iteration=0)
+    model = Model(16, 4, 4, 0.01, iteration=0)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :], eye[0, :], eye[1, :]])
