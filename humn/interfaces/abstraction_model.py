@@ -1,11 +1,11 @@
-from . import algebraic
+from . import algebraic, trainer
 from typing import Tuple, Union
 
 
 class Model:
 
 
-    def incrementally_learn(self, path: algebraic.State_Sequence) -> float:
+    def incrementally_learn(self, path: algebraic.State_Sequence) -> trainer.Trainer:
         raise NotImplementedError("Not implemented")
 
 

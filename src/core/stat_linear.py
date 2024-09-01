@@ -16,19 +16,17 @@ except:
 def compute_stats(Q, params):
     K = params[0]
     S = params[1]
-    logit = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
-    normed_S = jnp.linalg.norm(S, axis=0, keepdims=True)
-    return jnp.abs(jnp.matmul(logit, S) / (normed_S))
+    P_ = jnp.linalg.norm(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
+    return P_
 
 
 @jax.jit
 def compute_error(Q, params):
     K = params[0]
     S = params[1]
-    logit = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
 
-    sum_logit = jnp.transpose(jnp.mean(logit, axis=0, keepdims=True))
-    return jnp.mean((S - sum_logit) ** 2)
+    P_ = compute_stats(Q, params)
+    return jnp.mean((P_ - 1) ** 2)
 
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(1)))

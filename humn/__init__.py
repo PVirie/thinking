@@ -55,7 +55,7 @@ class HUMN:
 
         if i < self.depth - 1:
             if abstractor is not None:
-                nl_from_state, nl_action = abstractor.abstract(self.hippocampus_model.augmented_all(), action)
+                nl_from_state, nl_action = abstractor.abstract(hippocampus.augmented_all(), action)
             else:
                 nl_from_state, nl_action = state, action
             nl_sub_action = self.__sub_action_recursion(i + 1, nl_from_state, nl_action)

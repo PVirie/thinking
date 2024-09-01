@@ -1,10 +1,11 @@
-from humn import abstraction_model
+from humn import abstraction_model, trainer
 from typing import Tuple, Union
 
 import jax
 import jax.numpy as jnp
 import os
 import json
+import random
 
 try:
     from .algebric import *
@@ -17,6 +18,48 @@ except:
     import sys
     sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
     import core
+
+
+
+class Trainer(trainer.Trainer):
+    def __init__(self, model, loss_alpha=0.05):
+        self.model = model
+
+        self.data = []
+
+        self.step = 0
+        self.epoch_batch = []
+
+        self.loss_alpha = loss_alpha
+        self.avg_loss = 0.0
+
+
+    def accumulate_batch(self, data):
+        self.data.append(data)
+        return self
+
+
+    def clear_batch(self):
+        self.data = []
+        return self
+    
+
+    def prepare_batch(self, mini_batch_size):
+        self.epoch_batch = []
+        for i in range(0, len(self.data), mini_batch_size):
+            d = jnp.concatenate(self.data[i:i+mini_batch_size], axis=0)
+            self.epoch_batch.append(d)
+
+        # shuffle
+        random.shuffle(self.epoch_batch)
+        
+
+    def step_update(self):
+        minibatch = self.epoch_batch[self.step % len(self.epoch_batch)]
+        self.step += 1
+        loss = self.model.accumulate(minibatch)
+        self.avg_loss = (self.avg_loss * (1-self.loss_alpha) + loss * self.loss_alpha)
+        return self.avg_loss
 
 
 @jax.jit
@@ -36,6 +79,8 @@ class Model(abstraction_model.Model):
     def __init__(self, model: core.base.Stat_Model):
         self.model = model
 
+        self.trainer = Trainer(model)
+
 
     @staticmethod
     def load(path):
@@ -54,8 +99,8 @@ class Model(abstraction_model.Model):
             }, f)
 
 
-    def incrementally_learn(self, path: State_Sequence) -> float:
-        return self.model.accumulate(path.data)
+    def incrementally_learn(self, path: State_Sequence) -> trainer.Trainer:
+        return self.trainer.accumulate_batch(path.data)
 
 
     def abstract_path(self, path: State_Sequence) -> Tuple[Pointer_Sequence, State_Sequence]:
@@ -79,9 +124,6 @@ class Model(abstraction_model.Model):
         if nl_action is None:
             return nl_start
         return nl_action
-
-
-
 
 
 

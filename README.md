@@ -37,17 +37,17 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
     -   [x] Entropic abstraction
     -   [x] Parallelize layers
     -   [x] Use asymmetric gradient update to keep track of the best so far
--   [ ] Abstraction
-    -   [ ] Implement entropy abstraction
--   [ ] Language model experiment (abstraction with embedding)
-    -   [ ] Predicting finite token is easier than predicting continuous value
--   [ ] Hippocampus
-    -   [ ] added different encodings to the model
--   [ ] Enhancement
+-   [x] Enhancement
     -   [x] jax enhance: use jit (remove if else in training functions)
     -   [x] Use optax
     -   [x] Transformer kernel
-    -   [ ] Make transfomer accept context of shape (batch, context length, feature length)
+-   [x] Abstraction
+    -   [x] Implement entropy abstraction
+-   [ ] Hippocampus
+    -   [ ] Make core models accept context of shape (batch, context length, feature length)
+    -   [ ] added different encodings to the model
+-   [ ] Language model experiment (abstraction with embedding)
+    -   [ ] Predicting finite token is easier than predicting continuous value
 -   [ ] Cart pole experiment
 -   [ ] Calculator experiment
 -   [ ] Paper topic

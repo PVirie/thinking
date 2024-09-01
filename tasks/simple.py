@@ -121,64 +121,11 @@ class Context(BaseModel):
         states = alg.State_Sequence(one_hot)
 
         graph = random_graph(graph_shape, 0.4)
-        explore_steps = 2000
+        explore_steps = 1000
         path_sequences = []
         for i in range(explore_steps):
             path = random_walk(graph, 0, graph.shape[0] - 1)
             path_sequences.append(alg.Pointer_Sequence(path))
-
-        data_skip_path = []
-        max_layers = 4
-        for p_seq in path_sequences:
-            path = states.generate_subsequence(p_seq)
-            layer_paths = []
-            for i in range(max_layers):
-                if i == max_layers - 1:
-                    pivot_indices, pivots = path.sample_skip(math.inf)
-                    layer_paths.append((path, pivot_indices, pivots))
-                else:
-                    pivot_indices, pivots = path.sample_skip(2)
-                    layer_paths.append((path, pivot_indices, pivots))
-                path = pivots
-            data_skip_path.append(layer_paths)
-
-
-        for datum in data_skip_path:
-            path = datum[-1][0]
-            print("-", jax.numpy.argmax(path.data, axis=1))
-            pivots = datum[-1][2]
-            print(">", jax.numpy.argmax(pivots.data, axis=1))
-
-
-        # abstractor = abstraction.Model(stat_linear.Model(32, graph_shape))
-
-        # logging.info(f"Learning abstraction")
-        # num_epoch = 10000
-        # stamp = time.time()
-        # for i in range(num_epoch):
-        #     p_seq = path_sequences[i % len(path_sequences)]
-        #     abstractor.incrementally_learn(states.generate_subsequence(p_seq))
-        #     if i % print_steps == 0 and i > 0:
-        #         # print at every 1 % progress
-        #         # compute time to finish in seconds
-        #         logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-        # logging.info(f"Total learning time {time.time() - stamp}s")
-        
-        # data_abstract_path = []
-        # max_layers = 3
-        # for p_seq in path_sequences:
-        #     path = states.generate_subsequence(p_seq)
-        #     layer_paths = []
-        #     for i in range(max_layers):
-        #         if i == max_layers - 1:
-        #             pivot_indices, pivots = path.sample_skip(math.inf)
-        #             layer_paths.append((path, pivot_indices, pivots))
-        #         else:
-        #             pivot_indices, pivots = abstractor.abstract_path(path)
-        #             layer_paths.append((path, pivot_indices, pivots))
-        #         path = pivots
-        #     data_abstract_path.append(layer_paths)
-
 
         def loop_train(trainers, num_epoch=1000):
             print_steps = max(1, num_epoch // 100)
@@ -192,6 +139,57 @@ class Context(BaseModel):
                     logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
                     logging.info(f"Layer loss: {', '.join([f'{trainer.avg_loss:.4f}' for trainer in trainers])}")
             logging.info(f"Total learning time {time.time() - stamp}s")
+
+
+        ############################# PREPARE STEP HIERARCHY DATA ################################
+
+        data_skip_path = []
+        max_layers = 3
+        for p_seq in path_sequences:
+            path = states.generate_subsequence(p_seq)
+            layer_paths = []
+            for i in range(max_layers):
+                if i == max_layers - 1:
+                    pivot_indices, pivots = path.sample_skip(math.inf)
+                    layer_paths.append((path, pivot_indices, pivots))
+                else:
+                    pivot_indices, pivots = path.sample_skip(2)
+                    layer_paths.append((path, pivot_indices, pivots))
+                path = pivots
+            data_skip_path.append(layer_paths)
+
+        for datum in data_skip_path:
+            path = datum[-1][0]
+            print("-", jax.numpy.argmax(path.data, axis=1))
+            pivots = datum[-1][2]
+            print(">", jax.numpy.argmax(pivots.data, axis=1))
+
+        ############################# PREPARE ENTROPIC HIERARCHY DATA ################################
+
+        abstractor = abstraction.Model(stat_linear.Model(32, graph_shape))
+
+        logging.info(f"Learning abstraction")
+
+        for p_seq in path_sequences:
+            trainer = abstractor.incrementally_learn(states.generate_subsequence(p_seq))
+        trainer.prepare_batch(64)
+
+        loop_train([trainer], 100000)
+
+        data_abstract_path = []
+        max_layers = 3
+        for p_seq in path_sequences:
+            path = states.generate_subsequence(p_seq)
+            layer_paths = []
+            for i in range(max_layers):
+                if i == max_layers - 1:
+                    pivot_indices, pivots = path.sample_skip(math.inf)
+                    layer_paths.append((path, pivot_indices, pivots))
+                else:
+                    pivot_indices, pivots = abstractor.abstract_path(path)
+                    layer_paths.append((path, pivot_indices, pivots))
+                path = pivots
+            data_abstract_path.append(layer_paths)
 
 
         parameter_sets = []
@@ -229,46 +227,42 @@ class Context(BaseModel):
             "name": name
         })
 
-        # ############################# SET 2 ################################
+        ############################# SET 2 ################################
 
-        # name = "Entropy 3 layers"
+        name = "Entropy 3 layers"
 
-        # linear_cores = []
-        # for i in range(3):
-        #     linear_core = linear.Model(graph_shape, graph_shape)
-        #     linear_cores.append(linear_core)
-
-        # cortex_models = []
-        # hippocampus_models = []
-        # for i in range(3):
-        #     c = cortex.Model(i, linear_cores[i])
-        #     cortex_models.append(c)
-
-        #     h = hippocampus.Model(graph_shape, graph_shape)
-        #     hippocampus_models.append(h)
+        cortex_models = [
+            cortex.Model(0, linear.Model(64, graph_shape)),
+            cortex.Model(1, linear.Model(64, graph_shape)),
+            cortex.Model(2, linear.Model(64, graph_shape))
+        ]
+        hippocampus_models = [
+            hippocampus.Model(graph_shape, graph_shape),
+            hippocampus.Model(graph_shape, graph_shape),
+            hippocampus.Model(graph_shape, graph_shape)
+        ]
             
+        abstraction_models = []
+        for i in range(2):
+            abstraction_models.append(abstractor)
 
-        # abstraction_models = []
-        # for i in range(2):
-        #     abstraction_models.append(abstractor)
+        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
-        # model = HUMN(cortex_models, hippocampus_models, abstraction_models)
+        logging.info(f"Training experiment {name}")
 
-        # logging.info(f"Training experiment {name}")
+        for path_tuples in data_abstract_path:
+            trainers = model.observe(path_tuples)
+        for trainer in trainers:
+            trainer.prepare_batch(64)
 
-        # for path_tuples in data_abstract_path:
-        #     trainers = model.observe(path_tuples)
-        # for trainer in trainers:
-        #     trainer.prepare_batch(64)
+        loop_train(trainers, 100000)
 
-        # loop_train(trainers, 100000)
-
-        # parameter_sets.append({
-        #     "cortex_models": cortex_models,
-        #     "hippocampus_models": hippocampus_models,
-        #     "abstraction_models": abstraction_models,
-        #     "name": name
-        # })
+        parameter_sets.append({
+            "cortex_models": cortex_models,
+            "hippocampus_models": hippocampus_models,
+            "abstraction_models": abstraction_models,
+            "name": name
+        })
 
         ############################# SET 3 ################################
 
