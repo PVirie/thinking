@@ -1,8 +1,7 @@
 """
-Linear kernel for storing and fetching versioned values
+Statistic with linear kernel from linear model for computing observation probabilities.
 Author: P.Virie
 
-This is a simple asymmetric linear model implementing with JAX.
 """
 
 import jax
@@ -21,17 +20,15 @@ except:
 
 @jax.jit
 def compute_stats(Q, K, S):
-    logit = jnp.matmul(Q, jnp.transpose(K))
-    normed_logit = jnp.linalg.norm(logit, axis=1, keepdims=True)
-    normed_S = jnp.linalg.norm(S, axis=0, keepdims=True)
-    return jnp.abs(jnp.matmul(logit, S) / (normed_logit * normed_S))
-
+    indices = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
+    P_ = jnp.matmul(indices, S)
+    return P_
 
 @jax.jit
 def compute_error(Q, K, S):
-    logit = jnp.matmul(Q, jnp.transpose(K))
-    sum_logit = jnp.transpose(jnp.mean(logit, axis=0, keepdims=True))
-    return jnp.mean((S - sum_logit) ** 2)
+    indices = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
+    P_ = jnp.matmul(indices, S)
+    return jnp.mean((1 - P_) ** 2) + jnp.mean(S**2) * 0.1
 
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(2)))
@@ -123,6 +120,6 @@ if __name__ == "__main__":
     print(model.infer(eye))
 
     for i in range(1000):
-        model.accumulate(eye)
+        model.accumulate(s)
     
     print(model.infer(eye))

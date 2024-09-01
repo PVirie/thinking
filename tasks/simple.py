@@ -17,7 +17,7 @@ from src.utilities import *
 from src.jax import algebric as alg
 from src.jax import cortex, hippocampus, abstraction
 import src.core as core
-from src.core import table, linear, transformer, stat_head, stat_linear
+from src.core import table, linear, transformer, stat_head, stat_linear, stat_table
 import jax
 
 
@@ -121,7 +121,7 @@ class Context(BaseModel):
         states = alg.State_Sequence(one_hot)
 
         graph = random_graph(graph_shape, 0.4)
-        explore_steps = 1000
+        explore_steps = 2000
         path_sequences = []
         for i in range(explore_steps):
             path = random_walk(graph, 0, graph.shape[0] - 1)
@@ -160,21 +160,23 @@ class Context(BaseModel):
 
         for datum in data_skip_path:
             path = datum[-1][0]
-            print("-", jax.numpy.argmax(path.data, axis=1))
+            logging.info("-" + str(jax.numpy.argmax(path.data, axis=1)))
             pivots = datum[-1][2]
-            print(">", jax.numpy.argmax(pivots.data, axis=1))
+            logging.info(">" + str(jax.numpy.argmax(pivots.data, axis=1)))
 
         ############################# PREPARE ENTROPIC HIERARCHY DATA ################################
 
-        abstractor = abstraction.Model(stat_linear.Model(32, graph_shape))
+        abstractor = abstraction.Model(stat_table.Model(graph_shape))
 
         logging.info(f"Learning abstraction")
 
         for p_seq in path_sequences:
             trainer = abstractor.incrementally_learn(states.generate_subsequence(p_seq))
-        trainer.prepare_batch(64)
+        # for table model, sequential update is neccessary
+        trainer.prepare_batch(1)
+        # trainer.prepare_batch(64)
 
-        loop_train([trainer], 100000)
+        loop_train([trainer], 1000)
 
         data_abstract_path = []
         max_layers = 3
@@ -191,6 +193,8 @@ class Context(BaseModel):
                 path = pivots
             data_abstract_path.append(layer_paths)
 
+        # print entropy
+        logging.info(abstractor.model.infer(states.data))
 
         parameter_sets = []
         ############################# SET 1 ################################

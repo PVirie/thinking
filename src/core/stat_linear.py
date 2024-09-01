@@ -22,7 +22,9 @@ except:
 def compute_stats(Q, params):
     K = params[0]
     S = params[1]
-    P_ = jnp.linalg.norm(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
+    indices = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
+
+    P_ = jnp.matmul(indices, S)
     return P_
 
 
@@ -31,8 +33,10 @@ def compute_error(Q, params):
     K = params[0]
     S = params[1]
 
-    P_ = compute_stats(Q, params)
-    return jnp.mean((P_ - 1) ** 2)
+    indices = jax.nn.softmax(jnp.matmul(Q, jnp.transpose(K)), axis=-1)
+    Q_ = jnp.matmul(indices, K)
+    P_ = jnp.matmul(indices, S)
+    return jnp.mean((Q - Q_) ** 2) + jnp.mean((1 - P_) ** 2) + jnp.mean(S**2) * 0.1
 
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(1)))
@@ -125,5 +129,5 @@ if __name__ == "__main__":
     print(model.infer(eye))
 
     for i in range(100):
-        model.accumulate(eye)
+        model.accumulate(s)
     print(model.infer(eye))
