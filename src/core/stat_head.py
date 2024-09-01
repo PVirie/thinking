@@ -1,3 +1,10 @@
+"""
+Linear kernel for storing and fetching versioned values
+Author: P.Virie
+
+This is a simple asymmetric linear model implementing with JAX.
+"""
+
 import jax
 import jax.random
 import jax.numpy as jnp

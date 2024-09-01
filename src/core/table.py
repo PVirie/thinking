@@ -1,3 +1,9 @@
+"""
+Table model for one-hot graph only (for model checking)
+Author: P.Virie
+
+"""
+
 import jax.numpy as jnp
 import os
 

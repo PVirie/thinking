@@ -1,3 +1,9 @@
+"""
+Statistic with linear kernel for computing observation probabilities.
+Author: P.Virie
+
+"""
+
 import jax
 import jax.random
 import jax.numpy as jnp
