@@ -43,6 +43,8 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
     -   [x] Transformer kernel
 -   [x] Abstraction
     -   [x] Implement entropy abstraction
+        -   [x] Conclusion: entropy might actually increase the steps.
+        -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
 -   [ ] Hippocampus
     -   [ ] Make core models accept context of shape (batch, context length, feature length)
     -   [ ] added different encodings to the model
