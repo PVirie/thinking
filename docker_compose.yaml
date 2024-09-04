@@ -11,7 +11,7 @@ services:
             - ./artifacts/log/metric:/app/log
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
-            - ./src:/app/src
+            - ./jax_onehot:/app/jax_onehot
             - ./tasks:/app/tasks
         environment:
             - ERROR_LOG=/app/log/error.log
@@ -40,7 +40,29 @@ services:
             - ./artifacts/log/metric:/app/log
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
-            - ./src:/app/src
+            - ./jax_onehot:/app/jax_onehot
+            - ./tasks:/app/tasks
+        environment:
+            - ERROR_LOG=/app/log/error.log
+            - LOG_LEVEL=info
+            - PYTHONUNBUFFERED=TRUE
+            - TF_CPP_MIN_LOG_LEVEL=0
+        ports:
+            - "127.0.0.1:5678:5678"
+        networks:
+            - app_network
+    api-call:
+        profiles: ["api-call"]
+        build:
+            dockerfile: ./Dockerfile.pure_python
+            context: .
+        container_name: thinking-api-call
+        restart: no
+        volumes:
+            - ./artifacts/log/metric:/app/log
+            - ./artifacts/experiments:/app/experiments
+            - ./humn:/app/humn
+            - ./llm:/app/llm
             - ./tasks:/app/tasks
         environment:
             - ERROR_LOG=/app/log/error.log

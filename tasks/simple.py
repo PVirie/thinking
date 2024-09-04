@@ -13,11 +13,11 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from src.utilities import *
-from src.jax import algebric as alg
-from src.jax import cortex, hippocampus, abstraction
-import src.core as core
-from src.core import table, linear, transformer, stat_head, stat_linear, stat_table
+from jax_onehot.utilities import *
+from jax_onehot.src import algebric as alg
+from jax_onehot.src import cortex, hippocampus, abstraction
+import jax_onehot.core as core
+from jax_onehot.core import table, linear, transformer, stat_head, stat_linear, stat_table
 import jax
 
 

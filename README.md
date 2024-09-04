@@ -47,12 +47,14 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
     -   [x] Implement entropy abstraction
         -   [x] Conclusion: entropy might actually increase the steps.
         -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
+-   [ ] Language model experiment (abstraction with embedding)
+    -   [ ] Implement language model core (without training only inference)
+    -   [ ] Hypothesis: predicting finite token is easier than predicting continuous value
 -   [ ] Hippocampus
     -   [ ] Make core models accept context of shape (batch, context length, feature length)
     -   [ ] added different encodings to the model
--   [ ] Language model experiment (abstraction with embedding)
-    -   [ ] Predicting finite token is easier than predicting continuous value
--   [ ] Cart pole experiment
--   [ ] Calculator experiment
+    -   [ ] Experiment with hippocampus
+-   [ ] RL experiment
+    -   [ ] Cart pole experiment
 -   [ ] Paper topic
     -   [ ] Versioning learning with asymmetric update
