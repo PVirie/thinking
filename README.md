@@ -28,6 +28,8 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
     -   launch `Python - Current file clear` configuration to clear weights.
     -   launch `Python - Current file in gpu docker` configuration.
     -   launch `Python - Current file in cpu docker` for no gpu environment.
+-   Running on windows
+    -   The relative path in windows that passes to docker has invalid path separator. Using POSIX path separator when passing `{path to file}` parameter when running `run_manual.sh` script. Or simply create a new configuration in `.vscode/launch.json` that fixed the file you want to run with the POSIX path separator.
 
 ## To do
 
