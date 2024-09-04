@@ -16,7 +16,7 @@ except:
 class Model(base.Model):
 
     def __init__(self, dims):
-        super().__init__("model", "table")
+        super().__init__("stat", "table")
 
         self.input_dims = dims
         # make [[1, 0, 0], [0, 1, 0], [0, 0, 1]]

@@ -7,8 +7,12 @@
             "preLaunchTask": "Current file: clear",
             "pathMappings": [
                 {
-                    "localRoot": "${workspaceFolder}/src",
-                    "remoteRoot": "/app/src"
+                    "localRoot": "${workspaceFolder}/jax_onehot",
+                    "remoteRoot": "/app/jax_onehot"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/llm",
+                    "remoteRoot": "/app/llm"
                 },
                 {
                     "localRoot": "${workspaceFolder}/humn",
@@ -31,8 +35,12 @@
             "preLaunchTask": "Current file: gpu",
             "pathMappings": [
                 {
-                    "localRoot": "${workspaceFolder}/src",
-                    "remoteRoot": "/app/src"
+                    "localRoot": "${workspaceFolder}/jax_onehot",
+                    "remoteRoot": "/app/jax_onehot"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/llm",
+                    "remoteRoot": "/app/llm"
                 },
                 {
                     "localRoot": "${workspaceFolder}/humn",
@@ -55,8 +63,12 @@
             "preLaunchTask": "Current file: cpu",
             "pathMappings": [
                 {
-                    "localRoot": "${workspaceFolder}/src",
-                    "remoteRoot": "/app/src"
+                    "localRoot": "${workspaceFolder}/jax_onehot",
+                    "remoteRoot": "/app/jax_onehot"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/llm",
+                    "remoteRoot": "/app/llm"
                 },
                 {
                     "localRoot": "${workspaceFolder}/humn",
