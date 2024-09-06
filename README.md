@@ -7,13 +7,6 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
 | 44      | **Hippocampal Augmented**               | Use hippocampus for tagging                                                                          |
 | 43      | Recursive sub-action inference          | Infer sub-actions instead of states                                                                  |
 | 42      | Guided Non-deterministic Turing Machine | Use hippocampus neighboring and superpositional sum to bypass the requirement for negative examples. |
-| 41      | Freewill                                | Control actions                                                                                      |
-| 39(2)   | Discretum                               | Hippocampus + heuristic                                                                              |
-| 40      | Knapsack                                | Use knapsack generalization, th basic idea is the concept of property.                               |
-| 38      | Subprobability                          | argmax x given s where x is a neighbor of s                                                          |
-| 37      | Functional variational                  | Generalize neighbor distribution                                                                     |
-| 36      | Gaussian variational                    | Gaussian neighbor distribution                                                                       |
-| 35      | The fundamental model                   | Hierarchical Uncertainty Minimization across Network                                                 |
 
 ## Prerequisites
 
@@ -49,11 +42,12 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
         -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
 -   [ ] Language model experiment (abstraction with embedding)
     -   [ ] Implement language model core (without training only inference)
+    -   [ ] Linear embedding transformation kernel
+    -   [ ] Evaluate LLM vs HUMN augmented LLM
     -   [ ] Hypothesis: predicting finite token is easier than predicting continuous value
 -   [ ] Hippocampus
-    -   [ ] Make core models accept context of shape (batch, context length, feature length)
     -   [ ] added different encodings to the model
-    -   [ ] Experiment with hippocampus
+    -   [ ] Experiment with hippocampus: Tree based position encoding
 -   [ ] RL experiment
     -   [ ] Cart pole experiment
 -   [ ] Paper topic
