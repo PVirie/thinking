@@ -6,4 +6,5 @@ clu
 debugpy
 # llm
 openai
-transformers
+sentencepiece
+transformers==4.44.2
