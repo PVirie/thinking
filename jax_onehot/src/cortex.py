@@ -13,10 +13,10 @@ except:
     from algebric import *
 
 try:
-    from .. import core
+    import core
 except:
     import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+    sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
     import core
 
 

@@ -7,6 +7,10 @@
             "preLaunchTask": "Current file: clear",
             "pathMappings": [
                 {
+                    "localRoot": "${workspaceFolder}/core",
+                    "remoteRoot": "/app/core"
+                },
+                {
                     "localRoot": "${workspaceFolder}/jax_onehot",
                     "remoteRoot": "/app/jax_onehot"
                 },
@@ -35,6 +39,10 @@
             "preLaunchTask": "Current file: gpu",
             "pathMappings": [
                 {
+                    "localRoot": "${workspaceFolder}/core",
+                    "remoteRoot": "/app/core"
+                },
+                {
                     "localRoot": "${workspaceFolder}/jax_onehot",
                     "remoteRoot": "/app/jax_onehot"
                 },
@@ -62,6 +70,10 @@
             "request": "attach",
             "preLaunchTask": "Current file: cpu",
             "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/core",
+                    "remoteRoot": "/app/core"
+                },
                 {
                     "localRoot": "${workspaceFolder}/jax_onehot",
                     "remoteRoot": "/app/jax_onehot"

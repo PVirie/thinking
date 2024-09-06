@@ -11,6 +11,7 @@ services:
             - ./artifacts/log/metric:/app/log
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
+            - ./core:/app/core
             - ./jax_onehot:/app/jax_onehot
             - ./tasks:/app/tasks
         environment:
@@ -40,6 +41,7 @@ services:
             - ./artifacts/log/metric:/app/log
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
+            - ./core:/app/core
             - ./jax_onehot:/app/jax_onehot
             - ./tasks:/app/tasks
         environment:
@@ -62,6 +64,7 @@ services:
             - ./artifacts/log/metric:/app/log
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
+            - ./core:/app/core
             - ./llm:/app/llm
             - ./tasks:/app/tasks
         environment:

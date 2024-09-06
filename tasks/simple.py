@@ -16,8 +16,8 @@ from humn import *
 from jax_onehot.utilities import *
 from jax_onehot.src import algebric as alg
 from jax_onehot.src import cortex, hippocampus, abstraction
-import jax_onehot.core as core
-from jax_onehot.core import table, linear, transformer, stat_head, stat_linear, stat_table
+import core
+from core import table, linear, transformer, stat_head, stat_linear, stat_table
 import jax
 
 

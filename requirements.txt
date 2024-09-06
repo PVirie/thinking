@@ -1,10 +1,9 @@
 git+https://github.com/pvirie/array2gif.git#egg=array2gif
-aiohttp==3.8.4
-fastapi==0.96.0
-pydantic==1.10.8
-uvicorn==0.22.0
-loguru==0.7.0
+pydantic
 numpy
 flax
 clu
 debugpy
+# llm
+openai
+transformers
