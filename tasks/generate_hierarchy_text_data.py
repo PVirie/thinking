@@ -17,17 +17,22 @@ print(jax.devices())
 # tokenizer = LlamaTokenizer.from_pretrained("/app/cache/Meta-Llama-3-8B")
 # model = FlaxLlamaForCausalLM.from_pretrained("/app/cache/Meta-Llama-3-8B")
 
-from transformers import AutoTokenizer, FlaxGemmaForCausalLM
+# from transformers import AutoTokenizer, FlaxGemmaForCausalLM
 
-tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b")
-model = FlaxGemmaForCausalLM.from_pretrained("google/gemma-2b")
+# tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b")
+# model = FlaxGemmaForCausalLM.from_pretrained("google/gemma-2b")
 
 # from transformers import AutoTokenizer, FlaxMistralForCausalLM
 
-# tokenizer = AutoTokenizer.from_pretrained("ksmcg/Mistral-tiny")
-# model = FlaxMistralForCausalLM.from_pretrained("ksmcg/Mistral-tiny")
+# tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
+# model = FlaxMistralForCausalLM.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
 
-inputs = tokenizer("Hello, my dog is cute", return_tensors="jax")
+from transformers import AutoTokenizer, FlaxGPTNeoForCausalLM
+
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
+model = FlaxGPTNeoForCausalLM.from_pretrained("EleutherAI/gpt-neo-1.3B")
+
+inputs = tokenizer("In order to build the advanced circuit in factorio, you must first", return_tensors="jax")
 
 for i in range(10):
     outputs = model(**inputs)
