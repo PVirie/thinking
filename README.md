@@ -13,17 +13,27 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
 -   install [docker-ce](https://www.linode.com/docs/guides/installing-and-using-docker-on-ubuntu-and-debian/)
 -   (Optional) install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#getting-started)
 -   adding user to docker group `sudo usermod -aG docker $USER`
--   create `secrets.env` file to install neccessary tokens (Huggingface, OpenAI, etc.)
+-   create `secrets.env` file to install neccessary tokens (Huggingface, OpenAI, etc.) (See the running section for more details.)
 
 ## Run experiments
 
--   `./run_manual.sh {path to file}` The program will automatically random graph and train the parameter. If you want to retrain the parameter, you can run simply delete the weight direction in `./artifacts`.
+### General execution
+
+-   `./run_manual.sh {path to file}` The program will execute the python file with gpu.
 -   For VSCode,
-    -   launch `Python - Current file clear` configuration to clear weights.
-    -   launch `Python - Current file in gpu docker` configuration.
-    -   launch `Python - Current file in cpu docker` for no gpu environment.
+    -   launch `Python - Current file clear` configuration to clear weights depending on how it handle in the file you want to run.
+    -   launch `Python - Current file in gpu docker` for jax in gpu environment.
+    -   launch `Python - Current file in cpu docker` for jax in cpu environment.
+    -   launch `Python - Current file in cpu docker with torch` for torch in cpu environment
 -   Running on windows
     -   The relative path in windows that passes to docker has invalid path separator. Using POSIX path separator when passing `{path to file}` parameter when running `run_manual.sh` script. Or simply create a new configuration in `.vscode/launch.json` that fixed the file you want to run with the POSIX path separator.
+
+| Experiment     | Task              | File                  | Description                                                                            | Valid configs    | Required envs               |
+| -------------- | ----------------- | --------------------- | -------------------------------------------------------------------------------------- | ---------------- | --------------------------- |
+| Simple graph   | Train and test    | `tasks/simple.py`     | Train the model to learn simple graph tasks.                                           | jax-gpu, jax-cpu | -                           |
+|                | Clear weight      |                       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | jax-gpu, jax-cpu | -                           |
+| Language model | Prepare and train | `tasks/lm_prepare.py` | Train the language model hierarchical guide model.                                     | jax-gpu, jax-cpu | export OPENAI_API_KEY="..." |
+|                | Interpret         | `tasks/lm_interpret`  | Print out the text generation.                                                         | torch-cpu        | -                           |
 
 ## To do
 
@@ -33,6 +43,7 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
     -   [x] Entropic abstraction
     -   [x] Parallelize layers
     -   [x] Use asymmetric gradient update to keep track of the best so far
+    -   [ ] Hypothesis: reset context after each goal will reduce the complexity of the model?
 -   [x] Enhancement
     -   [x] jax enhance: use jit (remove if else in training functions)
     -   [x] Use optax
@@ -42,8 +53,9 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
         -   [x] Conclusion: entropy might actually increase the steps.
         -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
 -   [ ] Language model experiment (abstraction with embedding)
-    -   [ ] Implement language model core (without training only inference)
+    -   [ ] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [ ] Linear embedding transformation kernel
+    -   [ ] Reset context after each goal change
     -   [ ] Evaluate LLM vs HUMN augmented LLM
     -   [ ] Hypothesis: predicting finite token is easier than predicting continuous value
 -   [ ] Hippocampus
