@@ -1,7 +1,7 @@
 version: "3"
 services:
-    main-gpu:
-        profiles: ["gpu"]
+    jax-gpu-service:
+        profiles: ["jax-gpu"]
         build:
             dockerfile: ./Dockerfile
             context: .
@@ -33,8 +33,8 @@ services:
                         - driver: nvidia
                           count: 1
                           capabilities: [gpu]
-    main:
-        profiles: ["cpu"]
+    jax-cpu-service:
+        profiles: ["jax-cpu"]
         build:
             dockerfile: ./Dockerfile.nogpu
             context: .
@@ -59,7 +59,7 @@ services:
             - "127.0.0.1:5678:5678"
         networks:
             - app_network
-    api-call:
+    api-call-service:
         profiles: ["api-call"]
         build:
             dockerfile: ./Dockerfile.pure_python
@@ -82,10 +82,10 @@ services:
         env_file:
             - ./secrets.env
         ports:
-            - "127.0.0.1:5679:5678"
+            - "127.0.0.1:5678:5678"
         networks:
             - app_network
-    torch-cpu:
+    torch-cpu-service:
         profiles: ["torch-cpu"]
         build:
             dockerfile: ./Dockerfile.nogpu_torch
@@ -108,7 +108,7 @@ services:
         env_file:
             - ./secrets.env
         ports:
-            - "127.0.0.1:5680:5678"
+            - "127.0.0.1:5678:5678"
         networks:
             - app_network
 networks:

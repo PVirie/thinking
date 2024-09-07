@@ -1,7 +1,7 @@
 {
     "configurations": [
         {
-            "name": "Python - Current file clear",
+            "name": "Jax - Current file clear",
             "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "Current file: clear",
@@ -33,7 +33,7 @@
             }
         },
         {
-            "name": "Python - Current file in gpu docker",
+            "name": "Jax - Current file in gpu docker",
             "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "Current file: gpu",
@@ -65,10 +65,42 @@
             }
         },
         {
-            "name": "Python - Current file in cpu docker",
+            "name": "Jax - Current file in cpu docker",
             "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "Current file: cpu",
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/core",
+                    "remoteRoot": "/app/core"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/jax_onehot",
+                    "remoteRoot": "/app/jax_onehot"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/llm",
+                    "remoteRoot": "/app/llm"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/humn",
+                    "remoteRoot": "/app/humn"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/tasks",
+                    "remoteRoot": "/app/tasks"
+                }
+            ],
+            "connect": {
+                "host": "127.0.0.1",
+                "port": 5678
+            }
+        },
+        {
+            "name": "Pytorch - Current file in cpu docker",
+            "type": "debugpy",
+            "request": "attach",
+            "preLaunchTask": "Current file: torch-cpu",
             "pathMappings": [
                 {
                     "localRoot": "${workspaceFolder}/core",

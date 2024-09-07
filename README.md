@@ -14,6 +14,11 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
 -   (Optional) install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#getting-started)
 -   adding user to docker group `sudo usermod -aG docker $USER`
 -   create `secrets.env` file to install neccessary tokens (Huggingface, OpenAI, etc.) (See the running section for more details.)
+    ```
+    export VARIABLE_NAME_1="VARIABLE_VALUE"
+    export VARIABLE_NAME_2="VARIABLE_VALUE"
+    ...
+    ```
 
 ## Run experiments
 
@@ -21,19 +26,19 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
 
 -   `./run_manual.sh {path to file}` The program will execute the python file with gpu.
 -   For VSCode,
-    -   launch `Python - Current file clear` configuration to clear weights depending on how it handle in the file you want to run.
-    -   launch `Python - Current file in gpu docker` for jax in gpu environment.
-    -   launch `Python - Current file in cpu docker` for jax in cpu environment.
-    -   launch `Python - Current file in cpu docker with torch` for torch in cpu environment
+    -   launch `Jax - Current file clear` configuration to clear weights depending on how it handle in the file you want to run.
+    -   launch `Jax - Current file in gpu docker` for jax in gpu environment.
+    -   launch `Jax - Current file in cpu docker` for jax in cpu environment.
+    -   launch `Pytorch - Current file in cpu docker` for torch in cpu environment
 -   Running on windows
     -   The relative path in windows that passes to docker has invalid path separator. Using POSIX path separator when passing `{path to file}` parameter when running `run_manual.sh` script. Or simply create a new configuration in `.vscode/launch.json` that fixed the file you want to run with the POSIX path separator.
 
-| Experiment     | Task              | File                  | Description                                                                            | Valid configs    | Required envs               |
-| -------------- | ----------------- | --------------------- | -------------------------------------------------------------------------------------- | ---------------- | --------------------------- |
-| Simple graph   | Train and test    | `tasks/simple.py`     | Train the model to learn simple graph tasks.                                           | jax-gpu, jax-cpu | -                           |
-|                | Clear weight      |                       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | jax-gpu, jax-cpu | -                           |
-| Language model | Prepare and train | `tasks/lm_prepare.py` | Train the language model hierarchical guide model.                                     | jax-gpu, jax-cpu | export OPENAI_API_KEY="..." |
-|                | Interpret         | `tasks/lm_interpret`  | Print out the text generation.                                                         | torch-cpu        | -                           |
+| Experiment     | Task              | File                  | Description                                                                            | Valid configs    | Required envs            |
+| -------------- | ----------------- | --------------------- | -------------------------------------------------------------------------------------- | ---------------- | ------------------------ |
+| Simple graph   | Train and test    | `tasks/simple.py`     | Train the model to learn simple graph tasks.                                           | jax-gpu, jax-cpu | -                        |
+|                | Clear weight      |                       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | jax-gpu, jax-cpu | -                        |
+| Language model | Prepare and train | `tasks/lm_prepare.py` | Train the language model hierarchical guide model.                                     | jax-gpu, jax-cpu | OPENAI_API_KEY, HF_TOKEN |
+|                | Interpret         | `tasks/lm_interpret`  | Print out the text generation.                                                         | torch-cpu        | HF_TOKEN                 |
 
 ## To do
 
