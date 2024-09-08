@@ -10,9 +10,17 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
 
 ## Prerequisites
 
--   install [docker-ce](https://www.linode.com/docs/guides/installing-and-using-docker-on-ubuntu-and-debian/)
--   (Optional gpu) install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
--   adding user to docker group `sudo usermod -aG docker $USER`
+I have all OSs (Linux, Windows, Mac) in my possession, so I will try to make it work on all of them as far as I can. If you have any issues, please let me know.
+
+-   install docker
+    -   Linux, please follow [docker-ce](https://www.linode.com/docs/guides/installing-and-using-docker-on-ubuntu-and-debian/)
+    -   Linux, also add your user to docker group `sudo usermod -aG docker $USER`
+    -   Windows and Mac, please install [Docker Desktop](https://www.docker.com/products/docker-desktop)
+-   gpu support (Optional)
+    -   Nvidia driver version 560.xx or higher (for CUDA 12.6.1+)
+    -   Linux, install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+    -   Windows, for some reasons windows automatically works off the box, Kudos!
+    -   Mac, no support yet, but Mac cpu silicons are already great.
 -   create `secrets.env` file to install neccessary tokens (Huggingface, OpenAI, etc.) (See the running section for more details.)
     ```
     export VARIABLE_NAME_1="VARIABLE_VALUE"
@@ -21,8 +29,6 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
     ```
 
 ## Run experiments
-
-### General execution
 
 -   `./run_manual.sh {path to file} {configuration}` The program will execute the python file with the selected configuration.
 -   For VSCode,
@@ -59,7 +65,7 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
         -   [x] Conclusion: entropy might actually increase the steps.
         -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
 -   [ ] Language model experiment (abstraction with embedding)
-    -   [ ] Implement torch docker for lowest language model layer and use Think mode for higher layers
+    -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [ ] Linear embedding transformation kernel
     -   [ ] Reset context after each goal change
     -   [ ] Evaluate LLM vs HUMN augmented LLM
