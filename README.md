@@ -11,7 +11,7 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
 ## Prerequisites
 
 -   install [docker-ce](https://www.linode.com/docs/guides/installing-and-using-docker-on-ubuntu-and-debian/)
--   (Optional) install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#getting-started)
+-   (Optional gpu) install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 -   adding user to docker group `sudo usermod -aG docker $USER`
 -   create `secrets.env` file to install neccessary tokens (Huggingface, OpenAI, etc.) (See the running section for more details.)
     ```
