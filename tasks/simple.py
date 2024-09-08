@@ -10,10 +10,11 @@ from functools import partial
 import argparse
 import sys
 
+from utilities import *
+
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from jax_onehot.utilities import *
 from jax_onehot.src import algebric as alg
 from jax_onehot.src import cortex, hippocampus, abstraction
 import core
