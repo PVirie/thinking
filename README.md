@@ -10,7 +10,9 @@ An implementation of heuristically uncertainty minimization along networks (HUMN
 
 ## Prerequisites
 
-I have all OSs (Linux, Windows, Mac) in my possession, so I will try to make it work on all of them as far as I can. If you have any issues, please let me know.
+I have all OSs (Linux, Windows, Mac) in my possession, so I will try to make it work on all of them as far as I can.
+But I would recommend using Linux for the best experience.
+If you have any issues, please let me know.
 
 -   install docker
     -   Linux, please follow [docker-ce](https://www.linode.com/docs/guides/installing-and-using-docker-on-ubuntu-and-debian/)
@@ -19,7 +21,7 @@ I have all OSs (Linux, Windows, Mac) in my possession, so I will try to make it 
 -   gpu support (Optional)
     -   Nvidia driver version 560.xx or higher (for CUDA 12.6.1+)
     -   Linux, install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-    -   Windows, for some reasons windows automatically works off the box, Kudos!
+    -   Windows, follow [this guide](https://docs.docker.com/desktop/gpu/) to enable gpu support in docker desktop.
     -   Mac, no support yet, but Mac cpu silicons are already great.
 -   create `secrets.env` file to install neccessary tokens (Huggingface, OpenAI, etc.) (See the running section for more details.)
     ```
