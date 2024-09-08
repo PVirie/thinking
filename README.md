@@ -19,7 +19,7 @@ If you have any issues, please let me know.
     -   Linux, also add your user to docker group `sudo usermod -aG docker $USER`
     -   Windows and Mac, please install [Docker Desktop](https://www.docker.com/products/docker-desktop)
 -   gpu support (Optional)
-    -   Nvidia driver version 560.xx or higher (for CUDA 12.6.1+)
+    -   Nvidia driver version 555.xx or higher (for CUDA 12.5.1+)
     -   Linux, install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
     -   Windows, follow [this guide](https://docs.docker.com/desktop/gpu/) to enable gpu support in docker desktop.
     -   Mac, no support yet, but Mac cpu silicons are already great.
