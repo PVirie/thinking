@@ -163,10 +163,6 @@ class TrainState(train_state.TrainState):
   dropout_key: jax.Array
 
 
-@jax.vmap
-def mse_loss(logit, label, masks):
-    return ((logit - label) ** 2) * masks
-
 
 def loss_fn(params, encoder_input, decoder_input, labels, masks, state, dropout_train_key):
     logits = state.apply_fn(
@@ -174,7 +170,7 @@ def loss_fn(params, encoder_input, decoder_input, labels, masks, state, dropout_
         encoder_input,
         decoder_input, 
         rngs={'dropout': dropout_train_key})
-    loss = jnp.mean(mse_loss(logits, labels, masks))
+    loss = jnp.mean(((logits - labels) ** 2) * masks)
     return loss
 
 jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)))
@@ -188,35 +184,29 @@ def train_step(state, encoder_input, decoder_input, labels, masks, dropout_key):
 
 class Model(base.Model):
 
-    def __init__(self, input_dims, num_heads = None, hidden_dims = None, lr=1e-4, epoch_size=1):
+    def __init__(self, layers, input_dims, lr=1e-4):
         super().__init__("model", "transformer")
 
         rng = jax.random.key(42)
         self.rng, self.dropout_rng = jax.random.split(rng)
         self.input_dims = input_dims
-        if num_heads is None:
-            num_heads = input_dims
-        if hidden_dims is None:
-            hidden_dims = input_dims
-        self.num_heads = num_heads
-        self.hidden_dims = hidden_dims
-        self.model = StackedTransformer(layers=[(num_heads, hidden_dims), (num_heads, hidden_dims)], output_dim=input_dims, training=True)
-        self.predict_model = StackedTransformer(layers=[(num_heads, hidden_dims), (num_heads, hidden_dims)], output_dim=input_dims, training=False)
+        self.layers = layers
+        self.model = StackedTransformer(layers=layers, output_dim=input_dims, training=True)
+        self.predict_model = StackedTransformer(layers=layers, output_dim=input_dims, training=False)
 
-        self.epoch_size = epoch_size
-        self.learning_rate = lr
-        self.momentum = 0.9
         variables = self.model.init(
             {'params': self.rng, 'dropout': self.dropout_rng}, 
             jnp.empty((1, input_dims), jnp.float32), 
             jnp.empty((1, input_dims), jnp.float32)
         )
-        tx = optax.sgd(self.learning_rate, self.momentum)
+
+        self.learning_rate = lr
+        self.momentum = 0.9
 
         self.state = TrainState.create(
             apply_fn=self.model.apply, 
             params=variables["params"], 
-            tx=tx,
+            tx=optax.adamw(self.learning_rate),
             metrics=Metrics.empty(), 
             dropout_key=self.dropout_rng
         )
@@ -227,10 +217,8 @@ class Model(base.Model):
             "class_type": self.class_type,
             "class_name": self.class_name,
             "input_dims": self.input_dims,
-            "num_heads": self.num_heads,
-            "hidden_dims": self.hidden_dims,
+            "layers": self.layers,
             "lr": self.learning_rate,
-            "epoch_size": self.epoch_size
         }
 
 
@@ -248,23 +236,20 @@ class Model(base.Model):
         # logging.info(serialization.to_state_dict(self.state))
 
 
-    def fit(self, s, x, t, scores, masks=None, context=None):
+    def fit(self, s, x, t, scores, masks, context=None):
         # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
 
         s = jnp.reshape(s, (-1, self.input_dims))
         t = jnp.reshape(t, (-1, self.input_dims))
         x = jnp.reshape(x, (-1, self.input_dims))
 
-        if masks is None:
-            masks = jnp.ones([s.shape[0], 1], jnp.float32) * jnp.reshape(scores, (-1, 1))
-        else:
-            masks = jnp.reshape(masks, (-1, 1)) * jnp.reshape(scores, (-1, 1))
+        scores = jnp.reshape(scores, (-1, 1))
+        masks = jnp.reshape(masks, (-1, 1))
 
-        for i in range(self.epoch_size):
-            self.state, loss = train_step(self.state, t, s, x, masks, self.state.dropout_key)
+        self.state, loss = train_step(self.state, t, s, x, masks, self.state.dropout_key)
 
         self.is_updated = True
-        return 1.0
+        return loss
 
 
     def infer(self, s, t, context=None):
@@ -277,7 +262,7 @@ class Model(base.Model):
         logits = self.predict_model.apply(
             {
                 'params': self.state.params,
-            }, 
+            },
             t, 
             s,
             mutable=False, 
@@ -292,21 +277,16 @@ class Model(base.Model):
 
 
 if __name__ == "__main__":
-    
-    model = Model(input_dims=4, lr=0.01, epoch_size=10)
+    model = Model([(4, 4), (4, 4)], 4, 0.01)
 
     eye = jnp.eye(4, dtype=jnp.float32)
-    s = jnp.array([eye[0, :], eye[1, :]])
-    x = jnp.array([eye[1, :], eye[2, :]])
-    t = jnp.array([eye[3, :], eye[3, :]])
+    s = jnp.array([eye[0, :], eye[1, :], eye[0, :], eye[1, :]])
+    x = jnp.array([eye[1, :], eye[2, :], eye[2, :], eye[0, :]])
+    t = jnp.array([eye[3, :], eye[3, :], eye[3, :], eye[3, :]])
 
-    loss = model.fit(s, x, t, jnp.array([1, 0]))
-    value, score = model.infer(s, t)
-    print("Loss:", loss)
-    print("Score:", score)
-    print("Value:", value)
-    
-    loss = model.fit(s, x, t, jnp.array([0, 1]))
+    for i in range(1000):
+        loss = model.fit(s, x, t, jnp.array([0.9, 0.9, 0.5, 0.5]), 1.0)
+
     value, score = model.infer(s, t)
     print("Loss:", loss)
     print("Score:", score)
