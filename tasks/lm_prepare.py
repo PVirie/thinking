@@ -4,8 +4,14 @@ import argparse
 import json
 from pydantic import BaseModel
 from openai import OpenAI
+import torch
 import os
 os.environ['HF_HOME'] = '/app/cache/'
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
+tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
 
 # use gpt-4o to generate text data
 # use selected lm to token and embed text data
@@ -36,6 +42,15 @@ def get_chat_response(session, query_message:str):
         max_tokens=1000,
     )
     return response.choices[0].message.content
+
+
+def get_text_embedding_with_lm(text:str):
+    # using average pooling to get the embedding from the last hidden state
+    input_ids = tokenizer(text, return_tensors="pt").input_ids
+    with torch.no_grad():
+        outputs = model(input_ids)
+    last_hidden_state = outputs.last_hidden_state
+    return last_hidden_state.mean(dim=1).squeeze().tolist()
 
 
 class Context(BaseModel):
