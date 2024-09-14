@@ -6,11 +6,10 @@ import json
 from typing import List, Any
 import jax.numpy
 from pydantic import BaseModel
-from functools import partial
 import argparse
 import sys
 
-from utilities import *
+from utilities.utilities import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
