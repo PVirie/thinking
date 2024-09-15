@@ -63,18 +63,7 @@ def method_2(text):
 class Model(base.Model):
     
     def get_chat_response(session, query_message:str):
-        messages = [
-            {
-                "role": "system",
-                "content": "You are a factorio expert to help guiding me create a factory. Please tell me how to get what I want step by step. No description, just steps. Make sure that each step is separated by a line break.",
-            },
-            {
-                "role": "user",
-                "content": query_message
-            }
-        ]
-        inputs = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt")
-
+        inputs = tokenizer(query_message, return_tensors='pt')
         outputs = model.generate(inputs, max_new_tokens=1000)
         text = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
 
@@ -99,6 +88,9 @@ class Model(base.Model):
         logits = torch.matmul(all_token_embeddings, target_embeddings)
         self.vocab_embedding_heuristic_score = logits
 
+    def reset_vocab_embedding_heuristic_score(self):
+        self.vocab_embedding_heuristic_score = torch.zeros(model.config.vocab_size)
+
 
     def get_best_next_token(self, text:str):
         # retrieve token score
@@ -107,28 +99,72 @@ class Model(base.Model):
 
         encoded_input = tokenizer(text, return_tensors='pt')
         model_output = model(**encoded_input)
-
-
         logits = model_output.logits
-        logits = logits[0, -1, :]
+        logits = logits[0, -1, :] + 0.5 * self.vocab_embedding_heuristic_score
+
         prob = torch.softmax(logits, dim=-1)
-        scores = prob * self.vocab_embedding_heuristic_score
-        best_token_id = torch.argmax(scores)
+        best_token_id = torch.argmax(prob)
         best_token = tokenizer.decode(best_token_id)
         return best_token
     
 
+    def sample_next_token(self, text:str, temperature=1.0, top_k=40):
+        encoded_input = tokenizer(text, return_tensors='pt')
+        model_output = model(**encoded_input)
+        logits = model_output.logits
+        logits = logits[0, -1, :] + 0.1 * self.vocab_embedding_heuristic_score
+        
+        # select only top_k, keep the rest as -inf
+        values, indices = torch.topk(logits, top_k)
+        logits = torch.full_like(logits, fill_value=-float('inf'))
+        logits[indices] = values
+        
+        prob = torch.softmax(logits / temperature, dim=-1)
+
+        next_token_id = torch.multinomial(prob, num_samples=1)
+        next_token = tokenizer.decode(next_token_id)
+        return next_token
+
+
 if __name__ == "__main__":
     m = Model()
+    # print(m.get_chat_response("To start a business, this is a guideline:"))
 
-    # print(m.get_chat_response("How to build advanced circuits?"))
-    embedding = m.get_text_embedding("Check recipe first")
+    # m.reset_vocab_embedding_heuristic_score()
 
-    m.precompute_vocab_embedding_heuristic_score(embedding)
+    for i in range(10):
 
-    input = "Starting from scratch, The steps to build a factory that can produce science pack 3 are:\n"
-    for i in range(30):
-        next = m.get_best_next_token(input)
-        input += next
+        print()
+        print("============ Research ===============")
+        print()
 
-    print(input)
+        embedding = m.get_text_embedding("In general, do research before taking action. Make sure that everything is planned and calculated.")
+        m.precompute_vocab_embedding_heuristic_score(embedding)
+
+        input = "To start a business, this is a guideline:"
+        print(input)
+        for i in range(40):
+            next = m.sample_next_token(input)
+            print(next, end="")
+            input += next
+
+        with open(os.path.join("/app/log", f"research_{str(i)}.txt"), "w") as f:
+            f.write(input)
+
+
+        print()
+        print("============ Action ===============")
+        print()
+
+        embedding = m.get_text_embedding("Get to action first. Do not waste time on planning or research. Instead, learn from mistakes.")
+        m.precompute_vocab_embedding_heuristic_score(embedding)
+
+        input = "To start a business, this is a guideline:\n"
+        print(input)
+        for i in range(40):
+            next = m.sample_next_token(input)
+            print(next, end="")
+            input += next
+    
+        with open(os.path.join("/app/log", f"action_{str(i)}.txt"), "w") as f:
+            f.write(input)

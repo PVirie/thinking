@@ -8,8 +8,8 @@ services:
         container_name: thinking-gpu
         restart: no
         volumes:
-            - ./artifacts/log/metric:/app/log
-            - ./artifacts/cache/metric:/app/cache
+            - ./artifacts/log/:/app/log
+            - ./artifacts/cache:/app/cache
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
             - ./core:/app/core
@@ -41,8 +41,8 @@ services:
         container_name: thinking-cpu
         restart: no
         volumes:
-            - ./artifacts/log/metric:/app/log
-            - ./artifacts/cache/metric:/app/cache
+            - ./artifacts/log:/app/log
+            - ./artifacts/cache:/app/cache
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
             - ./core:/app/core
@@ -67,8 +67,8 @@ services:
         container_name: thinking-api-call
         restart: no
         volumes:
-            - ./artifacts/log/metric:/app/log
-            - ./artifacts/cache/metric:/app/cache
+            - ./artifacts/log:/app/log
+            - ./artifacts/cache:/app/cache
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
             - ./core:/app/core
@@ -93,8 +93,8 @@ services:
         container_name: thinking-cpu-torch
         restart: no
         volumes:
-            - ./artifacts/log/metric:/app/log
-            - ./artifacts/cache/metric:/app/cache
+            - ./artifacts/log:/app/log
+            - ./artifacts/cache:/app/cache
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
             - ./core:/app/core

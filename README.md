@@ -69,9 +69,9 @@ If you have any issues, please let me know.
 -   [ ] Language model experiment (abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [ ] Linear embedding transformation kernel
+    -   [ ] LLM Steering
     -   [ ] Reset context after each goal change
     -   [ ] Evaluate LLM vs HUMN augmented LLM
-    -   [ ] Hypothesis: predicting finite token is easier than predicting continuous value
 -   [ ] Hippocampus
     -   [ ] added different encodings to the model
     -   [ ] Experiment with hippocampus: Tree based position encoding

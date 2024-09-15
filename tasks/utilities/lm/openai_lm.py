@@ -17,14 +17,8 @@ class Model(base.Model):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a factorio expert to help guiding me create a factory. Please tell me how to get what I want step by step. No description, just steps. Make sure that each step is separated by a line break.",
+                    "content": query,
                 },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": query},
-                    ],
-                }
             ],
             max_tokens=1000,
         )
@@ -40,7 +34,7 @@ class Model(base.Model):
 if __name__ == "__main__":
     m = Model()
 
-    print(m.get_chat_response("How to build advanced circuits?"))
-    embedding = m.get_text_embedding("advanced circuits")
+    print(m.get_chat_response("To start a business, this is a guideline:")) 
+    embedding = m.get_text_embedding("In general, do research before taking action. Make sure that everything is planned and calculated.")
     # embedding is a list
     print(len(embedding))
