@@ -1,7 +1,10 @@
 from .interfaces import trainer, algebraic, cortex_model, hippocampus_model, abstraction_model
 from typing import List, Tuple, Union, Generator, Any
-import math
 
+
+# max sub step reach exception
+class MaxSubStepReached(Exception):
+    pass
 
 class HUMN:
     def __init__(self, cortex_models: List[cortex_model.Model], hippocampus_models: List[hippocampus_model.Model], abstraction_models: List[abstraction_model.Model] = [], name="HUMN model"):
@@ -73,21 +76,23 @@ class HUMN:
         return self.__sub_action_recursion(0, from_state, top_action)
 
 
-    def __generate_steps(self, i, state, target_state):
+    def __generate_steps(self, i, state, target_state, max_sub_steps):
 
         cortex = self.cortices[i]
         hippocampus = self.hippocampi[i]
 
-        while True:
-            hippocampus.append(state)
+        for step in range(max_sub_steps):
             sub_action = cortex.infer_sub_action(hippocampus.augmented_all(), target_state - state)
             state = state + sub_action
+            hippocampus.append(state)
             yield state
             if state == target_state:
-                break
+                return
+
+        raise MaxSubStepReached(f"Max sub step of {max_sub_steps} reached at layer {i}")
 
         
-    def __think_recursion(self, i, state, action):
+    def __think_recursion(self, i, state, action, max_sub_steps):
         if action.zero_length():
             return
     
@@ -95,6 +100,7 @@ class HUMN:
         hippocampus = self.hippocampi[i]
         abstractor = self.abstractors[i] if i < len(self.abstractors) else None
         
+        hippocampus.append(state)
         goal_state = state + action
         
         if i < self.depth - 1:
@@ -103,24 +109,27 @@ class HUMN:
                 nl_from_state, nl_action = abstractor.abstract(hippocampus.augmented_all(), action)
             else:
                 nl_from_state, nl_action = state, action
-            goal_generator = self.__think_recursion(i + 1, nl_from_state, nl_action)
+            goal_generator = self.__think_recursion(i + 1, nl_from_state, nl_action, max_sub_steps)
             
             while True:
                 try:
                     nl_target_state = next(goal_generator)
                 except StopIteration:
                     break
+
                 if abstractor is not None:
                     target_state = abstractor.specify(nl_target_state)
                 else:
                     target_state = nl_target_state
 
-                yield from self.__generate_steps(i, state, target_state)
-                state = target_state
+                for state in self.__generate_steps(i, state, target_state, max_sub_steps):
+                    yield state
+                    if state == goal_state:
+                        return
         
-        yield from self.__generate_steps(i, state, goal_state)
+        yield from self.__generate_steps(i, state, goal_state, max_sub_steps)
 
 
-    def think(self, from_state: algebraic.State, top_action: algebraic.Action) -> Generator[algebraic.State, None, None]:
-        return self.__think_recursion(0, from_state, top_action)
+    def think(self, from_state: algebraic.State, top_action: algebraic.Action, max_sub_steps=128) -> Generator[algebraic.State, None, None]:
+        return self.__think_recursion(0, from_state, top_action, max_sub_steps)
 

@@ -10,14 +10,10 @@ import math
 class Action(humn.algebraic.Action):
     def __init__(self, data):
         # if data is jax array, then it is already on device
-        # if isinstance(data, jnp.ndarray):
-        #     self.data = data
-        # else:
-        #     self.data = device_put(jnp.array(data, jnp.float32))
-
-        max_index = jnp.argmax(data)
-        self.data = jnp.zeros_like(data).at[max_index].set(1)
-
+        if isinstance(data, jnp.ndarray):
+            self.data = data
+        else:
+            self.data = device_put(jnp.array(data, jnp.float32))
 
     def __add__(self, s): 
         return s + self
@@ -39,16 +35,23 @@ class State(humn.algebraic.State):
 
 
     def __add__(self, a):
-        s_data = jnp.zeros_like(self.data)
+        if a.zero_length():
+            return self
+
         # State.r_key, subkey = jax.random.split(State.r_key)
         # index = jax.random.categorical(subkey, a.data)
-        index = jnp.argmax(a.data)
-        s_data = s_data.at[index].set(1)
+        max_index = jnp.argmax(a.data)
+        s_data = jnp.zeros_like(self.data).at[max_index].set(1)
         return State(s_data)
 
 
     def __sub__(self, s):
-        return Action(self.data)
+        if self == s:
+            return Action(jnp.zeros_like(self.data))
+        
+        max_index = jnp.argmax(self.data)
+        a_data = jnp.zeros_like(self.data).at[max_index].set(1)
+        return Action(a_data)
 
 
     def __eq__(self, s):
