@@ -57,6 +57,8 @@ If you have any issues, please let me know.
     -   [x] Entropic abstraction
     -   [x] Parallelize layers
     -   [x] Use asymmetric gradient update to keep track of the best so far
+    -   [x] Reset context after each goal change
+    -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction.
     -   [ ] Hypothesis: reset context after each goal will reduce the complexity of the model?
 -   [x] Enhancement
     -   [x] jax enhance: use jit (remove if else in training functions)
@@ -70,7 +72,6 @@ If you have any issues, please let me know.
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel
     -   [ ] LLM Steering
-    -   [ ] Reset context after each goal change
     -   [ ] Evaluate LLM vs HUMN augmented LLM
 -   [ ] Hippocampus
     -   [ ] added different encodings to the model

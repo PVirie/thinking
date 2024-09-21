@@ -8,6 +8,7 @@ import jax.numpy
 from pydantic import BaseModel
 import argparse
 import sys
+import math
 
 from utilities.utilities import *
 
@@ -347,7 +348,7 @@ if __name__ == "__main__":
                 
                 if think_ahead:
                     try:
-                        for p in model.think(s, t - s, max_sub_steps=16):
+                        for p in model.think(s, t - s):
                             p_i = context.states[p]
                             ps.append(p_i)
                         total_length = total_length + len(ps)

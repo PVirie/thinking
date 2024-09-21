@@ -7,7 +7,11 @@ class MaxSubStepReached(Exception):
     pass
 
 class HUMN:
-    def __init__(self, cortex_models: List[cortex_model.Model], hippocampus_models: List[hippocampus_model.Model], abstraction_models: List[abstraction_model.Model] = [], name="HUMN model"):
+    def __init__(self, 
+                 cortex_models: List[cortex_model.Model], 
+                 hippocampus_models: List[hippocampus_model.Model], 
+                 abstraction_models: List[abstraction_model.Model] = [], 
+                 name="HUMN model", reset_hippocampus_on_target_changed=True, max_sub_steps=16):
         if len(cortex_models) == 0 or len(hippocampus_models) == 0:
             raise ValueError("At least one layer is required")
         
@@ -22,6 +26,8 @@ class HUMN:
         self.abstractors = abstraction_models
 
         self.name = name
+        self.reset_hippocampus_on_target_changed = reset_hippocampus_on_target_changed
+        self.max_sub_steps = max_sub_steps
         
 
     def refresh(self):
@@ -76,23 +82,26 @@ class HUMN:
         return self.__sub_action_recursion(0, from_state, top_action)
 
 
-    def __generate_steps(self, i, state, target_state, max_sub_steps):
+    def __generate_steps(self, i, state, target_state):
 
         cortex = self.cortices[i]
         hippocampus = self.hippocampi[i]
 
-        for step in range(max_sub_steps):
+        if self.reset_hippocampus_on_target_changed:
+            hippocampus.refresh()
+
+        for step in range(self.max_sub_steps):
+            hippocampus.append(state)
             if state == target_state:
                 return
             sub_action = cortex.infer_sub_action(hippocampus.augmented_all(), target_state - state)
             state = state + sub_action
-            hippocampus.append(state)
             yield state
 
-        raise MaxSubStepReached(f"Max sub step of {max_sub_steps} reached at layer {i}")
+        raise MaxSubStepReached(f"Max sub step of {self.max_sub_steps} reached at layer {i}")
 
         
-    def __think_recursion(self, i, state, action, max_sub_steps):
+    def __think_recursion(self, i, state, action):
         if action.zero_length():
             return
     
@@ -109,7 +118,7 @@ class HUMN:
                 nl_from_state, nl_action = abstractor.abstract(hippocampus.augmented_all(), action)
             else:
                 nl_from_state, nl_action = state, action
-            goal_generator = self.__think_recursion(i + 1, nl_from_state, nl_action, max_sub_steps)
+            goal_generator = self.__think_recursion(i + 1, nl_from_state, nl_action)
             
             while True:
                 try:
@@ -122,12 +131,12 @@ class HUMN:
                 else:
                     target_state = nl_target_state
 
-                yield from self.__generate_steps(i, state, target_state, max_sub_steps)
+                yield from self.__generate_steps(i, state, target_state)
                 state = target_state
         
-        yield from self.__generate_steps(i, state, goal_state, max_sub_steps)
+        yield from self.__generate_steps(i, state, goal_state)
 
 
-    def think(self, from_state: algebraic.State, top_action: algebraic.Action, max_sub_steps=128) -> Generator[algebraic.State, None, None]:
-        return self.__think_recursion(0, from_state, top_action, max_sub_steps)
+    def think(self, from_state: algebraic.State, top_action: algebraic.Action) -> Generator[algebraic.State, None, None]:
+        return self.__think_recursion(0, from_state, top_action)
 

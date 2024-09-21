@@ -164,13 +164,17 @@ class Value_Score_Module(nn.Module):
         Vs = self.value_pathway(keys)
         Ss = self.score_pathway(keys)
 
+
         Vs = jnp.reshape(Vs, (-1, self.slots, self.output_dim))
 
         Vl = jnp.expand_dims(x, axis=2)
         denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
         dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
-        max_indices = jnp.argmax(dot_scores, axis=1)
 
+        # dot_scores has shape [batch, memory_size, 1]
+        dot_scores = jnp.reshape(dot_scores, (-1, self.slots))
+
+        max_indices = jnp.argmax(dot_scores, axis=1, keepdims=True)
         s = jnp.take_along_axis(Ss, max_indices, axis=1)
         v = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
         v = jnp.reshape(v, (-1, self.output_dim))
@@ -188,6 +192,7 @@ class Value_Score_Module_Test(Value_Score_Module):
         Vs = jnp.reshape(Vs, (-1, self.slots, self.output_dim))
 
         # Ss has shape [batch, memory_size]
+
         max_indices = jnp.argmax(Ss, axis=1, keepdims=True)
         s = jnp.take_along_axis(Ss, max_indices, axis=1)
         v = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
