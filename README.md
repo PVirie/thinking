@@ -68,7 +68,7 @@ If you have any issues, please let me know.
         -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
 -   [ ] Language model experiment (abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
-    -   [ ] Linear embedding transformation kernel
+    -   [x] Linear embedding transformation kernel
     -   [ ] LLM Steering
     -   [ ] Reset context after each goal change
     -   [ ] Evaluate LLM vs HUMN augmented LLM
