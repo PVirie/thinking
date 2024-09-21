@@ -82,12 +82,12 @@ class HUMN:
         hippocampus = self.hippocampi[i]
 
         for step in range(max_sub_steps):
+            if state == target_state:
+                return
             sub_action = cortex.infer_sub_action(hippocampus.augmented_all(), target_state - state)
             state = state + sub_action
             hippocampus.append(state)
             yield state
-            if state == target_state:
-                return
 
         raise MaxSubStepReached(f"Max sub step of {max_sub_steps} reached at layer {i}")
 
@@ -122,10 +122,8 @@ class HUMN:
                 else:
                     target_state = nl_target_state
 
-                for state in self.__generate_steps(i, state, target_state, max_sub_steps):
-                    yield state
-                    if state == goal_state:
-                        return
+                yield from self.__generate_steps(i, state, target_state, max_sub_steps)
+                state = target_state
         
         yield from self.__generate_steps(i, state, goal_state, max_sub_steps)
 

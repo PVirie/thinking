@@ -336,7 +336,7 @@ if __name__ == "__main__":
     max_steps = 40
     with experiment_session(experiment_path) as context:
 
-        def exp_loop(model, think_ahead=False):
+        def exp_loop(model, think_ahead=True):
             total_length = 0
             stamp = time.time()
             for t_i in context.goals:
