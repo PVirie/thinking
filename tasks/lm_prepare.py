@@ -27,7 +27,6 @@ from humn import *
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "lm_factorio")
 
     # 1. clear existing data
     # 2. prepare parameters
@@ -36,10 +35,6 @@ if __name__ == "__main__":
     # 5. split into hierarchy
     # 6. embedding text
     # 7. save
-
-    logging.info(f"Clearing the experiment directory: {experiment_path}")
-    empty_directory(experiment_path)
-    os.makedirs(experiment_path, exist_ok=True)
 
     item_list = [
         "Iron plate",
@@ -84,8 +79,6 @@ if __name__ == "__main__":
         "Low density structure",
         "Processing unit",
         "Utility science pack",
-        "Solid fuel",
-        "Solid fuel",
         "Solid fuel",
         "Rocket fuel",
         "Speed module",
@@ -179,6 +172,11 @@ if __name__ == "__main__":
     for item in item_list:
         vocab_embeddings.append(small_model.get_text_embedding(item).tolist())
 
+
+    experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "lm_factorio")
+    logging.info(f"Clearing the experiment directory: {experiment_path}")
+    empty_directory(experiment_path)
+    os.makedirs(experiment_path, exist_ok=True)
 
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "wb") as f:
         pickle.dump({
