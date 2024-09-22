@@ -16,6 +16,10 @@ class Model(base.Model):
             model="gpt-4o",
             messages=[
                 {
+                    "role": "system",
+                    "content": f"You are a helpful assistant. Answer the following questions using no more than {token_length} tokens. Go to the steps directly do not add any introduction.",
+                },
+                {
                     "role": "user",
                     "content": query,
                 },

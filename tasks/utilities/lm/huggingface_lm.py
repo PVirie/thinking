@@ -77,7 +77,8 @@ class Model(base.Model):
 
 
     def get_text_embedding(self, text:str):
-        return method_1(text)
+        embeddings = method_1(text)
+        return embeddings
 
 
     def precompute_vocab_embedding_heuristic_score(self, target_embeddings):
