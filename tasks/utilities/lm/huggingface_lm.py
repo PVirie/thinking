@@ -62,17 +62,23 @@ def method_2(text):
 
 class Model(base.Model):
     
-    def get_chat_response(session, query_message:str):
+    def get_chat_response(session, query_message:str, token_length:int = 1000):
         inputs = tokenizer(query_message, return_tensors='pt')
-        outputs = model.generate(inputs, max_new_tokens=1000)
+        outputs = model.generate(inputs, max_new_tokens=token_length)
         text = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
 
         return text
 
 
+    @staticmethod
+    def compute_mean_embedding(embeddings):
+        # embeddings is a list of torch tensor
+        return torch.mean(torch.stack(embeddings), dim=0)
+
+
     def get_text_embedding(self, text:str):
         return method_1(text)
-        
+
 
     def precompute_vocab_embedding_heuristic_score(self, target_embeddings):
         # get all token embeddings

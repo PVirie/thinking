@@ -4,11 +4,12 @@ import contextlib
 import random
 import json
 from typing import List, Any
-import jax.numpy
 from pydantic import BaseModel
 import argparse
 import sys
 import math
+import jax
+import jax.numpy
 
 from utilities.utilities import *
 
@@ -19,7 +20,6 @@ from jax_onehot.src import algebric as alg
 from jax_onehot.src import cortex, hippocampus, abstraction
 import core
 from core import table, linear, transformer, stat_head, stat_linear, stat_table
-import jax
 
 
 # check --clear flag (default False)

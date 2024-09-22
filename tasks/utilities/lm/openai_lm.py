@@ -11,16 +11,16 @@ openai_session = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class Model(base.Model):
     
-    def get_chat_response(self, query:str):
+    def get_chat_response(self, query:str, token_length:int = 1000):
         response = openai_session.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {
-                    "role": "system",
+                    "role": "user",
                     "content": query,
                 },
             ],
-            max_tokens=1000,
+            max_tokens=token_length,
         )
         return response.choices[0].message.content
     
