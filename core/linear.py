@@ -25,8 +25,8 @@ def query(Q, params):
     Wv_0 = params[1]
     Ws_0 = params[2]
     
-    # Q has shape [batch, dim * 2]
-    # K has shape [hidden_size, dim * 2]
+    # Q has shape [batch, dim * (context_length + 1)]
+    # K has shape [hidden_size, dim * (context_length + 1)]
     
     logit = jnp.matmul(Q, jnp.transpose(K)) / jnp.sqrt(K.shape[1])
     weights = jax.nn.softmax(logit, axis=-1)
@@ -77,10 +77,10 @@ def compute_error(Q, V, S, M, params, r_key, dim_size, memory_size, batch_size):
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4)), static_argnames=['dim_size', 'memory_size', 'batch_size'])
 
-@partial(jax.jit, static_argnames=['input_dims'])
-def make_query(s, t, input_dims):
-    batch = jnp.concatenate([s, t], axis=-1)
-    query = jnp.reshape(batch, (-1, input_dims * 2))
+@partial(jax.jit, static_argnames=['context_length', 'input_dims'])
+def make_query(s, t, context_length, input_dims):
+    batch = jnp.concatenate([jnp.reshape(s, (-1, input_dims * context_length)), t], axis=-1)
+    query = jnp.reshape(batch, (-1, input_dims * (context_length + 1)))
     return query
 
 
@@ -96,16 +96,17 @@ def train_step(optimizer, params, r_key, opt_state, query, x, scores, masks, inp
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, memory_size=16, lr=0.01, iteration=0):
+    def __init__(self, input_dims, context_length, hidden_size, memory_size=16, lr=0.01, iteration=0):
         super().__init__("model", "linear")
 
-        self.hidden_size = hidden_size
         self.input_dims = input_dims
+        self.context_length = context_length
+        self.hidden_size = hidden_size
         self.memory_size = memory_size
 
         r_key = jax.random.key(42)
         r_key, subkey = jax.random.split(r_key)
-        key = jax.random.normal(subkey, (hidden_size, input_dims * 2)) * 0.1
+        key = jax.random.normal(subkey, (hidden_size, input_dims * (context_length + 1))) * 0.1
         
         r_key, subkey = jax.random.split(r_key)
         value_0 = jax.random.normal(subkey, [hidden_size, self.memory_size * self.input_dims]) * 0.1
@@ -167,13 +168,13 @@ class Model(base.Model):
 
 
     def fit(self, s, x, t, scores, masks, context=None):
-        # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
+        # s has shape (N, context_length, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
 
         scores = jnp.reshape(scores, (-1, 1))
         masks = jnp.reshape(masks, (-1, 1))
         x = jnp.reshape(x, (-1, self.input_dims))
 
-        query = make_query(s, t, self.input_dims)
+        query = make_query(s, t, self.context_length, self.input_dims)
         batch_size = query.shape[0]
 
         loss, self.params, self.r_key, self.opt_state = train_step(self.optimizer, self.params, self.r_key, self.opt_state, query, x, scores, masks, self.input_dims, self.memory_size, batch_size)
@@ -185,9 +186,9 @@ class Model(base.Model):
 
 
     def infer(self, s, t, context=None):
-        # s has shape (N, dim), t has shape (N, dim)
+        # s has shape (N, context_length, dim), t has shape (N, dim)
 
-        query = make_query(s, t, self.input_dims)
+        query = make_query(s, t, self.context_length, self.input_dims)
         batch_size = query.shape[0]
 
         best_value, best_score = compute_value_score(query, self.params, self.input_dims, self.memory_size, batch_size)
@@ -199,7 +200,7 @@ class Model(base.Model):
 
 
 if __name__ == "__main__":
-    model = Model(16, 4, 4, 0.01, iteration=0)
+    model = Model(4, 1, 4, 16, 0.01, iteration=0)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :], eye[0, :], eye[1, :]])

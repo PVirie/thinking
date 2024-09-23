@@ -117,7 +117,10 @@ class StackedTransformer(nn.Module):
 
     @nn.compact
     def __call__(self, encoder_input, decoder_input, train):
+        # decoder_input has shape [batch, seq_len, d_model]
+        # encoder_input has shape [batch, d_model]
 
+        seq_len = decoder_input.shape[1]
         d_model = encoder_input.shape[-1] if self.d_model == -1 else self.d_model
 
         # Potentially project input to d_model size
@@ -127,12 +130,15 @@ class StackedTransformer(nn.Module):
 
         # Stack of Transformer blocks
         for num_heads, d_ff in self.layers:
+
             encoder_output = TransformerEncoderBlock(
-                d_model=d_model,
+                d_model=seq_len * d_model,
                 num_heads=num_heads,
                 d_ff=d_ff,
                 dropout_rate=self.dropout_rate
             )(encoder_input, train)
+            encoder_output = jnp.reshape(encoder_output, (-1, seq_len, d_model))
+
             decoder_input = TransformerDecoderBlock(
                 d_model=d_model,
                 num_heads=num_heads,
@@ -160,10 +166,12 @@ class Value_Score_Module(nn.Module):
 
     def __call__(self, s, x, t, scores):
         logits = self.stacked_transformer(t, s, True)
+        # take only last context
+        logits = logits[:, -1, :]
+        
         keys = jax.nn.softmax(logits, axis=1)
         Vs = self.value_pathway(keys)
         Ss = self.score_pathway(keys)
-
 
         Vs = jnp.reshape(Vs, (-1, self.slots, self.output_dim))
 
@@ -185,6 +193,9 @@ class Value_Score_Module(nn.Module):
 class Value_Score_Module_Test(Value_Score_Module):
     def __call__(self, s, t):
         logits = self.stacked_transformer(t, s, False)
+        # take only last context
+        logits = logits[:, -1, :]
+
         keys = jax.nn.softmax(logits, axis=1)
         Vs = self.value_pathway(keys)
         Ss = self.score_pathway(keys)
@@ -241,23 +252,24 @@ def train_step(state, s, x, t, scores, masks, dropout_key):
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, memory_size, layers, lr=1e-4):
+    def __init__(self, input_dims, context_length, hidden_size, layers, memory_size, lr=1e-4):
         super().__init__("model", "transformer")
 
         rng = jax.random.key(42)
         self.rng, self.dropout_rng = jax.random.split(rng)
         self.input_dims = input_dims
+        self.context_length = context_length
         self.hidden_size = hidden_size
         self.memory_size = memory_size
         self.layers = layers
 
-        stack_transformer = StackedTransformer(layers=layers, output_dim=hidden_size)
+        stack_transformer = StackedTransformer(layers=layers, d_model=input_dims, output_dim=hidden_size)
         self.train_model = Value_Score_Module(slots=memory_size, output_dim=input_dims, stacked_transformer=stack_transformer)
         self.test_model = Value_Score_Module_Test(slots=memory_size, output_dim=input_dims, stacked_transformer=stack_transformer)
 
         variables = self.train_model.init(
             {'params': self.rng, 'dropout': self.dropout_rng}, 
-            jnp.empty((1, input_dims), jnp.float32), 
+            jnp.empty((1, self.context_length, input_dims), jnp.float32), 
             jnp.empty((1, input_dims), jnp.float32),
             jnp.empty((1, input_dims), jnp.float32),
             jnp.empty((1), jnp.float32),
@@ -300,9 +312,9 @@ class Model(base.Model):
 
 
     def fit(self, s, x, t, scores, masks, context=None):
-        # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
+        # s has shape (N, context_length, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
 
-        s = jnp.reshape(s, (-1, self.input_dims))
+        s = jnp.reshape(s, (-1, self.context_length, self.input_dims))
         x = jnp.reshape(x, (-1, self.input_dims))
         t = jnp.reshape(t, (-1, self.input_dims))
 
@@ -316,9 +328,9 @@ class Model(base.Model):
 
 
     def infer(self, s, t, context=None):
-        # s has shape (N, dim), t has shape (N, dim)
+        # s has shape (N, context_length, dim), t has shape (N, dim)
         
-        s = jnp.reshape(s, (-1, self.input_dims))
+        s = jnp.reshape(s, (-1, self.context_length, self.input_dims))
         t = jnp.reshape(t, (-1, self.input_dims))
 
         best_value, best_score = self.test_model.apply(
@@ -340,7 +352,7 @@ class Model(base.Model):
 
 
 if __name__ == "__main__":
-    model = Model(16, 4, 4, [(4, 4), (4, 4)], 0.001)
+    model = Model(4, 1, 4, [(4, 4), (4, 4)], 4, 0.001)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     s = jnp.array([eye[0, :], eye[1, :], eye[0, :], eye[1, :]])
