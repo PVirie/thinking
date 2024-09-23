@@ -46,14 +46,13 @@ def train_step(optimizer, params, r_key, opt_state, query, key):
 
 class Model(base.Stat_Model):
 
-    def __init__(self, linear_core: linear.Model, lr=0.01):
+    def __init__(self, linear_core: linear.Model, lr=0.01, r_key = jax.random.key(42)):
         super().__init__("stat", "head")
 
         self.hidden_size = linear_core.hidden_size
         self.input_dims = linear_core.input_dims
         self.linear_core = linear_core
 
-        r_key = jax.random.key(42)
         stats = jnp.ones([self.hidden_size, 1], jnp.float32) / self.hidden_size
 
         self.r_key = r_key

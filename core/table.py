@@ -4,9 +4,11 @@ Author: P.Virie
 
 """
 
+import jax
 import jax.numpy as jnp
 import os
 import itertools
+from functools import partial
 
 try:
     from . import base
@@ -58,8 +60,11 @@ class Model(base.Model):
         self.value = jnp.load(os.path.join(path, "value.npy"))
     
 
-    def fit(self, s, x, t, scores, masks=1.0, context=None):
+    def fit(self, s, x, t, scores, masks=None, context=None):
         # s has shape (N, context_length, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
+
+        if masks is None:
+            masks = jnp.ones(scores.shape)
 
         scores = jnp.reshape(scores, (-1, 1))
         masks = jnp.reshape(masks, (-1, 1))
@@ -89,8 +94,34 @@ class Model(base.Model):
         return jnp.mean(score_updates)
 
 
+    def fit_sequence(self, s, t, scores, masks=None, context=None):
+        # s has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
+        # seq_len = learning_length + context_length - 1
+
+        if masks is None:
+            masks = jnp.ones(scores.shape)
+
+        # first pad with zeros
+        sp = jnp.pad(s, ((0, 0), (self.context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
+
+        # then unroll by shift and tile
+        # unrolled_s has shape (N, seq_len, context_length, dim)
+        unrolled_s = jnp.stack([sp[:, i:i + self.context_length] for i in range(sp.shape[1] - self.context_length + 1)], axis=1)
+                
+        return self.fit(
+            jnp.reshape(unrolled_s[:, :-1, :, :], (-1, self.context_length, self.input_dims)),
+            jnp.reshape(s[:, 1:, :], (-1, self.input_dims)), 
+            jnp.reshape(t[:, :-1, :], (-1, self.input_dims)), 
+            jnp.reshape(scores[:, :-1], (-1)), 
+            jnp.reshape(masks[:, :-1], (-1)), context)
+
+    
     def infer(self, s, t, context=None):
         # s has shape (N, context_length, dim), t has shape (N, dim)
+
+        if s.shape[1] != self.context_length:
+            # pad
+            s = jnp.pad(s, ((0, 0), (0, self.context_length - s.shape[1]), (0, 0)), mode='constant', constant_values=0)
 
         # for simple model only use the last state
         queries = jnp.concatenate([jnp.reshape(s, (-1, self.input_dims * self.context_length)), t], axis=-1)
@@ -111,20 +142,42 @@ class Model(base.Model):
 
 
 if __name__ == "__main__":
-    model = Model(4, 1)
+    model = Model(4, 2)
     print(model.key)
 
     eye = jnp.eye(4, dtype=jnp.float32)
-    s = jnp.array([eye[0, :], eye[1, :]])
-    x = jnp.array([eye[1, :], eye[2, :]])
+    S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
+    T = jnp.array([[eye[3, :], eye[3, :], eye[3, :], eye[3, :]]])
+    scores = jnp.array([[0.72, 0.81, 0.9, 1.0]])
+
+    for i in range(1000):
+        loss = model.fit_sequence(S, T, scores)
+
+    s = jnp.array([[eye[0, :], eye[1, :]], [eye[1, :], eye[2, :]]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
-    model.fit(s, x, t, jnp.array([1, 0]))
     value, score = model.infer(s, t)
+    print("Loss:", loss)
     print("Score:", score)
     print("Value:", value)
     
-    model.fit(s, x, t, jnp.array([0, 1]))
-    value, score = model.infer(s, t)
-    print("Score:", score)
-    print("Value:", value)
+    # s = jnp.array([[eye[0, :]]])
+    # t = jnp.array([eye[3, :]])
+
+    # value, score = model.infer(s, t)
+    # print("Loss:", loss)
+    # print("Score:", score)
+    # print("Value:", value)
+
+    # s = jnp.array([[eye[0, :], eye[1, :]], [eye[1, :], eye[2, :]]])
+    # x = jnp.array([eye[3, :], eye[0, :]])
+    # t = jnp.array([eye[2, :], eye[2, :]])
+    # scores = jnp.array([0.81, 0.9])
+
+    # for i in range(1000):
+    #     loss = model.fit(s, x, t, scores)
+
+    # value, score = model.infer(s, t)
+    # print("Loss:", loss)
+    # print("Score:", score)
+    # print("Value:", value)

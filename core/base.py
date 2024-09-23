@@ -21,7 +21,7 @@ class Persistent_Model:
 class Model(Persistent_Model):
 
 
-    def fit(self, s, x, t, scores, masks=1.0, context=None):
+    def fit(self, s, x, t, scores, masks=None, context=None):
         raise NotImplementedError()
 
     def fit_sequence(self, s, t, scores, masks=None, context=None):

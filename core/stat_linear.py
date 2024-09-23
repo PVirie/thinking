@@ -54,13 +54,12 @@ def train_step(optimizer, params, r_key, opt_state, query):
 
 class Model(base.Stat_Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.01):
+    def __init__(self, hidden_size, input_dims, lr=0.01, r_key = jax.random.key(42)):
         super().__init__("stat", "head")
 
         self.hidden_size = hidden_size
         self.input_dims = input_dims
 
-        r_key = jax.random.key(42)
         r_key, subkey = jax.random.split(r_key)
         key = jax.random.normal(subkey, (hidden_size, input_dims)) * 0.1
 
