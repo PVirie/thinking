@@ -95,8 +95,8 @@ class Model(base.Model):
         return jnp.mean(score_updates)
 
 
-    def fit_sequence(self, s, t, scores, masks=None, context=None):
-        # s has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
+    def fit_sequence(self, s, x, t, scores, masks=None, context=None):
+        # s has shape (N, seq_len, dim), x has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
         # seq_len = learning_length + context_length - 1
 
         if masks is None:
@@ -110,19 +110,21 @@ class Model(base.Model):
         unrolled_s = jnp.stack([sp[:, i:i + self.context_length] for i in range(sp.shape[1] - self.context_length + 1)], axis=1)
                 
         return self.fit(
-            jnp.reshape(unrolled_s[:, :-1, :, :], (-1, self.context_length, self.input_dims)),
-            jnp.reshape(s[:, 1:, :], (-1, self.input_dims)), 
-            jnp.reshape(t[:, :-1, :], (-1, self.input_dims)), 
-            jnp.reshape(scores[:, :-1], (-1)), 
-            jnp.reshape(masks[:, :-1], (-1)), context)
+            jnp.reshape(unrolled_s, (-1, self.context_length, self.input_dims)),
+            jnp.reshape(x, (-1, self.input_dims)), 
+            jnp.reshape(t, (-1, self.input_dims)), 
+            jnp.reshape(scores, (-1)), 
+            jnp.reshape(masks, (-1)), context)
 
     
     def infer(self, s, t, context=None):
         # s has shape (N, context_length, dim), t has shape (N, dim)
 
-        if s.shape[1] != self.context_length:
-            # pad
+        if s.shape[1] < self.context_length:
+            # pad input
             s = jnp.pad(s, ((0, 0), (0, self.context_length - s.shape[1]), (0, 0)), mode='constant', constant_values=0)
+        elif s.shape[1] > self.context_length:
+            s = s[:, -self.context_length:, :]
 
         # for simple model only use the last state
         queries = jnp.concatenate([jnp.reshape(s, (-1, self.input_dims * self.context_length)), t], axis=-1)
@@ -148,11 +150,12 @@ if __name__ == "__main__":
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
+    X = jnp.array([[eye[1, :], eye[2, :], eye[3, :], eye[0, :]]])
     T = jnp.array([[eye[3, :], eye[3, :], eye[3, :], eye[3, :]]])
     scores = jnp.array([[0.72, 0.81, 0.9, 1.0]])
 
     for i in range(1000):
-        loss = model.fit_sequence(S, T, scores)
+        loss = model.fit_sequence(S, X, T, scores)
 
     s = jnp.array([[eye[0, :], eye[1, :]], [eye[1, :], eye[2, :]]])
     t = jnp.array([eye[3, :], eye[3, :]])

@@ -20,6 +20,19 @@ except:
     import core
 
 
+def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
+    # pivots = jnp.array(pivots, dtype=jnp.int32)
+    pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
+    
+    pre_pivots = jnp.concatenate([jnp.full([pre_steps], -1, dtype=jnp.int32), pivots[:-pre_steps]], axis=0)
+
+    masks = jnp.logical_and(pos > jnp.expand_dims(pre_pivots, axis=0), pos <= jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
+
+    order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
+    scores = jnp.power(diminishing_factor, order)
+    return jnp.transpose(masks), jnp.transpose(scores)
+
+
 class Trainer(trainer.Trainer):
     def __init__(self, model, loss_alpha=0.05):
         self.model = model
@@ -37,9 +50,24 @@ class Trainer(trainer.Trainer):
         self.avg_loss = 0.0
 
 
-    def accumulate_batch(self, s, x, t, scores, masks):
+    def accumulate_batch(self, step_discount_factor, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Pointer_Sequence, pivots: State_Sequence):
+
+        pivots = path_encoding_sequence[pivot_indices].data[:, 0, :]
+        sequence_data = path_encoding_sequence.data[:, 0, :]
+
+        s = jnp.tile(jnp.expand_dims(sequence_data, axis=0), (len(pivots), 1, 1))
+        x = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=0), (len(pivots), 1, 1))
+        # TODO: should I instead train pivot to pivot?
+        a = x - s
+        a[:, -1, :] = 0
+        t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, len(path_encoding_sequence), 1))
+
+        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
+
+        # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
+
         self.s.append(s)
-        self.x.append(x)
+        self.x.append(a)
         self.t.append(t)
         self.scores.append(scores)
         self.masks.append(masks)
@@ -58,69 +86,58 @@ class Trainer(trainer.Trainer):
     
 
     def prepare_batch(self, mini_batch_size):
+        # try grouping batch with the same sequence length
+        seq_len_to_batch = {}
+        for i in range(len(self.s)):
+            seq_len = self.s[i].shape[1]
+            if seq_len not in seq_len_to_batch:
+                seq_len_to_batch[seq_len] = {
+                    "size": 0,
+                    "s": [],
+                    "x": [],
+                    "t": [],
+                    "scores": [],
+                    "masks": []
+                }
+            seq_len_to_batch[seq_len]["size"] += 1
+            seq_len_to_batch[seq_len]["s"].append(self.s[i])
+            seq_len_to_batch[seq_len]["x"].append(self.x[i])
+            seq_len_to_batch[seq_len]["t"].append(self.t[i])
+            seq_len_to_batch[seq_len]["scores"].append(self.scores[i])
+            seq_len_to_batch[seq_len]["masks"].append(self.masks[i])
+
         self.epoch_batch = []
-        for i in range(0, len(self.s), mini_batch_size):
-            s = jnp.concatenate(self.s[i:i+mini_batch_size], axis=0)
-            x = jnp.concatenate(self.x[i:i+mini_batch_size], axis=0)
-            t = jnp.concatenate(self.t[i:i+mini_batch_size], axis=0)
-            scores = jnp.concatenate(self.scores[i:i+mini_batch_size], axis=0)
-            masks = jnp.concatenate(self.masks[i:i+mini_batch_size], axis=0)
-            self.epoch_batch.append((s, x, t, scores, masks))
+        for seq_len, group in seq_len_to_batch.items():
+            S = jnp.concatenate(group["s"], axis=0)
+            X = jnp.concatenate(group["x"], axis=0)
+            T = jnp.concatenate(group["t"], axis=0)
+            Scores = jnp.concatenate(group["scores"], axis=0)
+            Masks = jnp.concatenate(group["masks"], axis=0)
+
+            for i in range(0, group["size"], mini_batch_size):
+                s = S[i:i+mini_batch_size]
+                x = X[i:i+mini_batch_size]
+                t = T[i:i+mini_batch_size]
+                scores = Scores[i:i+mini_batch_size]
+                masks = Masks[i:i+mini_batch_size]
+                self.epoch_batch.append((s, x, t, scores, masks))
 
         # shuffle
         random.shuffle(self.epoch_batch)
         
 
-
     def step_update(self):
         minibatch = self.epoch_batch[self.step % len(self.epoch_batch)]
         self.step += 1
-        loss = self.model.fit(minibatch[0], minibatch[1], minibatch[2], minibatch[3], minibatch[4])
+        loss = self.model.fit_sequence(minibatch[0], minibatch[1], minibatch[2], minibatch[3], minibatch[4])
         self.avg_loss = (self.avg_loss * (1-self.loss_alpha) + loss * self.loss_alpha)
         return self.avg_loss
-
-
-def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
-    # pivots = jnp.array(pivots, dtype=jnp.int32)
-    pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
-    
-    pre_pivots = jnp.concatenate([jnp.full([pre_steps], -1, dtype=jnp.int32), pivots[:-pre_steps]], axis=0)
-
-    masks = jnp.logical_and(pos > jnp.expand_dims(pre_pivots, axis=0), pos <= jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
-
-    order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
-    scores = jnp.power(diminishing_factor, order)
-    return masks, scores
-
-
-def prepare(step_discount_factor, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Pointer_Sequence, pivots: State_Sequence):
-    distances = jnp.arange(len(path_encoding_sequence))
-
-    # learn to predict the next state and its probability from the current state given goal
-    masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
-
-    pivots = path_encoding_sequence[pivot_indices].data[:, 0, :]
-    sequence_data = path_encoding_sequence.data[:, 0, :]
-
-    s = jnp.tile(jnp.expand_dims(sequence_data, axis=1), (1, len(pivots), 1))
-    x = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=1), (1, len(pivots), 1))
-    a = x - s
-    t = jnp.tile(jnp.expand_dims(pivots, axis=0), (len(path_encoding_sequence), 1, 1))
-
-    s = jnp.reshape(s, (-1, s.shape[-1]))
-    a = jnp.reshape(a, (-1, a.shape[-1]))
-    t = jnp.reshape(t, (-1, t.shape[-1]))
-    scores = jnp.reshape(scores, (-1))
-    masks = jnp.reshape(masks, (-1))
-
-    # s has shape (N, dim), a has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
-    return s, a, t, scores, masks
 
 
 class Model(cortex_model.Model):
     
     def __init__(self, layer: int, model: core.base.Model, step_discount_factor=0.9):
-        # if you wish to share the model, pass layer into learning and inference functions to differentiate
+        # if you wish to share the model, pass the index into learning and inference functions to differentiate between layers
         self.layer = layer
         self.step_discount_factor = step_discount_factor
         self.model = model
@@ -153,15 +170,14 @@ class Model(cortex_model.Model):
 
 
     def incrementally_learn(self, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Pointer_Sequence, pivots: State_Sequence) -> Trainer:
-        s, a, t, scores, masks = prepare(self.step_discount_factor, path_encoding_sequence, pivot_indices, pivots)
-        # s has shape (N, dim), a has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
-        return self.trainer.accumulate_batch(s, a, t, scores, masks)
+        # learn to predict the next state and its probability from the current state given goal
+        return self.trainer.accumulate_batch(self.step_discount_factor, path_encoding_sequence, pivot_indices, pivots)
 
 
     def infer_sub_action(self, from_encoding_sequence: Augmented_State_Squence, expect_action: Action) -> Action:
         goal_state = from_encoding_sequence + expect_action
         next_action_data, score = self.model.infer(
-            jnp.expand_dims(from_encoding_sequence.data[-1, 0, :], axis=0), 
+            jnp.expand_dims(from_encoding_sequence.data[:, 0, :], axis=0), 
             jnp.expand_dims(goal_state.data, axis=0)
             )
         a = Action(next_action_data[0])
@@ -177,7 +193,7 @@ if __name__ == "__main__":
     print(masks)
     print(scores)
 
-    table_model = core.table.Model(4)
+    table_model = core.table.Model(4, 1)
     model = Model(0, table_model)
     
     r_key = jax.random.key(42)

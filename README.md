@@ -72,7 +72,7 @@ If you have any issues, please let me know.
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel
     -   [ ] LLM Steering
-    -   [ ] Make core models accept context of shape (batch, context length, feature length)
+    -   [x] Make core models accept context of shape (batch, context length, feature length)
     -   [ ] Evaluate LLM vs HUMN augmented LLM
 -   [ ] Hippocampus
     -   [ ] Added different encodings to the model

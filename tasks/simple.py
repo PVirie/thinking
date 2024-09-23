@@ -221,9 +221,9 @@ class Context(BaseModel):
         for path_tuples in data_skip_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
-            trainer.prepare_batch(64)
+            trainer.prepare_batch(16)
 
-        loop_train(trainers, 100000)
+        loop_train(trainers, 20000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,
@@ -258,9 +258,9 @@ class Context(BaseModel):
         for path_tuples in data_abstract_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
-            trainer.prepare_batch(64)
+            trainer.prepare_batch(16)
 
-        loop_train(trainers, 100000)
+        loop_train(trainers, 20000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,
@@ -275,7 +275,7 @@ class Context(BaseModel):
 
         table_cores = []
         for i in range(3):
-            table_core = table.Model(graph_shape)
+            table_core = table.Model(graph_shape, 1)
             table_cores.append(table_core)
 
         cortex_models = []

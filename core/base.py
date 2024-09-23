@@ -24,7 +24,7 @@ class Model(Persistent_Model):
     def fit(self, s, x, t, scores, masks=None, context=None):
         raise NotImplementedError()
 
-    def fit_sequence(self, s, t, scores, masks=None, context=None):
+    def fit_sequence(self, s, x, t, scores, masks=None, context=None):
         # learning next steps in sequence, transformer styles
         raise NotImplementedError()
 

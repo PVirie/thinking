@@ -219,17 +219,15 @@ def train_step_2(state, s, x, t, scores, masks, dropout_key, context_length):
 
 
 @partial(jax.jit, static_argnames=['context_length'])
-def train_step(state, s, t, scores, masks, dropout_key, context_length):
+def train_step(state, s, x, t, scores, masks, dropout_key, context_length):
     # pad s, t with zeros
-    sp = jnp.pad(s[:, :-1, :], ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
-    tp = jnp.pad(t[:, :-1, :], ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
-
-    # x = s rolled backward by 1
-    xp = jnp.pad(s[:, 1:, :], ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
+    sp = jnp.pad(s, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
+    xp = jnp.pad(x, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
+    tp = jnp.pad(t, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
 
     # pad score and mask
-    scorep = jnp.pad(scores[:, :-1], ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
-    maskp = jnp.pad(masks[:, :-1], ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
+    scorep = jnp.pad(scores, ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
+    maskp = jnp.pad(masks, ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
 
     dropout_train_key = jax.random.fold_in(key=dropout_key, data=state.step)
     loss, grads = jitted_loss(state.params, sp, xp, tp, scorep, maskp, state, dropout_train_key)
@@ -313,14 +311,14 @@ class Model(base.Model):
         return loss
 
 
-    def fit_sequence(self, s, t, scores, masks=None, context=None):
-        # s has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
+    def fit_sequence(self, s, x, t, scores, masks=None, context=None):
+        # s has shape (N, seq_len, dim), x has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
         # seq_len = learning_length + context_length - 1
 
         if masks is None:
             masks = jnp.ones(scores.shape)
 
-        self.state, loss = train_step(self.state, s, t, scores, masks, self.state.dropout_key, self.context_length)
+        self.state, loss = train_step(self.state, s, x, t, scores, masks, self.state.dropout_key, self.context_length)
 
         self.is_updated = True
         return loss
@@ -329,9 +327,12 @@ class Model(base.Model):
     def infer(self, s, t, context=None):
         # s has shape (N, context_length, dim), t has shape (N, dim)
         
-        if s.shape[1] != self.context_length:
+        if s.shape[1] < self.context_length:
             # pad input
             s = jnp.pad(s, ((0, 0), (0, self.context_length - s.shape[1]), (0, 0)), mode='constant', constant_values=0)
+        elif s.shape[1] > self.context_length:
+            s = s[:, -self.context_length:, :]
+
 
         s = jnp.reshape(s, (-1, self.context_length, self.input_dims))
         t = jnp.reshape(t, (-1, 1, self.input_dims))
@@ -363,11 +364,12 @@ if __name__ == "__main__":
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
+    X = jnp.array([[eye[1, :], eye[2, :], eye[3, :], eye[0, :]]])
     T = jnp.array([[eye[3, :], eye[3, :], eye[3, :], eye[3, :]]])
     scores = jnp.array([[0.72, 0.81, 0.9, 1.0]])
 
     for i in range(1000):
-        loss = model.fit_sequence(S, T, scores)
+        loss = model.fit_sequence(S, X, T, scores)
 
     s = jnp.array([[eye[0, :], eye[1, :]], [eye[1, :], eye[2, :]]])
     t = jnp.array([eye[3, :], eye[3, :]])
