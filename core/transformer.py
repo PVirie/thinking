@@ -22,41 +22,6 @@ except:
 
 
 
-class TransformerEncoderBlock(nn.Module):
-    d_model: int
-    num_heads: int
-    d_ff: int
-    dropout_rate: float = 0.1
-
-    @nn.compact
-    def __call__(self, x, train):
-        # Multi-head self-attention
-        attn_output = nn.MultiHeadDotProductAttention(
-            num_heads=self.num_heads, 
-            qkv_features=self.d_model, 
-            use_bias=False,
-            kernel_init=nn.initializers.xavier_uniform(),
-            deterministic=not train,
-            dropout_rate=self.dropout_rate
-        )(x)
-        
-        # Skip connection and layer norm
-        x = x + attn_output
-        x = nn.LayerNorm(epsilon=1e-6)(x)
-        
-        # Position-wise feed-forward network
-        ff_output = nn.Dense(self.d_ff)(x)
-        ff_output = nn.relu(ff_output)
-        ff_output = nn.Dropout(rate=self.dropout_rate)(ff_output, deterministic=not train)
-        ff_output = nn.Dense(self.d_model)(ff_output)
-        
-        # Second skip connection and layer norm
-        x = x + ff_output
-        x = nn.LayerNorm(epsilon=1e-6)(x)
-
-        return x
-
-
 class TransformerDecoderBlock(nn.Module):
     d_model: int
     num_heads: int
@@ -65,7 +30,9 @@ class TransformerDecoderBlock(nn.Module):
 
     @nn.compact
     def __call__(self, enc_out, x, train):
+    
         # Masked multi-head self-attention
+        mask = nn.attention.make_causal_mask(x[:, :, 0])
         attn_output = nn.MultiHeadDotProductAttention(
             num_heads=self.num_heads, 
             qkv_features=self.d_model, 
@@ -74,14 +41,14 @@ class TransformerDecoderBlock(nn.Module):
             deterministic=not train,
             dropout_rate=self.dropout_rate,
             broadcast_dropout=False
-        )(x, mask=False)
-        # no mask, this is not sequence prediction, we already feed step-by-step query
+        )(x, mask=mask)
         
         # Skip connection and layer norm
         x = x + attn_output
         x = nn.LayerNorm(epsilon=1e-6)(x)
         
-        # Multi-head cross-attention
+        # Multi-head cross-attention, only attend to the same slot to fuse target state
+        eye_mask = jnp.eye(x.shape[1], dtype=jnp.float32)
         attn_output = nn.MultiHeadDotProductAttention(
             num_heads=self.num_heads, 
             qkv_features=self.d_model, 
@@ -89,7 +56,7 @@ class TransformerDecoderBlock(nn.Module):
             kernel_init=nn.initializers.xavier_uniform(),
             deterministic=not train,
             dropout_rate=self.dropout_rate
-        )(inputs_q=x, inputs_k=enc_out, inputs_v=enc_out)
+        )(inputs_q=x, inputs_k=enc_out, inputs_v=enc_out, mask=eye_mask)
         
         # Skip connection and layer norm
         x = x + attn_output
@@ -118,9 +85,8 @@ class StackedTransformer(nn.Module):
     @nn.compact
     def __call__(self, encoder_input, decoder_input, train):
         # decoder_input has shape [batch, seq_len, d_model]
-        # encoder_input has shape [batch, d_model]
+        # encoder_input has shape [batch, seq_len, d_model]
 
-        seq_len = decoder_input.shape[1]
         d_model = encoder_input.shape[-1] if self.d_model == -1 else self.d_model
 
         # Potentially project input to d_model size
@@ -130,21 +96,12 @@ class StackedTransformer(nn.Module):
 
         # Stack of Transformer blocks
         for num_heads, d_ff in self.layers:
-
-            encoder_output = TransformerEncoderBlock(
-                d_model=seq_len * d_model,
-                num_heads=num_heads,
-                d_ff=d_ff,
-                dropout_rate=self.dropout_rate
-            )(encoder_input, train)
-            encoder_output = jnp.reshape(encoder_output, (-1, seq_len, d_model))
-
             decoder_input = TransformerDecoderBlock(
                 d_model=d_model,
                 num_heads=num_heads,
                 d_ff=d_ff,
                 dropout_rate=self.dropout_rate
-            )(encoder_output, decoder_input, train)
+            )(encoder_input, decoder_input, train)
 
         # Final layer norm and projection to output dimension
         decoder_input = nn.LayerNorm(epsilon=1e-6)(decoder_input)
@@ -158,20 +115,17 @@ class Value_Score_Module(nn.Module):
     output_dim: int
     stacked_transformer: StackedTransformer
 
-
-    def setup(self):
-        self.value_pathway = nn.Dense(self.slots*self.output_dim)
-        self.score_pathway = nn.Dense(self.slots)
-
-
-    def __call__(self, s, x, t, scores):
+    @nn.compact
+    def __call__(self, s, x, t):
         logits = self.stacked_transformer(t, s, True)
-        # take only last context
-        logits = logits[:, -1, :]
+        # flatten
+        seq_len = logits.shape[1]
+        x = jnp.reshape(x, (-1, self.output_dim))
+        logits = jnp.reshape(logits, (-1, self.slots))
         
         keys = jax.nn.softmax(logits, axis=1)
-        Vs = self.value_pathway(keys)
-        Ss = self.score_pathway(keys)
+        Vs = nn.Dense(self.slots*self.output_dim)(keys)
+        Ss = nn.Dense(self.slots)(keys)
 
         Vs = jnp.reshape(Vs, (-1, self.slots, self.output_dim))
 
@@ -185,20 +139,25 @@ class Value_Score_Module(nn.Module):
         max_indices = jnp.argmax(dot_scores, axis=1, keepdims=True)
         s = jnp.take_along_axis(Ss, max_indices, axis=1)
         v = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
-        v = jnp.reshape(v, (-1, self.output_dim))
+        
+        v = jnp.reshape(v, (-1, seq_len, self.output_dim))
+        s = jnp.reshape(s, (-1, seq_len))
 
         return v, s
 
 
 class Value_Score_Module_Test(Value_Score_Module):
+
+
+    @nn.compact
     def __call__(self, s, t):
         logits = self.stacked_transformer(t, s, False)
         # take only last context
         logits = logits[:, -1, :]
 
         keys = jax.nn.softmax(logits, axis=1)
-        Vs = self.value_pathway(keys)
-        Ss = self.score_pathway(keys)
+        Vs = nn.Dense(self.slots*self.output_dim)(keys)
+        Ss = nn.Dense(self.slots)(keys)
 
         Vs = jnp.reshape(Vs, (-1, self.slots, self.output_dim))
 
@@ -207,6 +166,7 @@ class Value_Score_Module_Test(Value_Score_Module):
         max_indices = jnp.argmax(Ss, axis=1, keepdims=True)
         s = jnp.take_along_axis(Ss, max_indices, axis=1)
         v = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
+        
         v = jnp.reshape(v, (-1, self.output_dim))
 
         return v, s
@@ -231,7 +191,6 @@ def loss_fn(params, s, x, t, scores, masks, state, dropout_train_key):
         s,
         x, 
         t,
-        scores,
         rngs={'dropout': dropout_train_key})
     
     error_S = masks * (scores - scores_)**2
@@ -248,6 +207,22 @@ def train_step(state, s, x, t, scores, masks, dropout_key):
     dropout_train_key = jax.random.fold_in(key=dropout_key, data=state.step)
     loss, grads = jitted_loss(state.params, s, x, t, scores, masks, state, dropout_train_key)
     return state.apply_gradients(grads=grads), loss
+
+
+@partial(jax.jit, static_argnames=['context_length'])
+def pad_sequence(s, t, scores, masks, context_length):
+    # pad s, t with zeros
+    sp = jnp.pad(s[:, :-1, :], ((0, 0), (context_length, 0), (0, 0)), mode='constant', constant_values=0)
+    tp = jnp.pad(t[:, :-1, :], ((0, 0), (context_length, 0), (0, 0)), mode='constant', constant_values=0)
+
+    # x = s rolled backward by 1
+    xp = jnp.pad(s[:, 1:, :], ((0, 0), (context_length, 0), (0, 0)), mode='constant', constant_values=0)
+
+    # pad score and mask
+    scorep = jnp.pad(scores[:, :-1], ((0, 0), (context_length, 0)), mode='constant', constant_values=0)
+    maskp = jnp.pad(masks[:, :-1], ((0, 0), (context_length, 0)), mode='constant', constant_values=0)
+
+    return sp, xp, tp, scorep, maskp
 
 
 class Model(base.Model):
@@ -270,9 +245,8 @@ class Model(base.Model):
         variables = self.train_model.init(
             {'params': self.rng, 'dropout': self.dropout_rng}, 
             jnp.empty((1, self.context_length, input_dims), jnp.float32), 
-            jnp.empty((1, input_dims), jnp.float32),
-            jnp.empty((1, input_dims), jnp.float32),
-            jnp.empty((1), jnp.float32),
+            jnp.empty((1, self.context_length, input_dims), jnp.float32),
+            jnp.empty((1, self.context_length, input_dims), jnp.float32),
         )
 
         self.learning_rate = lr
@@ -311,17 +285,16 @@ class Model(base.Model):
         # logging.info(serialization.to_state_dict(self.state))
 
 
-    def fit(self, s, x, t, scores, masks, context=None):
-        # s has shape (N, context_length, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
+    def fit_sequence(self, s, t, scores, masks=None, context=None):
+        # s has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
+        # seq_len = learning_length + context_length - 1
 
-        s = jnp.reshape(s, (-1, self.context_length, self.input_dims))
-        x = jnp.reshape(x, (-1, self.input_dims))
-        t = jnp.reshape(t, (-1, self.input_dims))
+        if masks is None:
+            masks = jnp.ones(scores.shape)
 
-        scores = jnp.reshape(scores, (-1, 1))
-        masks = jnp.reshape(masks, (-1, 1))
+        sp, xp, tp, scorep, maskp = pad_sequence(s, t, scores, masks, self.context_length)
 
-        self.state, loss = train_step(self.state, s, x, t, scores, masks, self.state.dropout_key)
+        self.state, loss = train_step(self.state, sp, xp, tp, scorep, maskp, self.state.dropout_key)
 
         self.is_updated = True
         return loss
@@ -331,7 +304,8 @@ class Model(base.Model):
         # s has shape (N, context_length, dim), t has shape (N, dim)
         
         s = jnp.reshape(s, (-1, self.context_length, self.input_dims))
-        t = jnp.reshape(t, (-1, self.input_dims))
+        t = jnp.reshape(t, (-1, 1, self.input_dims))
+        t = jnp.repeat(t, self.context_length, axis=1)
 
         best_value, best_score = self.test_model.apply(
             {
@@ -355,12 +329,14 @@ if __name__ == "__main__":
     model = Model(4, 1, 4, [(4, 4), (4, 4)], 4, 0.001)
 
     eye = jnp.eye(4, dtype=jnp.float32)
-    s = jnp.array([eye[0, :], eye[1, :], eye[0, :], eye[1, :]])
-    x = jnp.array([eye[1, :], eye[2, :], eye[2, :], eye[0, :]])
-    t = jnp.array([eye[3, :], eye[3, :], eye[3, :], eye[3, :]])
+    S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
+    T = jnp.array([[eye[3, :], eye[3, :], eye[3, :], eye[3, :]]])
 
     for i in range(1000):
-        loss = model.fit(s, x, t, jnp.array([0.9, 0.9, 0.5, 0.5]), 1.0)
+        loss = model.fit_sequence(S, T, jnp.array([[0.72, 0.81, 0.9, 1.0]]))
+
+    s = jnp.array([[eye[0, :]], [eye[1, :]], [eye[2, :]], [eye[3, :]]])
+    t = jnp.array([eye[3, :], eye[3, :], eye[3, :], eye[3, :]])
 
     value, score = model.infer(s, t)
     print("Loss:", loss)

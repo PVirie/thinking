@@ -9,24 +9,27 @@ class Persistent_Model:
         self.is_updated = True
     
     def get_class_parameters(self):
-        pass
+        raise NotImplementedError()
 
     def load(self, path):
-        pass
+        raise NotImplementedError()
 
     def save(self, path):
-        pass
+        raise NotImplementedError()
 
 
 class Model(Persistent_Model):
 
 
     def fit(self, s, x, t, scores, masks=1.0, context=None):
-        pass
+        raise NotImplementedError()
 
+    def fit_sequence(self, s, t, scores, masks=None, context=None):
+        # learning next steps in sequence, transformer styles
+        raise NotImplementedError()
 
     def infer(self, s, t, context=None):
-        pass
+        raise NotImplementedError()
 
 
 
@@ -34,8 +37,8 @@ class Stat_Model(Persistent_Model):
 
 
     def accumulate(self, S):
-        pass
+        raise NotImplementedError()
 
 
     def infer(self, S):
-        pass
+        raise NotImplementedError()
