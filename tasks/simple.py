@@ -203,9 +203,9 @@ class Context(BaseModel):
         name = "Skip step"
 
         cortex_models = [
-            cortex.Model(0, linear.Model(64, graph_shape)),
-            cortex.Model(1, linear.Model(64, graph_shape)),
-            cortex.Model(2, linear.Model(64, graph_shape))
+            cortex.Model(0, linear.Model(graph_shape, 1, 64)),
+            cortex.Model(1, linear.Model(graph_shape, 1, 64)),
+            cortex.Model(2, linear.Model(graph_shape, 1, 64))
         ]
         hippocampus_models = [
             hippocampus.Model(graph_shape, graph_shape),
@@ -237,9 +237,9 @@ class Context(BaseModel):
         name = "Entropy 3 layers"
 
         cortex_models = [
-            cortex.Model(0, linear.Model(64, graph_shape)),
-            cortex.Model(1, linear.Model(64, graph_shape)),
-            cortex.Model(2, linear.Model(64, graph_shape))
+            cortex.Model(0, linear.Model(graph_shape, 1, 64)),
+            cortex.Model(1, linear.Model(graph_shape, 1, 64)),
+            cortex.Model(2, linear.Model(graph_shape, 1, 64))
         ]
         hippocampus_models = [
             hippocampus.Model(graph_shape, graph_shape),

@@ -45,7 +45,8 @@ class Model(base.Model):
         return {
             "class_type": self.class_type,
             "class_name": self.class_name,
-            "dims": self.input_dims
+            "dims": self.input_dims,
+            "context_length": self.context_length
         }
 
 

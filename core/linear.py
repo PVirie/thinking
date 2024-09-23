@@ -8,6 +8,7 @@ This is a simple asymmetric linear model implementing with JAX.
 import jax
 import jax.random
 import jax.numpy as jnp
+from jax import lax
 import os
 import pickle
 from functools import partial
@@ -17,6 +18,28 @@ try:
     from . import base
 except:
     import base
+
+
+@partial(jax.jit, static_argnames=['window_size', 'batch_size', 'sequence_length', 'dim'])
+def unfold(x, window_size, batch_size, sequence_length, dim):
+  """
+  Unfolds an input tensor into sliding windows.
+
+  Args:
+    x: Input tensor of shape [batch, sequence, dim].
+    window_size: Size of the sliding window.
+
+  Returns:
+    Unfolded tensor of shape [batch, sequence - window_size + 1, window_size, dim].
+  """
+
+  def body_fun(i, result):
+      window = lax.dynamic_slice(x, [0, i, 0], [batch_size, window_size, dim])
+      return result.at[i].set(window)
+
+  result = jnp.zeros([sequence_length - window_size + 1, batch_size, window_size, dim])
+  result = lax.fori_loop(0, sequence_length - window_size + 1, body_fun, result)
+  return result.transpose([1, 0, 2, 3])  # Rearrange to [batch, sequence - window_size + 1, window_size, dim]
 
 
 @jax.jit
@@ -96,14 +119,16 @@ def train_step(optimizer, params, r_key, opt_state, query, x, scores, masks, inp
 
 class Model(base.Model):
 
-    def __init__(self, input_dims, context_length, hidden_size, memory_size=16, lr=0.01, iteration=0, r_key = jax.random.key(42)):
+    def __init__(self, input_dims, context_length, hidden_size, memory_size=16, lr=0.01, iteration=0, r_seed=42):
         super().__init__("model", "linear")
 
         self.input_dims = input_dims
         self.context_length = context_length
         self.hidden_size = hidden_size
         self.memory_size = memory_size
+        self.r_seed = r_seed
 
+        r_key = jax.random.key(r_seed)
         r_key, subkey = jax.random.split(r_key)
         key = jax.random.normal(subkey, (hidden_size, input_dims * (context_length + 1))) * 0.1
         
@@ -128,10 +153,13 @@ class Model(base.Model):
         return {
             "class_type": self.class_type,
             "class_name": self.class_name,
-            "hidden_size": self.hidden_size,
             "input_dims": self.input_dims, 
+            "context_length": self.context_length,
+            "hidden_size": self.hidden_size,
+            "memory_size": self.memory_size,
             "lr": self.lr,
-            "iteration": self.iteration
+            "iteration": self.iteration,
+            "r_seed": self.r_seed
         }
 
 
@@ -199,8 +227,8 @@ class Model(base.Model):
 
         # then unroll by shift and tile
         # unrolled_s has shape (N, seq_len, context_length, dim)
-        unrolled_s = jnp.stack([sp[:, i:i + self.context_length] for i in range(sp.shape[1] - self.context_length + 1)], axis=1)
-                
+        unrolled_s = unfold(sp, self.context_length, *sp.shape)
+                            
         return self.fit(
             jnp.reshape(unrolled_s[:, :-1, :, :], (-1, self.context_length, self.input_dims)),
             jnp.reshape(s[:, 1:, :], (-1, self.input_dims)), 

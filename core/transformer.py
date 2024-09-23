@@ -144,7 +144,7 @@ class Value_Score_Module(nn.Module):
         v = jnp.reshape(v, (-1, seq_len, self.output_dim))
         s = jnp.reshape(s, (-1, seq_len))
 
-        return v, s
+        return v, s, Ss
 
 
 class Value_Score_Module_Test(Value_Score_Module):
@@ -187,7 +187,7 @@ class TrainState(train_state.TrainState):
 
 
 def loss_fn(params, s, x, t, scores, masks, state, dropout_train_key):
-    v_, scores_ = state.apply_fn(
+    v_, scores_, Ss = state.apply_fn(
         {'params': params}, 
         s,
         x, 
@@ -198,7 +198,7 @@ def loss_fn(params, s, x, t, scores, masks, state, dropout_train_key):
     error_V = masks * jnp.mean((x - v_)**2, axis=-1)
 
     # suppress other slot score to 0
-    error_C = jnp.mean(scores_ ** 2)
+    error_C = jnp.mean(Ss ** 2)
     return jnp.mean(error_V) + jnp.mean(error_S) + error_C * 0.1
 
 jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)))
@@ -238,15 +238,17 @@ def train_step(state, s, t, scores, masks, dropout_key, context_length):
 
 class Model(base.Model):
 
-    def __init__(self, input_dims, context_length, hidden_size, layers, memory_size, lr=1e-4, r_key = jax.random.key(42)):
+    def __init__(self, input_dims, context_length, hidden_size, layers, memory_size, lr=1e-4, r_seed=42):
         super().__init__("model", "transformer")
 
+        r_key = jax.random.key(r_seed)
         self.r_key, self.dropout_r_key = jax.random.split(r_key)
         self.input_dims = input_dims
         self.context_length = context_length
         self.hidden_size = hidden_size
         self.memory_size = memory_size
         self.layers = layers
+        self.r_seed = r_seed
 
         stack_transformer = StackedTransformer(layers=layers, d_model=input_dims, output_dim=hidden_size)
         self.train_model = Value_Score_Module(slots=memory_size, output_dim=input_dims, stacked_transformer=stack_transformer)
@@ -276,8 +278,12 @@ class Model(base.Model):
             "class_type": self.class_type,
             "class_name": self.class_name,
             "input_dims": self.input_dims,
+            "context_length": self.context_length,
+            "hidden_size": self.hidden_size,
             "layers": self.layers,
+            "memory_size": self.memory_size,
             "lr": self.learning_rate,
+            "r_seed": self.r_seed
         }
 
 
@@ -353,7 +359,7 @@ if __name__ == "__main__":
     from datetime import datetime
     # get number of milliseconds since midnight of January 1, 1970
     millis = datetime.now().microsecond
-    model = Model(4, 2, 16, [(4, 8), (4, 8)], 4, 0.001, r_key=jax.random.PRNGKey(millis))
+    model = Model(4, 2, 16, [(4, 8), (4, 8)], 4, 0.001, r_seed=millis)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
