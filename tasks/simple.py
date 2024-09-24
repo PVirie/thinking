@@ -209,9 +209,9 @@ class Context(BaseModel):
         ]
 
         # cortex_models = [
-        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
-        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
-        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
+        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
+        #     cortex.Model(1, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
+        #     cortex.Model(2, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
         # ]
 
         hippocampus_models = [
@@ -219,8 +219,8 @@ class Context(BaseModel):
             hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape)
         ]
+
         abstraction_models = []
-        
         model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
         logging.info(f"Training experiment {name}")
@@ -250,9 +250,9 @@ class Context(BaseModel):
         ]
 
         # cortex_models = [
-        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
-        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
-        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
+        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
+        #     cortex.Model(1, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
+        #     cortex.Model(2, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
         # ]
 
         hippocampus_models = [
@@ -260,7 +260,7 @@ class Context(BaseModel):
             hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape)
         ]
-            
+        
         abstraction_models = []
         for i in range(2):
             abstraction_models.append(abstractor)

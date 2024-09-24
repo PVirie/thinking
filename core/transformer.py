@@ -38,7 +38,7 @@ class TransformerDecoderBlock(nn.Module):
     dropout_rate: float = 0.1
 
     @nn.compact
-    def __call__(self, enc_out, x, train):
+    def __call__(self, enc_in, x, train):
     
         batch = x.shape[0]
         seq_len = x.shape[1]
@@ -66,7 +66,7 @@ class TransformerDecoderBlock(nn.Module):
             kernel_init=nn.initializers.xavier_uniform(),
             deterministic=not train,
             dropout_rate=self.dropout_rate
-        )(inputs_q=x, inputs_k=enc_out, inputs_v=enc_out, mask=create_self_attention_mask(batch, seq_len))
+        )(inputs_q=x, inputs_k=enc_in, inputs_v=enc_in, mask=create_self_attention_mask(batch, seq_len))
         
         # Skip connection and layer norm
         x = x + attn_output
@@ -99,10 +99,9 @@ class StackedTransformer(nn.Module):
 
         d_model = encoder_input.shape[-1] if self.d_model == -1 else self.d_model
 
-        # Potentially project input to d_model size
-        if d_model != encoder_input.shape[-1]:
-            encoder_input = nn.Dense(d_model)(encoder_input)
-            decoder_input = nn.Dense(d_model)(decoder_input)
+        # Project input to d_model size
+        encoder_input = nn.Dense(d_model)(encoder_input)
+        decoder_input = nn.Dense(d_model)(decoder_input)
 
         # Stack of Transformer blocks
         for num_heads, d_ff in self.layers:
@@ -251,12 +250,12 @@ def loss_fn(params, model_fn, s, x, t, scores, masks, dropout_train_key):
         t,
         rngs={'dropout': dropout_train_key})
     
-    error_S = masks * (scores - scores_)**2
-    error_V = masks * jnp.mean((x - v_)**2, axis=-1)
+    error_S = jnp.sum(masks * (scores - scores_)**2) / jnp.sum(masks)
+    error_V = jnp.sum(masks * jnp.mean((x - v_)**2, axis=-1)) / jnp.sum(masks)
 
     # suppress other slot score to 0
     error_C = jnp.mean(Ss ** 2)
-    return jnp.mean(error_V) + jnp.mean(error_S) + error_C * 0.1
+    return error_V + error_S + error_C
 
 
 jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)), static_argnames=['model_fn'])
@@ -416,19 +415,19 @@ if __name__ == "__main__":
     from datetime import datetime
     # get number of milliseconds since midnight of January 1, 1970
     millis = datetime.now().microsecond
-    model = Model(4, 2, 32, [(4, 8), (4, 8)], 16, 0.0001, r_seed=millis)
+    model = Model(4, 2, 32, [(4, 16), (4, 16)], 16, 0.001, r_seed=millis)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
-    X = jnp.array([[eye[1, :], eye[2, :], eye[3, :], eye[0, :]]])
-    T = jnp.array([[eye[3, :], eye[3, :], eye[3, :], eye[3, :]]])
+    X = jnp.array([[eye[3, :], eye[3, :], eye[1, :], eye[1, :]]])
+    T = jnp.array([[eye[2, :], eye[2, :], eye[3, :], eye[3, :]]])
     scores = jnp.array([[0.72, 0.81, 0.9, 1.0]])
 
-    for i in range(10000):
+    for i in range(1000):
         loss = model.fit_sequence(S, X, T, scores)
 
-    s = jnp.array([[eye[0, :], eye[1, :]], [eye[1, :], eye[2, :]]])
-    t = jnp.array([eye[3, :], eye[3, :]])
+    s = jnp.array([[eye[0, :], eye[1, :]], [eye[2, :], eye[3, :]]])
+    t = jnp.array([eye[2, :], eye[3, :]])
 
     value, score = model.infer(s, t)
     print("Loss:", loss)
