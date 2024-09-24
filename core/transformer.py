@@ -1,19 +1,14 @@
 import os
-
 from typing import Sequence, Union, List, Any
-
+from collections.abc import Callable
 import jax
 import jax.random
 import jax.numpy as jnp
 import flax.linen as nn
-from clu import metrics
-import flax
-from flax.training import train_state  # Useful dataclass to keep train state
-from flax import struct                # Flax dataclasses
-import optax  
+from flax import core, struct              # Flax dataclasses
+import optax
+import pickle
 from functools import partial
-
-from flax import serialization
 
 try:
     from . import base
@@ -188,21 +183,68 @@ class Value_Score_Module_Test(Value_Score_Module):
         return v, s
 
     
-
-@struct.dataclass
-class Metrics(metrics.Collection):
-  accuracy: metrics.Accuracy
-  loss: metrics.Average.from_output('loss')
-
-
-class TrainState(train_state.TrainState):
-  metrics: Metrics
-  dropout_key: jax.Array
+class Train_state(struct.PyTreeNode):
+    model_fn: Callable = struct.field(pytree_node=False)
+    optimizer: optax.GradientTransformation = struct.field(pytree_node=False)
+    params: core.FrozenDict[str, Any] = struct.field(pytree_node=True)
+    opt_state: optax.OptState = struct.field(pytree_node=True)
+    dropout_key: jax.Array
+    step: int | jax.Array
 
 
+    def get_rng(self):
+        return jax.random.fold_in(key=self.dropout_key, data=self.step)
 
-def loss_fn(params, s, x, t, scores, masks, state, dropout_train_key):
-    v_, scores_, Ss = state.apply_fn(
+
+    def apply_gradients(self, grads):
+        updates, new_opt_state = self.optimizer.update(grads, self.opt_state, self.params)
+        new_params = optax.apply_updates(self.params, updates)
+
+        return self.replace(
+            step=self.step + 1,
+            params=new_params,
+            opt_state=new_opt_state
+        )
+
+
+    def save(self, path):
+        # save params
+        with open(os.path.join(path, "model_state.pkl"), "wb") as f:
+            pickle.dump(self.params, f)
+        # save opt_state
+        with open(os.path.join(path, "opt_state.pkl"), "wb") as f:
+            pickle.dump(self.opt_state, f)
+        # save dropout_key
+        with open(os.path.join(path, "dropout_key.pkl"), "wb") as f:
+            pickle.dump(self.dropout_key, f)
+        # save step
+        with open(os.path.join(path, "step.pkl"), "wb") as f:
+            pickle.dump(self.step, f)
+
+
+    def load(self, path):
+        # load params
+        with open(os.path.join(path, "model_state.pkl"), "rb") as f:
+            params = pickle.load(f)
+        # load opt_state
+        with open(os.path.join(path, "opt_state.pkl"), "rb") as f:
+            opt_state = pickle.load(f)
+        # load dropout_key
+        with open(os.path.join(path, "dropout_key.pkl"), "rb") as f:
+            dropout_key = pickle.load(f)
+        # load step
+        with open(os.path.join(path, "step.pkl"), "rb") as f:
+            step = pickle.load(f)
+        return self.replace(
+            params=params,
+            opt_state=opt_state,
+            dropout_key=dropout_key,
+            step=step
+        )
+
+
+def loss_fn(params, model_fn, s, x, t, scores, masks, dropout_train_key):
+    v_, scores_, Ss = model_fn(
         {'params': params}, 
         s,
         x, 
@@ -216,11 +258,12 @@ def loss_fn(params, s, x, t, scores, masks, state, dropout_train_key):
     error_C = jnp.mean(Ss ** 2)
     return jnp.mean(error_V) + jnp.mean(error_S) + error_C * 0.1
 
-jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)))
+
+jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)), static_argnames=['model_fn'])
 
 
 @partial(jax.jit, static_argnames=['context_length'])
-def train_step_2(state, s, x, t, scores, masks, dropout_key, context_length):
+def train_step_2(state, s, x, t, scores, masks, context_length):
 
     # expand x, t, scores, masks; then pad with zeros
     xp = jnp.pad(jnp.expand_dims(x, axis=1), ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
@@ -228,13 +271,12 @@ def train_step_2(state, s, x, t, scores, masks, dropout_key, context_length):
     scorep = jnp.pad(jnp.reshape(scores, [-1, 1]), ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
     maskp = jnp.pad(jnp.reshape(masks, [-1, 1]), ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
     
-    dropout_train_key = jax.random.fold_in(key=dropout_key, data=state.step)
-    loss, grads = jitted_loss(state.params, s, xp, tp, scorep, maskp, state, dropout_train_key)
-    return state.apply_gradients(grads=grads), loss
+    loss, grads = jitted_loss(state.params, state.model_fn, s, xp, tp, scorep, maskp, state.get_rng())
+    return state.apply_gradients(grads), loss
 
 
 @partial(jax.jit, static_argnames=['context_length'])
-def train_step(state, s, x, t, scores, masks, dropout_key, context_length):
+def train_step(state, s, x, t, scores, masks, context_length):
     # pad s, t with zeros
     sp = jnp.pad(s, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
     xp = jnp.pad(x, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
@@ -244,9 +286,8 @@ def train_step(state, s, x, t, scores, masks, dropout_key, context_length):
     scorep = jnp.pad(scores, ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
     maskp = jnp.pad(masks, ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
 
-    dropout_train_key = jax.random.fold_in(key=dropout_key, data=state.step)
-    loss, grads = jitted_loss(state.params, sp, xp, tp, scorep, maskp, state, dropout_train_key)
-    return state.apply_gradients(grads=grads), loss
+    loss, grads = jitted_loss(state.params, state.model_fn, sp, xp, tp, scorep, maskp, state.get_rng())
+    return state.apply_gradients(grads), loss
 
 
 class Model(base.Model):
@@ -277,12 +318,16 @@ class Model(base.Model):
         self.learning_rate = lr
         self.momentum = 0.9
 
-        self.state = TrainState.create(
-            apply_fn=self.train_model.apply, 
-            params=variables["params"], 
-            tx=optax.adamw(self.learning_rate),
-            metrics=Metrics.empty(), 
-            dropout_key=self.dropout_r_key
+        optimizer = optax.adamw(self.learning_rate)
+        opt_state = optimizer.init(variables['params'])
+
+        self.state = Train_state(
+            model_fn=self.train_model.apply,
+            optimizer=optimizer,
+            params=variables['params'],
+            opt_state=opt_state,
+            dropout_key=self.dropout_r_key,
+            step=0
         )
 
 
@@ -301,17 +346,13 @@ class Model(base.Model):
 
 
     def save(self, path):
-        bytes_output = serialization.to_bytes(self.state)
-        with open(os.path.join(path, "state.bin"), 'wb') as f:
-            f.write(bytes_output)
-        # logging.info(serialization.to_state_dict(self.state))
+        self.state.save(path)
         self.is_updated = False
 
+
     def load(self, path):
-        with open(os.path.join(path, "state.bin"), 'rb') as f:
-            bytes_output = f.read()
-        self.state = serialization.from_bytes(self.state, bytes_output)
-        # logging.info(serialization.to_state_dict(self.state))
+        self.state = self.state.load(path)
+        self.is_updated = False
 
 
     def fit(self, s, x, t, scores, masks=None, context=None):
@@ -320,7 +361,7 @@ class Model(base.Model):
         if masks is None:
             masks = jnp.ones(scores.shape)
 
-        self.state, loss = train_step_2(self.state, s, x, t, scores, masks, self.state.dropout_key, self.context_length)
+        self.state, loss = train_step_2(self.state, s, x, t, scores, masks, self.context_length)
 
         self.is_updated = True
         return loss
@@ -333,7 +374,7 @@ class Model(base.Model):
         if masks is None:
             masks = jnp.ones(scores.shape)
 
-        self.state, loss = train_step(self.state, s, x, t, scores, masks, self.state.dropout_key, self.context_length)
+        self.state, loss = train_step(self.state, s, x, t, scores, masks, self.context_length)
 
         self.is_updated = True
         return loss
@@ -414,3 +455,12 @@ if __name__ == "__main__":
     # print("Loss:", loss)
     # print("Score:", score)
     # print("Value:", value)
+
+    model.save("/app/log/transformer")
+
+    model_2 = Model(4, 2, 16, [(4, 8), (4, 8)], 4, 0.001, r_seed=millis)
+    model_2.load("/app/log/transformer")
+    value, score = model_2.infer(s, t)
+    print("Loss:", loss)
+    print("Score:", score)
+    print("Value:", value)

@@ -53,12 +53,12 @@ class Model(base.Model):
     def save(self, path):
         jnp.save(os.path.join(path, "score.npy"), self.score)
         jnp.save(os.path.join(path, "value.npy"), self.value)
-
         self.is_updated = False
 
     def load(self, path):
         self.score = jnp.load(os.path.join(path, "score.npy"))
         self.value = jnp.load(os.path.join(path, "value.npy"))
+        self.is_updated = False
     
 
     def fit(self, s, x, t, scores, masks=None, context=None):
