@@ -35,11 +35,11 @@ class Model(base.Model):
 
     def save(self, path):
         jnp.save(os.path.join(path, "stat.npy"), self.stat)
-
         self.is_updated = False
 
     def load(self, path):
         self.stat = jnp.load(os.path.join(path, "stat.npy"))
+        self.is_updated = False
     
 
     def accumulate(self, s):

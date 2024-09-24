@@ -46,17 +46,17 @@ def train_step(optimizer, params, r_key, opt_state, query, key):
 
 class Model(base.Stat_Model):
 
-    def __init__(self, linear_core: linear.Model, lr=0.01):
+    def __init__(self, linear_core: linear.Model, lr=0.01, r_seed = 42):
         super().__init__("stat", "head")
 
         self.hidden_size = linear_core.hidden_size
         self.input_dims = linear_core.input_dims
         self.linear_core = linear_core
+        self.r_seed = r_seed
 
-        r_key = jax.random.key(42)
         stats = jnp.ones([self.hidden_size, 1], jnp.float32) / self.hidden_size
 
-        self.r_key = r_key
+        self.r_key = jax.random.key(r_seed)
         self.params = stats
 
         self.lr = lr
@@ -70,7 +70,8 @@ class Model(base.Stat_Model):
             "class_type": self.class_type,
             "class_name": self.class_name,
             "linear_core": self.linear_core.instance_id,
-            "lr": self.lr
+            "lr": self.lr,
+            "r_seed": self.r_seed
         }
 
 
@@ -100,25 +101,26 @@ class Model(base.Stat_Model):
         # s has shape (N, dim)
         query = jnp.reshape(s, (-1, self.input_dims))
         # get only the first half of the linear core's key
-        stats = compute_stats(query, self.linear_core.params[0][:, :self.input_dims], self.params)
+        stats = compute_stats(query, self.linear_core.params[0][:, (-self.input_dims*2):-self.input_dims], self.params)
         # return shape (N)
         return jnp.reshape(stats, (-1))
     
 
 if __name__ == "__main__":
-    linear_core_model = linear.Model(8, 4, 4, 0.01)
+    linear_core_model = linear.Model(4, 2, 8)
 
     eye = jnp.eye(4, dtype=jnp.float32)
-    s = jnp.array([eye[0, :], eye[1, :]])
-    x = jnp.array([eye[1, :], eye[2, :]])
-    t = jnp.array([eye[3, :], eye[3, :]])
+    S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
+    T = jnp.array([[eye[3, :], eye[3, :], eye[3, :], eye[3, :]]])
+    scores = jnp.array([[0.72, 0.81, 0.9, 1.0]])
 
     for i in range(1000):
-        loss = linear_core_model.fit(s, x, t, jnp.array([1, 1]), 1.0)
+        loss = linear_core_model.fit_sequence(S, T, scores)
 
     model = Model(linear_core_model, 0.1)
     print(model.infer(eye))
 
+    s = jnp.array([eye[0, :], eye[1, :]])
     for i in range(1000):
         model.accumulate(s)
     

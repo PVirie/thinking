@@ -8,6 +8,7 @@ This is a simple asymmetric linear model implementing with JAX.
 import jax
 import jax.random
 import jax.numpy as jnp
+from jax import lax
 import os
 import pickle
 from functools import partial
@@ -19,14 +20,36 @@ except:
     import base
 
 
+@partial(jax.jit, static_argnames=['window_size', 'batch_size', 'sequence_length', 'dim'])
+def unfold(x, window_size, batch_size, sequence_length, dim):
+  """
+  Unfolds an input tensor into sliding windows.
+
+  Args:
+    x: Input tensor of shape [batch, sequence, dim].
+    window_size: Size of the sliding window.
+
+  Returns:
+    Unfolded tensor of shape [batch, sequence - window_size + 1, window_size, dim].
+  """
+
+  def body_fun(i, result):
+      window = lax.dynamic_slice(x, [0, i, 0], [batch_size, window_size, dim])
+      return result.at[i].set(window)
+
+  result = jnp.zeros([sequence_length - window_size + 1, batch_size, window_size, dim])
+  result = lax.fori_loop(0, sequence_length - window_size + 1, body_fun, result)
+  return result.transpose([1, 0, 2, 3])  # Rearrange to [batch, sequence - window_size + 1, window_size, dim]
+
+
 @jax.jit
 def query(Q, params):
     K = params[0]
     Wv_0 = params[1]
     Ws_0 = params[2]
     
-    # Q has shape [batch, dim * 2]
-    # K has shape [hidden_size, dim * 2]
+    # Q has shape [batch, dim * (context_length + 1)]
+    # K has shape [hidden_size, dim * (context_length + 1)]
     
     logit = jnp.matmul(Q, jnp.transpose(K)) / jnp.sqrt(K.shape[1])
     weights = jax.nn.softmax(logit, axis=-1)
@@ -77,10 +100,10 @@ def compute_error(Q, V, S, M, params, r_key, dim_size, memory_size, batch_size):
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4)), static_argnames=['dim_size', 'memory_size', 'batch_size'])
 
-@partial(jax.jit, static_argnames=['input_dims'])
-def make_query(s, t, input_dims):
-    batch = jnp.concatenate([s, t], axis=-1)
-    query = jnp.reshape(batch, (-1, input_dims * 2))
+@partial(jax.jit, static_argnames=['context_length', 'input_dims'])
+def make_query(s, t, context_length, input_dims):
+    batch = jnp.concatenate([jnp.reshape(s, (-1, input_dims * context_length)), t], axis=-1)
+    query = jnp.reshape(batch, (-1, input_dims * (context_length + 1)))
     return query
 
 
@@ -96,16 +119,18 @@ def train_step(optimizer, params, r_key, opt_state, query, x, scores, masks, inp
 
 class Model(base.Model):
 
-    def __init__(self, hidden_size, input_dims, memory_size=16, lr=0.01, iteration=0):
+    def __init__(self, input_dims, context_length, hidden_size, memory_size=16, lr=0.01, iteration=0, r_seed=42):
         super().__init__("model", "linear")
 
-        self.hidden_size = hidden_size
         self.input_dims = input_dims
+        self.context_length = context_length
+        self.hidden_size = hidden_size
         self.memory_size = memory_size
+        self.r_seed = r_seed
 
-        r_key = jax.random.key(42)
+        r_key = jax.random.key(r_seed)
         r_key, subkey = jax.random.split(r_key)
-        key = jax.random.normal(subkey, (hidden_size, input_dims * 2)) * 0.1
+        key = jax.random.normal(subkey, (hidden_size, input_dims * (context_length + 1))) * 0.1
         
         r_key, subkey = jax.random.split(r_key)
         value_0 = jax.random.normal(subkey, [hidden_size, self.memory_size * self.input_dims]) * 0.1
@@ -128,10 +153,13 @@ class Model(base.Model):
         return {
             "class_type": self.class_type,
             "class_name": self.class_name,
-            "hidden_size": self.hidden_size,
             "input_dims": self.input_dims, 
+            "context_length": self.context_length,
+            "hidden_size": self.hidden_size,
+            "memory_size": self.memory_size,
             "lr": self.lr,
-            "iteration": self.iteration
+            "iteration": self.iteration,
+            "r_seed": self.r_seed
         }
 
 
@@ -166,14 +194,17 @@ class Model(base.Model):
         self.is_updated = False
 
 
-    def fit(self, s, x, t, scores, masks, context=None):
-        # s has shape (N, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
+    def fit(self, s, x, t, scores, masks=None, context=None):
+        # s has shape (N, context_length, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
+
+        if masks is None:
+            masks = jnp.ones(scores.shape)
 
         scores = jnp.reshape(scores, (-1, 1))
         masks = jnp.reshape(masks, (-1, 1))
         x = jnp.reshape(x, (-1, self.input_dims))
 
-        query = make_query(s, t, self.input_dims)
+        query = make_query(s, t, self.context_length, self.input_dims)
         batch_size = query.shape[0]
 
         loss, self.params, self.r_key, self.opt_state = train_step(self.optimizer, self.params, self.r_key, self.opt_state, query, x, scores, masks, self.input_dims, self.memory_size, batch_size)
@@ -184,10 +215,38 @@ class Model(base.Model):
         return loss
 
 
-    def infer(self, s, t, context=None):
-        # s has shape (N, dim), t has shape (N, dim)
+    def fit_sequence(self, s, x, t, scores, masks=None, context=None):
+        # s has shape (N, seq_len, dim), x has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
+        # seq_len = learning_length + context_length - 1
 
-        query = make_query(s, t, self.input_dims)
+        if masks is None:
+            masks = jnp.ones(scores.shape)
+
+        # first pad with zeros
+        sp = jnp.pad(s, ((0, 0), (self.context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
+
+        # then unroll by shift and tile
+        # unrolled_s has shape (N, seq_len, context_length, dim)
+        unrolled_s = unfold(sp, self.context_length, *sp.shape)
+                            
+        return self.fit(
+            jnp.reshape(unrolled_s, (-1, self.context_length, self.input_dims)),
+            jnp.reshape(x, (-1, self.input_dims)), 
+            jnp.reshape(t, (-1, self.input_dims)), 
+            jnp.reshape(scores, (-1)), 
+            jnp.reshape(masks, (-1)), context)
+
+
+    def infer(self, s, t, context=None):
+        # s has shape (N, context_length, dim), t has shape (N, dim)
+
+        if s.shape[1] < self.context_length:
+            # pad input
+            s = jnp.pad(s, ((0, 0), (0, self.context_length - s.shape[1]), (0, 0)), mode='constant', constant_values=0)
+        elif s.shape[1] > self.context_length:
+            s = s[:, -self.context_length:, :]
+
+        query = make_query(s, t, self.context_length, self.input_dims)
         batch_size = query.shape[0]
 
         best_value, best_score = compute_value_score(query, self.params, self.input_dims, self.memory_size, batch_size)
@@ -199,18 +258,45 @@ class Model(base.Model):
 
 
 if __name__ == "__main__":
-    model = Model(16, 4, 4, 0.01, iteration=0)
+    from datetime import datetime
+    # get number of milliseconds since midnight of January 1, 1970
+    millis = datetime.now().microsecond
+    model = Model(4, 2, 8, 4, 0.01, iteration=0, r_seed=millis)
 
     eye = jnp.eye(4, dtype=jnp.float32)
-    s = jnp.array([eye[0, :], eye[1, :], eye[0, :], eye[1, :]])
-    x = jnp.array([eye[1, :], eye[2, :], eye[2, :], eye[0, :]])
-    t = jnp.array([eye[3, :], eye[3, :], eye[3, :], eye[3, :]])
+    S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
+    X = jnp.array([[eye[1, :], eye[2, :], eye[3, :], eye[0, :]]])
+    T = jnp.array([[eye[3, :], eye[3, :], eye[3, :], eye[3, :]]])
+    scores = jnp.array([[0.72, 0.81, 0.9, 1.0]])
 
     for i in range(1000):
-        loss = model.fit(s, x, t, jnp.array([0.9, 0.9, 0.5, 0.5]), 1.0)
+        loss = model.fit_sequence(S, X, T, scores)
+
+    s = jnp.array([[eye[0, :], eye[1, :]], [eye[1, :], eye[2, :]]])
+    t = jnp.array([eye[3, :], eye[3, :]])
 
     value, score = model.infer(s, t)
     print("Loss:", loss)
     print("Score:", score)
     print("Value:", value)
     
+    # s = jnp.array([[eye[0, :]]])
+    # t = jnp.array([eye[3, :]])
+
+    # value, score = model.infer(s, t)
+    # print("Loss:", loss)
+    # print("Score:", score)
+    # print("Value:", value)
+
+    # s = jnp.array([[eye[0, :], eye[1, :]], [eye[1, :], eye[2, :]]])
+    # x = jnp.array([eye[3, :], eye[0, :]])
+    # t = jnp.array([eye[2, :], eye[2, :]])
+    # scores = jnp.array([0.81, 0.9])
+
+    # for i in range(1000):
+    #     loss = model.fit(s, x, t, scores)
+
+    # value, score = model.infer(s, t)
+    # print("Loss:", loss)
+    # print("Score:", score)
+    # print("Value:", value)

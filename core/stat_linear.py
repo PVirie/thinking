@@ -54,13 +54,14 @@ def train_step(optimizer, params, r_key, opt_state, query):
 
 class Model(base.Stat_Model):
 
-    def __init__(self, hidden_size, input_dims, lr=0.01):
+    def __init__(self, input_dims, hidden_size, lr=0.01, r_seed=42):
         super().__init__("stat", "head")
 
-        self.hidden_size = hidden_size
         self.input_dims = input_dims
+        self.hidden_size = hidden_size
+        self.r_seed = r_seed
 
-        r_key = jax.random.key(42)
+        r_key =  jax.random.key(r_seed)
         r_key, subkey = jax.random.split(r_key)
         key = jax.random.normal(subkey, (hidden_size, input_dims)) * 0.1
 
@@ -79,9 +80,10 @@ class Model(base.Stat_Model):
         return {
             "class_type": self.class_type,
             "class_name": self.class_name,
+            "input_dims": self.input_dims,
             "hidden_size": self.hidden_size,
-            "input_dims": self.input_dims, 
-            "lr": self.lr
+            "lr": self.lr,
+            "r_seed": self.r_seed
         }
 
 
@@ -125,7 +127,7 @@ if __name__ == "__main__":
     x = jnp.array([eye[1, :], eye[2, :]])
     t = jnp.array([eye[3, :], eye[3, :]])
 
-    model = Model(8, 4, 0.1)
+    model = Model(4, 8, 0.1)
     print(model.infer(eye))
 
     for i in range(100):

@@ -203,10 +203,17 @@ class Context(BaseModel):
         name = "Skip step"
 
         cortex_models = [
-            cortex.Model(0, linear.Model(64, graph_shape)),
-            cortex.Model(1, linear.Model(64, graph_shape)),
-            cortex.Model(2, linear.Model(64, graph_shape))
+            cortex.Model(0, linear.Model(graph_shape, 1, 64)),
+            cortex.Model(1, linear.Model(graph_shape, 1, 64)),
+            cortex.Model(2, linear.Model(graph_shape, 1, 64))
         ]
+
+        # cortex_models = [
+        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
+        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
+        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
+        # ]
+
         hippocampus_models = [
             hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape),
@@ -221,9 +228,9 @@ class Context(BaseModel):
         for path_tuples in data_skip_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
-            trainer.prepare_batch(64)
+            trainer.prepare_batch(16)
 
-        loop_train(trainers, 100000)
+        loop_train(trainers, 20000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,
@@ -237,10 +244,17 @@ class Context(BaseModel):
         name = "Entropy 3 layers"
 
         cortex_models = [
-            cortex.Model(0, linear.Model(64, graph_shape)),
-            cortex.Model(1, linear.Model(64, graph_shape)),
-            cortex.Model(2, linear.Model(64, graph_shape))
+            cortex.Model(0, linear.Model(graph_shape, 1, 64)),
+            cortex.Model(1, linear.Model(graph_shape, 1, 64)),
+            cortex.Model(2, linear.Model(graph_shape, 1, 64))
         ]
+
+        # cortex_models = [
+        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
+        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
+        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 16), (16, 16)])),
+        # ]
+
         hippocampus_models = [
             hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape),
@@ -258,9 +272,9 @@ class Context(BaseModel):
         for path_tuples in data_abstract_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
-            trainer.prepare_batch(64)
+            trainer.prepare_batch(16)
 
-        loop_train(trainers, 100000)
+        loop_train(trainers, 20000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,
@@ -275,7 +289,7 @@ class Context(BaseModel):
 
         table_cores = []
         for i in range(3):
-            table_core = table.Model(graph_shape)
+            table_core = table.Model(graph_shape, 1)
             table_cores.append(table_core)
 
         cortex_models = []
