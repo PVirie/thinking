@@ -59,11 +59,11 @@ If you have any issues, please let me know.
     -   [x] Use asymmetric gradient update to keep track of the best so far
     -   [x] Reset context after each goal change
     -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction.
-    -   [ ] Hypothesis: reset context after each goal will reduce the complexity of the model?
 -   [x] Enhancement
     -   [x] jax enhance: use jit (remove if else in training functions)
     -   [x] Use optax
     -   [x] Transformer kernel
+        -   [ ] Poor performance compared to linear kernel
 -   [x] Abstraction
     -   [x] Implement entropy abstraction
         -   [x] Conclusion: entropy might actually increase the steps.
@@ -71,12 +71,11 @@ If you have any issues, please let me know.
 -   [ ] Language model experiment (abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel
-    -   [ ] LLM Steering
     -   [x] Make core models accept context of shape (batch, context length, feature length)
+    -   [ ] LLM Steering
     -   [ ] Evaluate LLM vs HUMN augmented LLM
 -   [ ] Hippocampus
-    -   [ ] Added different encodings to the model
-    -   [ ] Experiment with hippocampus: Tree based position encoding
+    -   [ ] Tree based position encoding
 -   [ ] RL experiment
     -   [ ] Cart pole experiment
 -   [ ] Paper topic

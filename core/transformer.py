@@ -157,8 +157,6 @@ class Value_Score_Module(nn.Module):
 
 
 class Value_Score_Module_Test(Value_Score_Module):
-
-
     @nn.compact
     def __call__(self, s, t):
         logits = self.stacked_transformer(t, s, False)
@@ -261,29 +259,25 @@ def loss_fn(params, model_fn, s, x, t, scores, masks, dropout_train_key):
 jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)), static_argnames=['model_fn'])
 
 
-@partial(jax.jit, static_argnames=['context_length'])
-def train_step_2(state, sp, x, t, scores, masks, context_length):
+@partial(jax.jit, static_argnames=['context_length', 'is_sequence'])
+def train_step(state, s, x, t, scores, masks, context_length, is_sequence=False):
 
-    # expand x, t, scores, masks; then pad with zeros
-    xp = jnp.pad(jnp.expand_dims(x, axis=1), ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
-    tp = jnp.pad(jnp.expand_dims(t, axis=1), ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
-    scorep = jnp.pad(jnp.reshape(scores, [-1, 1]), ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
-    maskp = jnp.pad(jnp.reshape(masks, [-1, 1]), ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
-    
-    loss, grads = jitted_loss(state.params, state.model_fn, sp, xp, tp, scorep, maskp, state.get_rng())
-    return state.apply_gradients(grads), loss
+    if is_sequence:
+        # pad s, t with zeros
+        sp = jnp.pad(s, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
+        xp = jnp.pad(x, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
+        tp = jnp.pad(t, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
 
-
-@partial(jax.jit, static_argnames=['context_length'])
-def train_step(state, s, x, t, scores, masks, context_length):
-    # pad s, t with zeros
-    sp = jnp.pad(s, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
-    xp = jnp.pad(x, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
-    tp = jnp.pad(t, ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
-
-    # pad score and mask
-    scorep = jnp.pad(scores, ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
-    maskp = jnp.pad(masks, ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
+        # pad score and mask
+        scorep = jnp.pad(scores, ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
+        maskp = jnp.pad(masks, ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
+    else:
+        sp = s
+        # expand x, t, scores, masks; then pad with zeros
+        xp = jnp.pad(jnp.expand_dims(x, axis=1), ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
+        tp = jnp.pad(jnp.expand_dims(t, axis=1), ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
+        scorep = jnp.pad(jnp.reshape(scores, [-1, 1]), ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
+        maskp = jnp.pad(jnp.reshape(masks, [-1, 1]), ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
 
     loss, grads = jitted_loss(state.params, state.model_fn, sp, xp, tp, scorep, maskp, state.get_rng())
     return state.apply_gradients(grads), loss
@@ -356,12 +350,9 @@ class Model(base.Model):
 
     def fit(self, s, x, t, scores, masks=None, context=None):
         # s has shape (N, context_length, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
-
         if masks is None:
             masks = jnp.ones(scores.shape)
-
-        self.state, loss = train_step_2(self.state, s, x, t, scores, masks, self.context_length)
-
+        self.state, loss = train_step(self.state, s, x, t, scores, masks, self.context_length, is_sequence=False)
         self.is_updated = True
         return loss
 
@@ -369,25 +360,20 @@ class Model(base.Model):
     def fit_sequence(self, s, x, t, scores, masks=None, context=None):
         # s has shape (N, seq_len, dim), x has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
         # seq_len = learning_length + context_length - 1
-
         if masks is None:
             masks = jnp.ones(scores.shape)
-
-        self.state, loss = train_step(self.state, s, x, t, scores, masks, self.context_length)
-
+        self.state, loss = train_step(self.state, s, x, t, scores, masks, self.context_length, is_sequence=True)
         self.is_updated = True
         return loss
 
 
     def infer(self, s, t, context=None):
         # s has shape (N, context_length, dim), t has shape (N, dim)
-        
         if s.shape[1] < self.context_length:
             # pad input
             s = jnp.pad(s, ((0, 0), (0, self.context_length - s.shape[1]), (0, 0)), mode='constant', constant_values=0)
         elif s.shape[1] > self.context_length:
             s = s[:, -self.context_length:, :]
-
 
         s = jnp.reshape(s, (-1, self.context_length, self.input_dims))
         t = jnp.reshape(t, (-1, 1, self.input_dims))
@@ -415,7 +401,7 @@ if __name__ == "__main__":
     from datetime import datetime
     # get number of milliseconds since midnight of January 1, 1970
     millis = datetime.now().microsecond
-    model = Model(4, 2, 32, [(4, 16), (4, 16)], 16, 0.001, r_seed=millis)
+    model = Model(4, 2, 32, [(4, 16), (4, 16)], 4, 0.001, r_seed=millis)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
@@ -435,7 +421,7 @@ if __name__ == "__main__":
     print("Value:", value)
     
     # s = jnp.array([[eye[0, :]]])
-    # t = jnp.array([eye[3, :]])
+    # t = jnp.array([eye[2, :]])
 
     # value, score = model.infer(s, t)
     # print("Loss:", loss)

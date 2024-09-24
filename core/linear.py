@@ -265,15 +265,15 @@ if __name__ == "__main__":
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
-    X = jnp.array([[eye[1, :], eye[2, :], eye[3, :], eye[0, :]]])
-    T = jnp.array([[eye[3, :], eye[3, :], eye[3, :], eye[3, :]]])
+    X = jnp.array([[eye[3, :], eye[3, :], eye[1, :], eye[1, :]]])
+    T = jnp.array([[eye[2, :], eye[2, :], eye[3, :], eye[3, :]]])
     scores = jnp.array([[0.72, 0.81, 0.9, 1.0]])
 
     for i in range(1000):
         loss = model.fit_sequence(S, X, T, scores)
 
     s = jnp.array([[eye[0, :], eye[1, :]], [eye[1, :], eye[2, :]]])
-    t = jnp.array([eye[3, :], eye[3, :]])
+    t = jnp.array([eye[2, :], eye[3, :]])
 
     value, score = model.infer(s, t)
     print("Loss:", loss)

@@ -138,7 +138,7 @@ class Context(BaseModel):
                     # print at every 1 % progress
                     # compute time to finish in seconds
                     logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-                    logging.info(f"Layer loss: {', '.join([f'{trainer.avg_loss:.4f}' for trainer in trainers])}")
+                    logging.info(f"Layer loss: {', '.join([f'{i}-{trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
             logging.info(f"Total learning time {time.time() - stamp}s")
 
 
@@ -202,17 +202,17 @@ class Context(BaseModel):
 
         name = "Skip step"
 
-        cortex_models = [
-            cortex.Model(0, linear.Model(graph_shape, 1, 64)),
-            cortex.Model(1, linear.Model(graph_shape, 1, 64)),
-            cortex.Model(2, linear.Model(graph_shape, 1, 64))
-        ]
-
         # cortex_models = [
-        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
-        #     cortex.Model(1, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
-        #     cortex.Model(2, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
+        #     cortex.Model(0, linear.Model(graph_shape, 1, 64)),
+        #     cortex.Model(1, linear.Model(graph_shape, 1, 64)),
+        #     cortex.Model(2, linear.Model(graph_shape, 1, 64))
         # ]
+
+        cortex_models = [
+            cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], memory_size=4, lr=0.001)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], memory_size=4, lr=0.001)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], memory_size=4, lr=0.001)),
+        ]
 
         hippocampus_models = [
             hippocampus.Model(graph_shape, graph_shape),
@@ -243,17 +243,17 @@ class Context(BaseModel):
 
         name = "Entropy 3 layers"
 
-        cortex_models = [
-            cortex.Model(0, linear.Model(graph_shape, 1, 64)),
-            cortex.Model(1, linear.Model(graph_shape, 1, 64)),
-            cortex.Model(2, linear.Model(graph_shape, 1, 64))
-        ]
-
         # cortex_models = [
-        #     cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
-        #     cortex.Model(1, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
-        #     cortex.Model(2, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], lr=0.0001)),
+        #     cortex.Model(0, linear.Model(graph_shape, 1, 64)),
+        #     cortex.Model(1, linear.Model(graph_shape, 1, 64)),
+        #     cortex.Model(2, linear.Model(graph_shape, 1, 64))
         # ]
+
+        cortex_models = [
+            cortex.Model(0, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], memory_size=4, lr=0.001)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], memory_size=4, lr=0.001)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 64, [(16, 32), (16, 32)], memory_size=4, lr=0.001)),
+        ]
 
         hippocampus_models = [
             hippocampus.Model(graph_shape, graph_shape),
