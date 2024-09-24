@@ -52,7 +52,7 @@ class TransformerDecoderBlock(nn.Module):
             deterministic=not train,
             dropout_rate=self.dropout_rate,
             broadcast_dropout=False
-        )(x, mask=create_causal_mask(batch, seq_len))
+        )(inputs_q=x, inputs_k=x, inputs_v=x, mask=create_causal_mask(batch, seq_len))
         
         # Skip connection and layer norm
         x = x + attn_output
@@ -121,6 +121,7 @@ class StackedTransformer(nn.Module):
 
 
 class Value_Score_Module(nn.Module):
+    records: int
     slots: int
     output_dim: int
     stacked_transformer: StackedTransformer
@@ -130,9 +131,8 @@ class Value_Score_Module(nn.Module):
         logits = self.stacked_transformer(t, s, True)
         # flatten
         seq_len = logits.shape[1]
-        hidden_dim = logits.shape[2]
         x = jnp.reshape(x, (-1, self.output_dim))
-        logits = jnp.reshape(logits, (-1, hidden_dim))
+        logits = jnp.reshape(logits, (-1, self.records))
         
         keys = jax.nn.softmax(logits, axis=1)
         Vs = nn.Dense(self.slots * self.output_dim)(keys)
@@ -263,7 +263,7 @@ jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)), static_argnames=
 
 
 @partial(jax.jit, static_argnames=['context_length'])
-def train_step_2(state, s, x, t, scores, masks, context_length):
+def train_step_2(state, sp, x, t, scores, masks, context_length):
 
     # expand x, t, scores, masks; then pad with zeros
     xp = jnp.pad(jnp.expand_dims(x, axis=1), ((0, 0), (context_length - 1, 0), (0, 0)), mode='constant', constant_values=0)
@@ -271,7 +271,7 @@ def train_step_2(state, s, x, t, scores, masks, context_length):
     scorep = jnp.pad(jnp.reshape(scores, [-1, 1]), ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
     maskp = jnp.pad(jnp.reshape(masks, [-1, 1]), ((0, 0), (context_length - 1, 0)), mode='constant', constant_values=0)
     
-    loss, grads = jitted_loss(state.params, state.model_fn, s, xp, tp, scorep, maskp, state.get_rng())
+    loss, grads = jitted_loss(state.params, state.model_fn, sp, xp, tp, scorep, maskp, state.get_rng())
     return state.apply_gradients(grads), loss
 
 
@@ -305,8 +305,8 @@ class Model(base.Model):
         self.r_seed = r_seed
 
         stack_transformer = StackedTransformer(layers=layers, d_model=input_dims, output_dim=hidden_size)
-        self.train_model = Value_Score_Module(slots=memory_size, output_dim=input_dims, stacked_transformer=stack_transformer)
-        self.test_model = Value_Score_Module_Test(slots=memory_size, output_dim=input_dims, stacked_transformer=stack_transformer)
+        self.train_model = Value_Score_Module(records=hidden_size, slots=memory_size, output_dim=input_dims, stacked_transformer=stack_transformer)
+        self.test_model = Value_Score_Module_Test(records=hidden_size, slots=memory_size, output_dim=input_dims, stacked_transformer=stack_transformer)
 
         variables = self.train_model.init(
             {'params': self.r_key, 'dropout': self.dropout_r_key}, 
@@ -416,7 +416,7 @@ if __name__ == "__main__":
     from datetime import datetime
     # get number of milliseconds since midnight of January 1, 1970
     millis = datetime.now().microsecond
-    model = Model(4, 2, 16, [(4, 8), (4, 8)], 4, 0.001, r_seed=millis)
+    model = Model(4, 2, 32, [(4, 8), (4, 8)], 16, 0.0001, r_seed=millis)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
@@ -424,7 +424,7 @@ if __name__ == "__main__":
     T = jnp.array([[eye[3, :], eye[3, :], eye[3, :], eye[3, :]]])
     scores = jnp.array([[0.72, 0.81, 0.9, 1.0]])
 
-    for i in range(1000):
+    for i in range(10000):
         loss = model.fit_sequence(S, X, T, scores)
 
     s = jnp.array([[eye[0, :], eye[1, :]], [eye[1, :], eye[2, :]]])
@@ -455,12 +455,3 @@ if __name__ == "__main__":
     # print("Loss:", loss)
     # print("Score:", score)
     # print("Value:", value)
-
-    model.save("/app/log/transformer")
-
-    model_2 = Model(4, 2, 16, [(4, 8), (4, 8)], 4, 0.001, r_seed=millis)
-    model_2.load("/app/log/transformer")
-    value, score = model_2.infer(s, t)
-    print("Loss:", loss)
-    print("Score:", score)
-    print("Value:", value)
