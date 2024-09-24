@@ -21,6 +21,20 @@ except:
     import base
 
 
+def create_causal_mask(batch_size, sequence_length):
+    mask = jnp.tril(jnp.ones((sequence_length, sequence_length)))
+    mask = jnp.tile(mask, (batch_size, 1, 1))
+    mask = mask[:, jnp.newaxis, :, :]
+    return mask
+
+
+def create_self_attention_mask(batch_size, sequence_length):
+    mask = jnp.eye(sequence_length)
+    mask = mask[jnp.newaxis, :, :]
+    mask = jnp.tile(mask, (batch_size, 1, 1))
+    mask = mask[:, jnp.newaxis, :, :]
+    return mask
+
 
 class TransformerDecoderBlock(nn.Module):
     d_model: int
@@ -31,8 +45,10 @@ class TransformerDecoderBlock(nn.Module):
     @nn.compact
     def __call__(self, enc_out, x, train):
     
+        batch = x.shape[0]
+        seq_len = x.shape[1]
+
         # Masked multi-head self-attention
-        mask = nn.attention.make_causal_mask(x[:, :, 0])
         attn_output = nn.MultiHeadDotProductAttention(
             num_heads=self.num_heads, 
             qkv_features=self.d_model, 
@@ -41,14 +57,13 @@ class TransformerDecoderBlock(nn.Module):
             deterministic=not train,
             dropout_rate=self.dropout_rate,
             broadcast_dropout=False
-        )(x, mask=mask)
+        )(x, mask=create_causal_mask(batch, seq_len))
         
         # Skip connection and layer norm
         x = x + attn_output
         x = nn.LayerNorm(epsilon=1e-6)(x)
         
         # Multi-head cross-attention, only attend to the same slot to fuse target state
-        eye_mask = jnp.eye(x.shape[1], dtype=jnp.float32)
         attn_output = nn.MultiHeadDotProductAttention(
             num_heads=self.num_heads, 
             qkv_features=self.d_model, 
@@ -56,7 +71,7 @@ class TransformerDecoderBlock(nn.Module):
             kernel_init=nn.initializers.xavier_uniform(),
             deterministic=not train,
             dropout_rate=self.dropout_rate
-        )(inputs_q=x, inputs_k=enc_out, inputs_v=enc_out, mask=eye_mask)
+        )(inputs_q=x, inputs_k=enc_out, inputs_v=enc_out, mask=create_self_attention_mask(batch, seq_len))
         
         # Skip connection and layer norm
         x = x + attn_output
@@ -236,7 +251,7 @@ def train_step(state, s, x, t, scores, masks, dropout_key, context_length):
 
 class Model(base.Model):
 
-    def __init__(self, input_dims, context_length, hidden_size, layers, memory_size, lr=1e-4, r_seed=42):
+    def __init__(self, input_dims, context_length, hidden_size, layers, memory_size=16, lr=1e-4, r_seed=42):
         super().__init__("model", "transformer")
 
         r_key = jax.random.key(r_seed)
