@@ -4,6 +4,7 @@ from collections.abc import Callable
 import jax
 import jax.random
 import jax.numpy as jnp
+from jax import lax
 import flax.linen as nn
 from flax import core, struct              # Flax dataclasses
 import optax
@@ -16,6 +17,7 @@ except:
     import base
 
 
+@partial(jax.jit, static_argnames=['batch_size', 'seq_len', 'n'])
 def create_n_step_causal_mask(batch_size, seq_len, n):
     # unlike usual causal mask, this mask will have n steps backward only
     # for example n = 2
@@ -24,10 +26,16 @@ def create_n_step_causal_mask(batch_size, seq_len, n):
     # [0, 1, 1, 0]
     # [0, 0, 1, 1]
 
+    n = jnp.minimum(n, seq_len)
+
+    def body_fun(i, result):
+        mask = jnp.eye(seq_len, dtype=jnp.int32)
+        mask = jnp.roll(mask, -i, axis=1)
+        mask = jnp.tril(mask)
+        return result + mask
+    
     mask = jnp.zeros((seq_len, seq_len), dtype=jnp.int32)
-    for i in range(seq_len):
-        start_idx = max(0, i - n + 1)
-        mask = mask.at[i, start_idx:i+1].set(1)
+    mask = lax.fori_loop(0, n, body_fun, mask)
 
     # Convert the mask to shape (batch_size, 1, seq_len, seq_len) for broadcasting
     mask = jnp.expand_dims(mask, axis=0)  # Shape: (1, seq_len, seq_len)
@@ -37,8 +45,9 @@ def create_n_step_causal_mask(batch_size, seq_len, n):
     return mask
 
 
-def create_self_attention_mask(batch_size, sequence_length):
-    mask = jnp.eye(sequence_length)
+@partial(jax.jit, static_argnames=['batch_size', 'seq_len'])
+def create_self_attention_mask(batch_size, seq_len):
+    mask = jnp.eye(seq_len)
     mask = mask[jnp.newaxis, :, :]
     mask = jnp.tile(mask, (batch_size, 1, 1))
     mask = mask[:, jnp.newaxis, :, :]
@@ -224,6 +233,7 @@ class Value_Score_Module_Test(Value_Score_Module):
     
 class Train_state(struct.PyTreeNode):
     model_fn: Callable = struct.field(pytree_node=False)
+    inference_fn: Callable = struct.field(pytree_node=False)
     optimizer: optax.GradientTransformation = struct.field(pytree_node=False)
     params: core.FrozenDict[str, Any] = struct.field(pytree_node=True)
     opt_state: optax.OptState = struct.field(pytree_node=True)
@@ -320,6 +330,20 @@ def train_step(state, s, x, t, scores, masks, context_length, is_sequence=False)
     return state.apply_gradients(grads), loss
 
 
+@partial(jax.jit, static_argnames=['context_length', 'input_dims'])
+def execute_fn(state, s, t, context_length, input_dims):
+
+    s = jnp.reshape(s, (-1, context_length, input_dims))
+    t = jnp.reshape(t, (-1, 1, input_dims))
+    t = jnp.repeat(t, context_length, axis=1)
+
+    best_value, best_score = state.inference_fn({'params': state.params}, s, t, mutable=False, rngs={'dropout': state.dropout_key})
+
+    best_value = jnp.reshape(best_value, [-1, input_dims])
+    best_score = jnp.reshape(best_score, [-1])
+    return best_value, best_score
+
+
 class Model(base.Model):
 
     def __init__(self, input_dims, context_length, hidden_size, layers, memory_size=16, lr=1e-4, r_seed=42):
@@ -354,6 +378,7 @@ class Model(base.Model):
 
         self.state = Train_state(
             model_fn=self.train_model.apply,
+            inference_fn=self.test_model.apply,
             optimizer=optimizer,
             params=variables['params'],
             opt_state=opt_state,
@@ -413,24 +438,8 @@ class Model(base.Model):
         elif s.shape[1] > self.context_length:
             s = s[:, -self.context_length:, :]
 
-        s = jnp.reshape(s, (-1, self.context_length, self.input_dims))
-        t = jnp.reshape(t, (-1, 1, self.input_dims))
-        t = jnp.repeat(t, self.context_length, axis=1)
+        best_value, best_score = execute_fn(self.state, s, t, self.context_length, self.input_dims)
 
-        best_value, best_score = self.test_model.apply(
-            {
-                'params': self.state.params,
-            },
-            s, 
-            t,
-            mutable=False, 
-            rngs={
-                'dropout': self.state.dropout_key
-            }
-        )
-
-        best_value = jnp.reshape(best_value, [-1, self.input_dims])
-        best_score = jnp.reshape(best_score, [-1])
         return best_value, best_score
 
 
