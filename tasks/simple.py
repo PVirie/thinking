@@ -138,7 +138,7 @@ class Context(BaseModel):
                     # print at every 1 % progress
                     # compute time to finish in seconds
                     logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-                    logging.info(f"Layer loss: {', '.join([f'{i}-{trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
+                    logging.info(f"Layer loss: {'| '.join([f'{i},{trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
             logging.info(f"Total learning time {time.time() - stamp}s")
 
 

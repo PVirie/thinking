@@ -63,7 +63,7 @@ If you have any issues, please let me know.
     -   [x] jax enhance: use jit (remove if else in training functions)
     -   [x] Use optax
     -   [x] Transformer kernel
-        -   [ ] Poor performance compared to linear kernel
+        -   [x] Poor performance compared to linear kernel (fix by limit attention span to n steps)
 -   [x] Abstraction
     -   [x] Implement entropy abstraction
         -   [x] Conclusion: entropy might actually increase the steps.

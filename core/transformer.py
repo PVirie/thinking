@@ -16,10 +16,24 @@ except:
     import base
 
 
-def create_causal_mask(batch_size, sequence_length):
-    mask = jnp.tril(jnp.ones((sequence_length, sequence_length)))
-    mask = jnp.tile(mask, (batch_size, 1, 1))
-    mask = mask[:, jnp.newaxis, :, :]
+def create_n_step_causal_mask(batch_size, seq_len, n):
+    # unlike usual causal mask, this mask will have n steps backward only
+    # for example n = 2
+    # [1, 0, 0, 0]
+    # [1, 1, 0, 0]
+    # [0, 1, 1, 0]
+    # [0, 0, 1, 1]
+
+    mask = jnp.zeros((seq_len, seq_len), dtype=jnp.int32)
+    for i in range(seq_len):
+        start_idx = max(0, i - n + 1)
+        mask = mask.at[i, start_idx:i+1].set(1)
+
+    # Convert the mask to shape (batch_size, 1, seq_len, seq_len) for broadcasting
+    mask = jnp.expand_dims(mask, axis=0)  # Shape: (1, seq_len, seq_len)
+    mask = jnp.expand_dims(mask, axis=0)  # Shape: (batch_size, 1, seq_len, seq_len)
+    mask = jnp.broadcast_to(mask, (batch_size, 1, seq_len, seq_len))
+
     return mask
 
 
@@ -38,7 +52,7 @@ class TransformerDecoderBlock(nn.Module):
     dropout_rate: float = 0.1
 
     @nn.compact
-    def __call__(self, enc_in, x, train):
+    def __call__(self, enc_in, x, mask, train):
     
         batch = x.shape[0]
         seq_len = x.shape[1]
@@ -52,7 +66,7 @@ class TransformerDecoderBlock(nn.Module):
             deterministic=not train,
             dropout_rate=self.dropout_rate,
             broadcast_dropout=False
-        )(inputs_q=x, inputs_k=x, inputs_v=x, mask=create_causal_mask(batch, seq_len))
+        )(inputs_q=x, inputs_k=x, inputs_v=x, mask=mask)
         
         # Skip connection and layer norm
         x = x + attn_output
@@ -85,10 +99,10 @@ class TransformerDecoderBlock(nn.Module):
         return x
 
 
-
 class StackedTransformer(nn.Module):
     layers: Sequence[tuple]  # Each tuple is (num_heads, d_ff)
     output_dim: int
+    context_length: int
     d_model: int = -1  # Will infer from input if not provided
     dropout_rate: float = 0.1
 
@@ -103,6 +117,10 @@ class StackedTransformer(nn.Module):
         encoder_input = nn.Dense(d_model)(encoder_input)
         decoder_input = nn.Dense(d_model)(decoder_input)
 
+        batch = decoder_input.shape[0]
+        seq_len = decoder_input.shape[1]
+        mask = create_n_step_causal_mask(batch, seq_len, self.context_length)
+
         # Stack of Transformer blocks
         for num_heads, d_ff in self.layers:
             decoder_input = TransformerDecoderBlock(
@@ -110,7 +128,7 @@ class StackedTransformer(nn.Module):
                 num_heads=num_heads,
                 d_ff=d_ff,
                 dropout_rate=self.dropout_rate
-            )(encoder_input, decoder_input, train)
+            )(encoder_input, decoder_input, mask, train)
 
         # Final layer norm and projection to output dimension
         decoder_input = nn.LayerNorm(epsilon=1e-6)(decoder_input)
@@ -123,22 +141,36 @@ class Value_Score_Module(nn.Module):
     records: int
     slots: int
     output_dim: int
-    stacked_transformer: StackedTransformer
+    query_backbone: StackedTransformer
+    value_score_backbone: StackedTransformer
 
     @nn.compact
     def __call__(self, s, x, t):
-        logits = self.stacked_transformer(t, s, True)
-        # flatten
-        seq_len = logits.shape[1]
-        x = jnp.reshape(x, (-1, self.output_dim))
-        logits = jnp.reshape(logits, (-1, self.records))
+
+        seq_len = s.shape[1]
+
+        # Query
+
+        logits = self.query_backbone(t, s, True)
+        keys = jax.nn.softmax(logits, axis=-1)
+
+        Wvs = self.value_score_backbone(t, s, True)
+        Wv = Wvs[:, :, :self.records * self.slots * self.output_dim]
+        Ws = Wvs[:, :, self.records * self.slots * self.output_dim:]
+
+        keys = jnp.reshape(keys, (-1, self.records, 1))
+        Vs = jnp.matmul(jnp.reshape(Wv, (-1, self.slots * self.output_dim, self.records)), keys)
+        Ss = jnp.matmul(jnp.reshape(Ws, (-1, self.slots, self.records)), keys)
         
-        keys = jax.nn.softmax(logits, axis=1)
-        Vs = nn.Dense(self.slots * self.output_dim)(keys)
-        Ss = nn.Dense(self.slots)(keys)
+        # Vs = nn.Dense(self.slots * self.output_dim)(keys)
+        # Ss = nn.Dense(self.slots)(keys)
 
         Vs = jnp.reshape(Vs, (-1, self.slots, self.output_dim))
+        Ss = jnp.reshape(Ss, (-1, self.slots))
 
+        # Access
+
+        x = jnp.reshape(x, (-1, self.output_dim))
         Vl = jnp.expand_dims(x, axis=2)
         denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
         dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
@@ -159,17 +191,27 @@ class Value_Score_Module(nn.Module):
 class Value_Score_Module_Test(Value_Score_Module):
     @nn.compact
     def __call__(self, s, t):
-        logits = self.stacked_transformer(t, s, False)
-        # take only last context
-        logits = logits[:, -1, :]
+        # Query
 
-        keys = jax.nn.softmax(logits, axis=1)
-        Vs = nn.Dense(self.slots * self.output_dim)(keys)
-        Ss = nn.Dense(self.slots)(keys)
+        logits = self.query_backbone(t, s, False)
+        keys = jax.nn.softmax(logits, axis=-1)
+        keys = keys[:, -1, :]
 
+        Wvs = self.value_score_backbone(t, s, False)
+        Wv = Wvs[:, -1, :self.records * self.slots * self.output_dim]
+        Ws = Wvs[:, -1, self.records * self.slots * self.output_dim:]
+
+        keys = jnp.reshape(keys, (-1, self.records, 1))
+        Vs = jnp.matmul(jnp.reshape(Wv, (-1, self.slots * self.output_dim, self.records)), keys)
+        Ss = jnp.matmul(jnp.reshape(Ws, (-1, self.slots, self.records)), keys)
+
+        # Vs = nn.Dense(self.slots * self.output_dim)(keys)
+        # Ss = nn.Dense(self.slots)(keys)
+        
         Vs = jnp.reshape(Vs, (-1, self.slots, self.output_dim))
+        Ss = jnp.reshape(Ss, (-1, self.slots))
 
-        # Ss has shape [batch, memory_size]
+        # Access
 
         max_indices = jnp.argmax(Ss, axis=1, keepdims=True)
         s = jnp.take_along_axis(Ss, max_indices, axis=1)
@@ -241,19 +283,14 @@ class Train_state(struct.PyTreeNode):
 
 
 def loss_fn(params, model_fn, s, x, t, scores, masks, dropout_train_key):
-    v_, scores_, Ss = model_fn(
-        {'params': params}, 
-        s,
-        x, 
-        t,
-        rngs={'dropout': dropout_train_key})
+    v_, scores_, Ss = model_fn({'params': params}, s, x, t, rngs={'dropout': dropout_train_key})
     
     error_S = jnp.sum(masks * (scores - scores_)**2) / jnp.sum(masks)
     error_V = jnp.sum(masks * jnp.mean((x - v_)**2, axis=-1)) / jnp.sum(masks)
-
     # suppress other slot score to 0
     error_C = jnp.mean(Ss ** 2)
-    return error_V + error_S + error_C
+
+    return error_V + error_S + error_C * 0.1
 
 
 jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)), static_argnames=['model_fn'])
@@ -297,9 +334,10 @@ class Model(base.Model):
         self.layers = layers
         self.r_seed = r_seed
 
-        stack_transformer = StackedTransformer(layers=layers, d_model=input_dims, output_dim=hidden_size)
-        self.train_model = Value_Score_Module(records=hidden_size, slots=memory_size, output_dim=input_dims, stacked_transformer=stack_transformer)
-        self.test_model = Value_Score_Module_Test(records=hidden_size, slots=memory_size, output_dim=input_dims, stacked_transformer=stack_transformer)
+        query_transformer = StackedTransformer(layers=layers, d_model=input_dims, output_dim=hidden_size, context_length=context_length)
+        value_score_decoder = StackedTransformer(layers=layers, d_model=input_dims, output_dim=(hidden_size * memory_size * (input_dims + 1)), context_length=context_length)
+        self.train_model = Value_Score_Module(records=hidden_size, slots=memory_size, output_dim=input_dims, query_backbone=query_transformer, value_score_backbone=value_score_decoder)
+        self.test_model = Value_Score_Module_Test(records=hidden_size, slots=memory_size, output_dim=input_dims, query_backbone=query_transformer, value_score_backbone=value_score_decoder)
 
         variables = self.train_model.init(
             {'params': self.r_key, 'dropout': self.dropout_r_key}, 
@@ -398,10 +436,15 @@ class Model(base.Model):
 
 
 if __name__ == "__main__":
+
+    print(create_n_step_causal_mask(1, 4, 1))
+    print(create_n_step_causal_mask(1, 4, 2))
+    print(create_n_step_causal_mask(1, 4, 5))
+
     from datetime import datetime
     # get number of milliseconds since midnight of January 1, 1970
     millis = datetime.now().microsecond
-    model = Model(4, 2, 32, [(4, 16), (4, 16)], 4, 0.001, r_seed=millis)
+    model = Model(4, 2, 8, [(4, 16), (4, 16)], 4, 0.001, r_seed=millis)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])
