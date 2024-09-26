@@ -171,18 +171,18 @@ class Model(base.Model):
 
 if __name__ == "__main__":
     m = Model()
-    # print(m.get_chat_response("To start a business, this is a guideline:"))
-
-    # m.reset_vocab_embedding_heuristic_score()
-
-    print()
-    print("============ Research ===============")
-    print()
-
+    print(m.get_chat_response("To start a business, this is a guideline:")) 
     embedding = m.get_text_embedding("In general, do research before taking action. Make sure that everything is planned and calculated.")
-    m.precompute_vocab_embedding_heuristic_score(embedding)
+    print(embedding.shape)
 
-    m.compute_look_ahead_score("To start a business, this is a guideline:")
+    # print()
+    # print("============ Research ===============")
+    # print()
+
+    # embedding = m.get_text_embedding("In general, do research before taking action. Make sure that everything is planned and calculated.")
+    # m.precompute_vocab_embedding_heuristic_score(embedding)
+
+    # m.compute_look_ahead_score("To start a business, this is a guideline:")
 
     # input = "To start a business, this is a guideline:"
     # print(input)
