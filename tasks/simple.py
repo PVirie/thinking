@@ -351,7 +351,7 @@ if __name__ == "__main__":
     max_steps = 40
     with experiment_session(experiment_path) as context:
 
-        def exp_loop(model, think_ahead=True):
+        def exp_loop(model, think_ahead=False):
             total_length = 0
             stamp = time.time()
             for t_i in context.goals:
@@ -373,7 +373,7 @@ if __name__ == "__main__":
                     for i in range(max_steps):
                         if s == t:
                             break
-                        a = model.infer_sub_action(s, t - s)
+                        a = model.react(s, t - s)
                         p = s + a
                         p_i = context.states[p]
                         ps.append(p_i)
