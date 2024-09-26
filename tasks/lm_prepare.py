@@ -129,6 +129,8 @@ if __name__ == "__main__":
     def serialize_tensors(list_of_tensors):
         return [t.tolist() for t in list_of_tensors]
 
+    vocab_embeddings = []
+    vocab_list = []
     data = []
     for item_i, item in enumerate(item_list):
         if item_i % 10 == 0:
@@ -150,8 +152,8 @@ if __name__ == "__main__":
             "pivot_chunks": pivot_chunks
         })
 
-        vocab_embeddings = embedding_chunks
-        vocab_list = [text_response[pivot[0]:pivot[1]] for pivot in pivot_chunks]
+        vocab_embeddings.extends(embedding_chunks)
+        vocab_list.extends([text_response[pivot[0]:pivot[1]] for pivot in pivot_chunks])
 
         for i in range(1, settings["num_layers"]):
             embedding_chunks, pivot_chunks = process_chunk(embedding_chunks, average_embeddings, step_size=settings["step_size"])
@@ -180,7 +182,7 @@ if __name__ == "__main__":
             "data": data,
             "settings": settings,
             "vocabulary": {
-                "embeddings": vocab_embeddings,
+                "embeddings": serialize_tensors(vocab_embeddings),
                 "list": vocab_list
             }
         }, f)
