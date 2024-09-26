@@ -21,9 +21,6 @@ from utilities.utilities import *
 from utilities.lm.huggingface_lm import Model as Small_Model
 from utilities.lm.openai_lm import Model as Large_Model
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
-from humn import *
 
 
 if __name__ == "__main__":

@@ -10,7 +10,8 @@ import sys
 import math
 import pickle
 import jax
-import jax.numpy
+import jax.numpy as jnp
+from jax import device_put
 
 from utilities.utilities import *
 
@@ -36,7 +37,31 @@ if __name__ == "__main__":
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
         data = pickle.load(f)
 
+    data_tuples = []
+    item_data = data["data"]
+    for item_datum in item_data:
+        item = item_datum["item"]
+        hierarchy = item_datum["hierarchy"]
 
+        layer_paths = []
+        layer_pivots = []
+        for i, layer in enumerate(hierarchy):
+            embedding_chunks = device_put(jnp.array(layer["embedding_chunks"], jnp.float32))
+            path = alg.State_Sequence(embedding_chunks)
+            layer_paths.append(path)
+
+            pivot_chunks = layer["pivot_chunks"]
+            indices = []
+            for j, pivot_chunk in enumerate(pivot_chunks):
+                for k in range(pivot_chunk[0], pivot_chunk[1]):
+                    indices.append(j)
+
+            pivot_indices = alg.Pointer_Sequence(indices)
+            layer_pivots.append(pivot_indices)
+
+        for i in range(len(layer_paths) - 1):
+            data_tuples.append((layer_paths[i], layer_pivots[i], layer_paths[i + 1]))
+    
 
     def loop_train(trainers, num_epoch=1000):
         print_steps = max(1, num_epoch // 100)
@@ -69,12 +94,22 @@ if __name__ == "__main__":
     model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
     # prepare hierarchy data abstract path and train
-    for path_tuples in data_abstract_path:
+    for path_tuples in data_tuples:
         trainers = model.observe(path_tuples)
     for trainer in trainers:
         trainer.prepare_batch(64)
 
     loop_train(trainers, 100000)
 
-
     # save model
+    for i, (c, h) in enumerate(zip(cortex_models, hippocampus_models)):
+        layer_path = os.path.join(experiment_path, "layers", f"layer_{i}")
+        cortex_path = os.path.join(layer_path, "cortex")
+        hippocampus_path = os.path.join(layer_path, "hippocampus")
+        cortex.Model.save(c, cortex_path)
+        hippocampus.Model.save(h, hippocampus_path)
+    for i, model in enumerate(abstraction_models):
+        if model is None:
+            continue
+        abstraction_path = os.path.join(experiment_path, "abstraction_models", f"abstraction_{i}")
+        abstraction.Model.save(model, abstraction_path)

@@ -58,16 +58,15 @@ If you have any issues, please let me know.
     -   [x] Parallelize layers
     -   [x] Use asymmetric gradient update to keep track of the best so far
     -   [x] Reset context after each goal change
-    -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction.
 -   [x] Enhancement
-    -   [x] jax enhance: use jit (remove if else in training functions)
+    -   [x] JIT everything
     -   [x] Use optax
     -   [x] Transformer kernel
-        -   [ ] Poor performance compared to linear kernel
 -   [x] Abstraction
     -   [x] Implement entropy abstraction
-        -   [x] Conclusion: entropy might actually increase the steps.
-        -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
+    -   [ ] Neural statistic keeping
+    -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
+    -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction, and opposite results in react mode.
 -   [ ] Language model experiment (abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel

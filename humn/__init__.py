@@ -78,7 +78,7 @@ class HUMN:
         return cortex.infer_sub_action(hippocampus.augmented_all(), action)
 
 
-    def infer_sub_action(self, from_state: algebraic.State, top_action: algebraic.Action) -> algebraic.Action:
+    def react(self, from_state: algebraic.State, top_action: algebraic.Action) -> algebraic.Action:
         return self.__sub_action_recursion(0, from_state, top_action)
 
 
