@@ -1,5 +1,6 @@
 import os
 from openai import OpenAI
+import torch
 
 try:
     from . import base
@@ -32,7 +33,7 @@ class Model(base.Model):
     def get_text_embedding(self, text:str):
         model="text-embedding-3-small"
         text = text.replace("\n", " ")
-        return openai_session.embeddings.create(input = [text], model=model).data[0].embedding
+        return torch.tensor(openai_session.embeddings.create(input = [text], model=model).data[0].embedding)
     
 
 if __name__ == "__main__":
@@ -40,5 +41,4 @@ if __name__ == "__main__":
 
     print(m.get_chat_response("To start a business, this is a guideline:")) 
     embedding = m.get_text_embedding("In general, do research before taking action. Make sure that everything is planned and calculated.")
-    # embedding is a list
-    print(len(embedding))
+    print(embedding.shape)

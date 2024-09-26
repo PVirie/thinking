@@ -15,6 +15,7 @@ import argparse
 import sys
 import math
 import pickle
+import torch
 
 from utilities.utilities import *
 from utilities.lm.huggingface_lm import Model as Small_Model
@@ -117,7 +118,7 @@ if __name__ == "__main__":
     }
 
     def average_embeddings(embedding_chunks):
-        return Small_Model.compute_mean_embedding(embedding_chunks)
+        return torch.mean(torch.stack(embedding_chunks), dim=0)
 
     def process_chunk(embedding_chunks, processor, step_size=4):
         # split chunks into sub_chunk of step_size
@@ -142,12 +143,15 @@ if __name__ == "__main__":
         hierarchy = []
         
         # split text into chunk of step_size and embed each chunk
-        embedding_chunks, pivot_chunks = process_chunk(text_response, small_model.get_text_embedding, step_size=settings["text_chunk_size"])
+        embedding_chunks, pivot_chunks = process_chunk(text_response, large_model.get_text_embedding, step_size=settings["text_chunk_size"])
         hierarchy.append({
             "layer": 0,
             "embedding_chunks": serialize_tensors(embedding_chunks),
             "pivot_chunks": pivot_chunks
         })
+
+        vocab_embeddings = embedding_chunks
+        vocab_list = [text_response[pivot[0]:pivot[1]] for pivot in pivot_chunks]
 
         for i in range(1, settings["num_layers"]):
             embedding_chunks, pivot_chunks = process_chunk(embedding_chunks, average_embeddings, step_size=settings["step_size"])
@@ -165,10 +169,6 @@ if __name__ == "__main__":
         })
 
 
-    vocab_embeddings = []
-    for item in item_list:
-        vocab_embeddings.append(small_model.get_text_embedding(item).tolist())
-
 
     experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "lm_factorio")
     logging.info(f"Clearing the experiment directory: {experiment_path}")
@@ -181,7 +181,7 @@ if __name__ == "__main__":
             "settings": settings,
             "vocabulary": {
                 "embeddings": vocab_embeddings,
-                "list": item_list
+                "list": vocab_list
             }
         }, f)
 
