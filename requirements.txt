@@ -9,4 +9,4 @@ openai
 sentencepiece
 transformers==4.44.2
 # RL
-gym
+gym[classic_control]

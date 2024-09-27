@@ -16,8 +16,8 @@ from utilities.utilities import *
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from jax_onehot.src import algebric as alg
-from jax_onehot.src import cortex, hippocampus, abstraction
+from implementations.jax_onehot import algebric as alg
+from implementations.jax_onehot import cortex, hippocampus, abstraction
 import core
 from core import table, linear, transformer, stat_head, stat_linear, stat_table
 
@@ -138,7 +138,7 @@ class Context(BaseModel):
                     # print at every 1 % progress
                     # compute time to finish in seconds
                     logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-                    logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
+                    logging.info(f"Layer loss: {'; '.join([f'{i}| {trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
             logging.info(f"Total learning time {time.time() - stamp}s")
 
 
@@ -203,15 +203,15 @@ class Context(BaseModel):
         name = "Skip step"
 
         # cortex_models = [
-        #     cortex.Model(0, linear.Model(graph_shape, 1, 64)),
-        #     cortex.Model(1, linear.Model(graph_shape, 1, 64)),
-        #     cortex.Model(2, linear.Model(graph_shape, 1, 64))
+        #     cortex.Model(0, linear.Model(graph_shape, 1, 64, r_seed=random_seed)),
+        #     cortex.Model(1, linear.Model(graph_shape, 1, 64, r_seed=random_seed)),
+        #     cortex.Model(2, linear.Model(graph_shape, 1, 64, r_seed=random_seed))
         # ]
 
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001)),
+            cortex.Model(0, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -250,9 +250,9 @@ class Context(BaseModel):
         # ]
 
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=16, lr=0.001)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=8, lr=0.001)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001)),
+            cortex.Model(0, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=8, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [

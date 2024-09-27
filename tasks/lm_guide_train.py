@@ -18,8 +18,8 @@ from utilities.utilities import *
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from llm.src import algebric as alg
-from llm.src import cortex, hippocampus, abstraction
+from implementations.llm import algebric as alg
+from implementations.llm import cortex, hippocampus, abstraction
 import core
 from core import transformer
 
@@ -56,8 +56,7 @@ if __name__ == "__main__":
             pivot_chunks = layer["pivot_chunks"]
             indices = []
             for j, pivot_chunk in enumerate(pivot_chunks):
-                for k in range(pivot_chunk[0], pivot_chunk[1]):
-                    indices.append(j)
+                indices.append(pivot_chunk[1])
 
             pivot_indices = alg.Pointer_Sequence(indices)
             layer_pivots.append(pivot_indices)
@@ -66,7 +65,7 @@ if __name__ == "__main__":
             data_tuples.append((layer_paths[i], layer_pivots[i], layer_paths[i + 1]))
 
         # now add start and goal embedding again as the final top most layer
-        final_pivots = alg.State_Sequence(jnp.tile(jnp.expand_dims(goal_embedding, axis=0), (len(layer_paths[-1]), 1, 1)))
+        final_pivots = alg.State_Sequence(jnp.tile(jnp.expand_dims(goal_embedding, axis=0), (len(layer_pivots[-1]), 1, 1)))
         data_tuples.append((layer_paths[-1], layer_pivots[-1], final_pivots))
     
 

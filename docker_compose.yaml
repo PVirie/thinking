@@ -13,7 +13,7 @@ services:
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
             - ./core:/app/core
-            - ./jax_onehot:/app/jax_onehot
+            - ./implementations:/app/implementations
             - ./tasks:/app/tasks
         environment:
             - ERROR_LOG=/app/log/error.log
@@ -46,7 +46,7 @@ services:
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
             - ./core:/app/core
-            - ./jax_onehot:/app/jax_onehot
+            - ./implementations:/app/implementations
             - ./tasks:/app/tasks
         environment:
             - ERROR_LOG=/app/log/error.log
@@ -72,7 +72,7 @@ services:
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
             - ./core:/app/core
-            - ./llm:/app/llm
+            - ./implementations:/app/implementations
             - ./tasks:/app/tasks
         environment:
             - ERROR_LOG=/app/log/error.log
@@ -98,7 +98,7 @@ services:
             - ./artifacts/experiments:/app/experiments
             - ./humn:/app/humn
             - ./core:/app/core
-            - ./jax_onehot:/app/jax_onehot
+            - ./implementations:/app/implementations
             - ./tasks:/app/tasks
         environment:
             - ERROR_LOG=/app/log/error.log
