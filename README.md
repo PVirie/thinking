@@ -45,6 +45,8 @@ If you have any issues, please let me know.
 | -------------- | ------------------ | ----------------------------- | -------------------------------------------------------------------------------------- | ---------------- | ------------------------ |
 | Simple graph   | Train and test     | `tasks/simple.py`             | Train the model to learn simple graph tasks.                                           | jax-gpu, jax-cpu | -                        |
 |                | Clear weight       |                               | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | jax-gpu, jax-cpu | -                        |
+| RL: cart pole  | Train and test     | `tasks/rl_cart_pole.py`       | Train the model to learn to control the cart pole.                                     | jax-gpu, jax-cpu | -                        |
+|                | Clear weight       |                               | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | jax-gpu, jax-cpu | -                        |
 | Language model | Prepare            | `tasks/lm_data_prepare.py`    | Prepare data for the the language model hierarchical guide model.                      | torch-cpu        | HF_TOKEN, OPENAI_API_KEY |
 |                | Train hierarchy    | `tasks/lm_guide_train.py`     | Train the language model hierarchical guide model.                                     | jax-gpu, jax-cpu | -                        |
 |                | Generate hierarchy | `tasks/lm_guide_inference.py` | Generate the language model hierarchical guide model.                                  | jax-gpu, jax-cpu | -                        |
@@ -73,9 +75,10 @@ If you have any issues, please let me know.
     -   [x] Linear embedding transformation kernel
     -   [x] Make core models accept context of shape (batch, context length, feature length)
     -   [x] LLM Steering
-    -   [ ] Train LM hierarchical guide model
+    -   [ ] Train LM hierarchical guide model (in progress, block by the amount of resource to train)
+-   [ ] RL Experiment
+    -   [ ] [Environment] (https://gymnasium.farama.org/environments)
 -   [ ] Hippocampus
     -   [ ] Tree based position encoding
--   [ ] [RL experiments] (https://gymnasium.farama.org/environments)
 -   [ ] Paper topic
     -   [ ] Versioning learning with asymmetric update

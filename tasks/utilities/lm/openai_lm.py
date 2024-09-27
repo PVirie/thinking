@@ -10,7 +10,8 @@ except:
 
 class Model(base.Model):
 
-    def __init__(self):
+    def __init__(self, model_name="gpt-4o"):
+        self.model_name = model_name
         self.openai_session = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=30)
     
     def get_chat_response(self, query_message:str, token_length:int = 1000, system_prompt=None):
@@ -30,7 +31,7 @@ class Model(base.Model):
             "content": query_message,
         })
         response = self.openai_session.chat.completions.create(
-            model = "gpt-4o",
+            model = self.model_name,
             messages = messages,
             max_tokens = token_length,
         )

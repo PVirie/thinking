@@ -59,10 +59,10 @@ def method_2(self, text):
 
 class Model(base.Model):
 
-    def __init__(self):
-
-        self.model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
-        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
+    def __init__(self, model_name="microsoft/Phi-3-mini-4k-instruct"):
+        self.model_name = model_name
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
     
     def get_chat_response(self, query_message:str, token_length:int = 100, system_prompt=None):
 

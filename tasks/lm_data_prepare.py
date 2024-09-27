@@ -18,8 +18,7 @@ import pickle
 import torch
 
 from utilities.utilities import *
-from utilities.lm.huggingface_lm import Model as Small_Model
-from utilities.lm.openai_lm import Model as Large_Model
+from utilities.lm.openai_lm import Model as OpenAI_Model
 
 
 
@@ -109,8 +108,8 @@ if __name__ == "__main__":
     start_sentence = "from scratch"
     goal_sentence_format = "building {} in factorio"
     prompt_format = "In order to achieve the goal of {} {}, here are the steps:"
-    large_model = Large_Model()
-    small_model = Small_Model()
+    large_model = OpenAI_Model("gpt-4o")
+    small_model = OpenAI_Model("gpt-4o-mini")
 
     settings = {
         "step_size": 4,

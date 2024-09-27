@@ -18,8 +18,7 @@ import pickle
 import torch
 
 from utilities.utilities import *
-from utilities.lm.huggingface_lm import Model as Small_Model
-from utilities.lm.openai_lm import Model as Large_Model
+from utilities.lm.openai_lm import Model as OpenAI_Model
 
 
 # inputs = tokenizer("In order to build the advanced circuit in factorio, you must first", return_tensors="jax")
@@ -57,8 +56,8 @@ if __name__ == "__main__":
     settings = data["settings"]
 
     sentence_format = "In order to build {} in factorio, here are the steps:"
-    large_model = Large_Model()
-    small_model = Small_Model()
+    large_model = OpenAI_Model("gpt-4o")
+    small_model = OpenAI_Model("gpt-4o-mini")
 
     # bootstrap embedding
 
@@ -92,12 +91,13 @@ if __name__ == "__main__":
 
         content_draft = []
         for i in range(top_n.shape[0]):
-            basis_texts = [vocab_list[top_n[i][j]] for j in n]
+            basis_texts = [vocab_list[top_n[i][j]] for j in range(n)]
             basis_texts = "\n".join(basis_texts)
             query = f"From these texts: \n {basis_texts} \n Here is the summary of the above texts in one sentence: "
             # now we generate the text
-            basis_summary = small_model.get_chat_response(query, token_length=100)
+            basis_summary = small_model.get_chat_response(query, token_length=20)
             content_draft.append(basis_summary)
+
 
         draft = "\n".join(content_draft)
         query = f"Given the draft steps as follow: \n {draft} \n Here is the summary of the draft again step by step: "
@@ -112,8 +112,7 @@ if __name__ == "__main__":
             "result_response": result_text_response
         })
 
-        break
 
     with open(os.path.join(experiment_path, "text_response_report.json"), "w") as f:
-        json.dump(reports, f)
+        json.dump(reports, f, indent=4)
 
