@@ -13,6 +13,10 @@ import jax.numpy
 
 import gym
 
+# replace np.bool8 with np.bool
+import numpy as np
+np.bool8 = np.bool
+
 from utilities.utilities import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -127,18 +131,20 @@ class Context(BaseModel):
         name = "Skip step"
 
         state_dim = 4
+        action_dim = 1
+        expectation_dim = 1
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, transformer.Model(state_dim, context_length, 64, [(4, 4), (4, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model(state_dim, context_length, 64, [(4, 4), (4, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model(state_dim, context_length, 64, [(4, 4), (4, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [(4, 4), (4, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [(4, 4), (4, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [(4, 4), (4, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
-            hippocampus.Model(context_length, state_dim),
-            hippocampus.Model(context_length, state_dim),
-            hippocampus.Model(context_length, state_dim)
+            hippocampus.Model(state_dim),
+            hippocampus.Model(state_dim),
+            hippocampus.Model(state_dim)
         ]
 
         abstraction_models = []
@@ -151,18 +157,47 @@ class Context(BaseModel):
 
         observation, info = env.reset(seed=random_seed)
 
-        skip_steps = 4
+        skip_steps = 8
         num_layers = len(cortex_models)
         
-        for __ in range(1000):
+        for __ in range(10000):
+            states = []
+            actions = []
+            rewards = []
             for _ in range(1000):
-                observation, reward, terminated, truncated, info = env.step(env.action_space.sample())
+                selected_action = env.action_space.sample()
+                next_observation, reward, terminated, truncated, info = env.step(selected_action)
+                states.append(observation)
+                actions.append(selected_action)
+                rewards.append(reward)
                 if terminated or truncated:
                     observation, info = env.reset()
                     break
+                else:
+                    observation = next_observation
 
-            # TODO: make hierarchical data
-            trainers = model.observe(path_tuples)
+            # now make hierarchical data
+            states = np.stack(states, axis=0)
+            actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
+            rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
+            path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
+            for i in range(num_layers):
+                path = alg.State_Action_Sequence(np.stack([states, actions], axis=1))
+
+                skip_sequence = [i for i in range(0, len(states), skip_steps)]
+                # always add the last index
+                if skip_sequence[-1] != len(states) - 1:
+                    skip_sequence.append(len(states) - 1)
+
+                skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
+                expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :])
+                path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
+
+                states = states[skip_sequence]
+                actions = actions[skip_sequence]
+                rewards = rewards[skip_sequence]
+
+            trainers = model.observe(path_layer_tuples)
 
         env.close()
 
@@ -197,7 +232,7 @@ def experiment_session(path, force_clear=None):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "simple")
+    experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "cart_pole")
 
     if args.clear:
         # just clear and return

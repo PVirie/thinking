@@ -330,44 +330,54 @@ def train_step(state, s, x, t, scores, masks, context_length, is_sequence=False)
     return state.apply_gradients(grads), loss
 
 
-@partial(jax.jit, static_argnames=['context_length', 'input_dims'])
-def execute_fn(state, s, t, context_length, input_dims):
+@partial(jax.jit, static_argnames=['context_length', 'input_dims', 'next_state_dims', 'target_dims'])
+def execute_fn(state, s, t, context_length, input_dims, next_state_dims, target_dims):
 
     s = jnp.reshape(s, (-1, context_length, input_dims))
-    t = jnp.reshape(t, (-1, 1, input_dims))
+    t = jnp.reshape(t, (-1, 1, target_dims))
     t = jnp.repeat(t, context_length, axis=1)
 
     best_value, best_score = state.inference_fn({'params': state.params}, s, t, mutable=False, rngs={'dropout': state.dropout_key})
 
-    best_value = jnp.reshape(best_value, [-1, input_dims])
+    best_value = jnp.reshape(best_value, [-1, next_state_dims])
     best_score = jnp.reshape(best_score, [-1])
     return best_value, best_score
 
 
 class Model(base.Model):
 
-    def __init__(self, input_dims, context_length, hidden_size, layers, memory_size=16, lr=1e-4, r_seed=42):
+    def __init__(self, dims, context_length, hidden_size, layers, memory_size=16, lr=1e-4, r_seed=42):
         super().__init__("model", "transformer")
+
+        # if dims is an integer, then dims is the number of dimensions
+        self.dims = dims
+        if isinstance(dims, int):
+            self.input_dims = dims
+            self.next_state_dims = dims
+            self.target_dims = dims
+        else:
+            self.input_dims = dims[0]
+            self.next_state_dims = dims[1]
+            self.target_dims = dims[2]
 
         r_key = jax.random.key(r_seed)
         self.r_key, self.dropout_r_key = jax.random.split(r_key)
-        self.input_dims = input_dims
         self.context_length = context_length
         self.hidden_size = hidden_size
         self.memory_size = memory_size
         self.layers = layers
         self.r_seed = r_seed
 
-        query_transformer = StackedTransformer(layers=layers, d_model=input_dims, output_dim=hidden_size, context_length=context_length)
-        value_score_decoder = StackedTransformer(layers=layers, d_model=input_dims, output_dim=(hidden_size * memory_size * (input_dims + 1)), context_length=context_length)
-        self.train_model = Value_Score_Module(records=hidden_size, slots=memory_size, output_dim=input_dims, query_backbone=query_transformer, value_score_backbone=value_score_decoder)
-        self.test_model = Value_Score_Module_Test(records=hidden_size, slots=memory_size, output_dim=input_dims, query_backbone=query_transformer, value_score_backbone=value_score_decoder)
+        query_transformer = StackedTransformer(layers=layers, d_model=self.input_dims, output_dim=hidden_size, context_length=context_length)
+        value_score_decoder = StackedTransformer(layers=layers, d_model=self.input_dims, output_dim=(hidden_size * memory_size * (self.next_state_dims + 1)), context_length=context_length)
+        self.train_model = Value_Score_Module(records=hidden_size, slots=memory_size, output_dim=self.next_state_dims, query_backbone=query_transformer, value_score_backbone=value_score_decoder)
+        self.test_model = Value_Score_Module_Test(records=hidden_size, slots=memory_size, output_dim=self.next_state_dims, query_backbone=query_transformer, value_score_backbone=value_score_decoder)
 
         variables = self.train_model.init(
             {'params': self.r_key, 'dropout': self.dropout_r_key}, 
-            jnp.empty((1, self.context_length, input_dims), jnp.float32), 
-            jnp.empty((1, self.context_length, input_dims), jnp.float32),
-            jnp.empty((1, self.context_length, input_dims), jnp.float32),
+            jnp.empty((1, self.context_length, self.input_dims), jnp.float32), 
+            jnp.empty((1, self.context_length, self.next_state_dims), jnp.float32),
+            jnp.empty((1, self.context_length, self.target_dims), jnp.float32),
         )
 
         self.learning_rate = lr
@@ -391,7 +401,7 @@ class Model(base.Model):
         return {
             "class_type": self.class_type,
             "class_name": self.class_name,
-            "input_dims": self.input_dims,
+            "dims": self.dims,
             "context_length": self.context_length,
             "hidden_size": self.hidden_size,
             "layers": self.layers,
@@ -438,7 +448,7 @@ class Model(base.Model):
         elif s.shape[1] > self.context_length:
             s = s[:, -self.context_length:, :]
 
-        best_value, best_score = execute_fn(self.state, s, t, self.context_length, self.input_dims)
+        best_value, best_score = execute_fn(self.state, s, t, self.context_length, self.input_dims, self.next_state_dims, self.target_dims)
 
         return best_value, best_score
 

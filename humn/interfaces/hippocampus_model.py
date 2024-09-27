@@ -18,10 +18,6 @@ class Model:
         raise NotImplementedError("Not implemented")
 
 
-    def extend(self, path: algebraic.State_Sequence):
-        raise NotImplementedError("Not implemented")
-
-
     def refresh(self):
         raise NotImplementedError("Not implemented")
 

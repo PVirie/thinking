@@ -21,7 +21,17 @@ class Model(base.Model):
     def __init__(self, dims, context_length):
         super().__init__("model", "table")
 
-        self.input_dims = dims
+        # if dims is an integer, then dims is the number of dimensions
+        self.dims = dims
+        if isinstance(dims, int):
+            self.input_dims = dims
+            self.next_state_dims = dims
+            self.target_dims = dims
+        else:
+            self.input_dims = dims[0]
+            self.next_state_dims = dims[1]
+            self.target_dims = dims[2]
+
         self.context_length = context_length
 
         hidden_size = pow(dims, context_length + 1)
@@ -45,7 +55,7 @@ class Model(base.Model):
         return {
             "class_type": self.class_type,
             "class_name": self.class_name,
-            "dims": self.input_dims,
+            "dims": self.dims,
             "context_length": self.context_length
         }
 
@@ -69,10 +79,10 @@ class Model(base.Model):
 
         scores = jnp.reshape(scores, (-1, 1))
         masks = jnp.reshape(masks, (-1, 1))
-        x = jnp.reshape(x, (-1, self.input_dims))
+        x = jnp.reshape(x, (-1, self.next_state_dims))
 
         queries = jnp.concatenate([jnp.reshape(s, (-1, self.input_dims * self.context_length)), t], axis=-1)
-        batch = jnp.reshape(queries, (-1, self.input_dims * (self.context_length + 1)))
+        batch = jnp.reshape(queries, (-1, self.input_dims * self.context_length + self.target_dims))
 
         # access key
         logits = jnp.matmul(batch, jnp.transpose(self.key))
@@ -111,8 +121,8 @@ class Model(base.Model):
                 
         return self.fit(
             jnp.reshape(unrolled_s, (-1, self.context_length, self.input_dims)),
-            jnp.reshape(x, (-1, self.input_dims)), 
-            jnp.reshape(t, (-1, self.input_dims)), 
+            jnp.reshape(x, (-1, self.next_state_dims)), 
+            jnp.reshape(t, (-1, self.target_dims)), 
             jnp.reshape(scores, (-1)), 
             jnp.reshape(masks, (-1)), context)
 
@@ -128,7 +138,7 @@ class Model(base.Model):
 
         # for simple model only use the last state
         queries = jnp.concatenate([jnp.reshape(s, (-1, self.input_dims * self.context_length)), t], axis=-1)
-        batch = jnp.reshape(queries, (-1, self.input_dims * (self.context_length + 1)))
+        batch = jnp.reshape(queries, (-1, self.input_dims * self.context_length + self.target_dims))
 
         # access key
         logits = jnp.matmul(batch, jnp.transpose(self.key))

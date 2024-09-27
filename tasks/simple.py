@@ -399,8 +399,12 @@ if __name__ == "__main__":
             #         c.printer = partial(printer, j)
 
             logging.info(f"-----------cognitive planner {parameter_set['name']}-----------")
-            total_length, elapsed_seconds = exp_loop(HUMN(**parameter_set))
-            logging.info(f"cognitive planner {parameter_set['name']}: {elapsed_seconds:.2f}s, average length: {total_length / len(context.goals):.2f}")
+            total_length, elapsed_seconds = exp_loop(HUMN(**parameter_set), think_ahead=False)
+            logging.info(f"cognitive planner (reactive) {parameter_set['name']}: {elapsed_seconds:.2f}s, average length: {total_length / len(context.goals):.2f}")
+
+            total_length, elapsed_seconds = exp_loop(HUMN(**parameter_set), think_ahead=True)
+            logging.info(f"cognitive planner (think ahead) {parameter_set['name']}: {elapsed_seconds:.2f}s, average length: {total_length / len(context.goals):.2f}")
+
 
         logging.info("-----------random planner-----------")
         total_length = 0

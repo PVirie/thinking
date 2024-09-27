@@ -76,16 +76,6 @@ class Model(hippocampus_model.Model):
         self.start = max(0, self.start - 1)
 
 
-    def extend(self, path: State_Sequence):
-        # roll the data
-        self.data = jnp.roll(self.data, -len(path), axis=0)
-        # inplace update
-        self.data = self.data.at[-len(path):].set(path.data)
-
-        self.start = max(0, self.start - len(path))
-
-
-
     def refresh(self):
         self.data = jnp.zeros((self.max_length, self.input_dims), dtype=jnp.float32)
         self.start = self.max_length
