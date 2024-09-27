@@ -42,11 +42,14 @@ if __name__ == "__main__":
     for item_datum in item_data:
         item = item_datum["item"]
         hierarchy = item_datum["hierarchy"]
+        start_embedding = device_put(jnp.array([item_datum["start_embedding"]], jnp.float32))
+        goal_embedding = device_put(jnp.array([item_datum["goal_embedding"]], jnp.float32))
 
         layer_paths = []
         layer_pivots = []
         for i, layer in enumerate(hierarchy):
-            embedding_chunks = device_put(jnp.array(layer["embedding_chunks"], jnp.float32))
+            # add start and goal embedding for every layer
+            embedding_chunks = jnp.concatenate([start_embedding, device_put(jnp.array(layer["embedding_chunks"], jnp.float32)), goal_embedding], dim=0)
             path = alg.State_Sequence(embedding_chunks)
             layer_paths.append(path)
 
@@ -61,6 +64,10 @@ if __name__ == "__main__":
 
         for i in range(len(layer_paths) - 1):
             data_tuples.append((layer_paths[i], layer_pivots[i], layer_paths[i + 1]))
+
+        # now add start and goal embedding again as the final top most layer
+        final_pivots = alg.State_Sequence(jnp.tile(jnp.expand_dims(goal_embedding, axis=0), (len(layer_paths[-1]), 1, 1)))
+        data_tuples.append((layer_paths[-1], layer_pivots[-1], final_pivots))
     
 
     def loop_train(trainers, num_epoch=1000):
@@ -76,18 +83,17 @@ if __name__ == "__main__":
                 logging.info(f"Layer loss: {', '.join([f'{trainer.avg_loss:.4f}' for trainer in trainers])}")
         logging.info(f"Total learning time {time.time() - stamp}s")
 
-
-    embedding_dim = 64
+    embedding_dim = len(data["vocabulary"]["embeddings"][0])
 
     cortex_models = [
-        cortex.Model(0, transformer.Model(64, embedding_dim, 16, [(64, 64), (64, 64)])),
-        cortex.Model(1, transformer.Model(64, embedding_dim, 16, [(64, 64), (64, 64)])),
-        cortex.Model(2, transformer.Model(64, embedding_dim, 16, [(64, 64), (64, 64)]))
+        cortex.Model(0, transformer.Model(embedding_dim, 64, 64, [(64, 64), (64, 64)])),
+        cortex.Model(1, transformer.Model(embedding_dim, 64, 64, [(64, 64), (64, 64)])),
+        cortex.Model(2, transformer.Model(embedding_dim, 64, 64, [(64, 64), (64, 64)]))
     ]
     hippocampus_models = [
-        hippocampus.Model(16, embedding_dim),
-        hippocampus.Model(16, embedding_dim),
-        hippocampus.Model(16, embedding_dim)
+        hippocampus.Model(64, embedding_dim),
+        hippocampus.Model(64, embedding_dim),
+        hippocampus.Model(64, embedding_dim)
     ]
     abstraction_models = []
     
@@ -108,8 +114,4 @@ if __name__ == "__main__":
         hippocampus_path = os.path.join(layer_path, "hippocampus")
         cortex.Model.save(c, cortex_path)
         hippocampus.Model.save(h, hippocampus_path)
-    for i, model in enumerate(abstraction_models):
-        if model is None:
-            continue
-        abstraction_path = os.path.join(experiment_path, "abstraction_models", f"abstraction_{i}")
-        abstraction.Model.save(model, abstraction_path)
+        

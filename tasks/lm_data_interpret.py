@@ -1,7 +1,5 @@
 """
-This script is used to prepare the data for the language model experiment.
-I use large model to generate text data.
-I use small model to tokenize and embed text data.
+This script is used to translate the data from the guide model.
 
 """
 import os
