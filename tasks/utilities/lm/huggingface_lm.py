@@ -11,13 +11,10 @@ os.environ['HF_HOME'] = '/app/cache/'
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
 
-model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
-tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
-
-def method_1(text):
+def method_1(self, text):
     # https://discuss.huggingface.co/t/get-word-embeddings-from-transformer-model/6929/2
-    encoded_input = tokenizer(text, return_tensors='pt')
-    model_output = model(**encoded_input, output_hidden_states=True)
+    encoded_input = self.tokenizer(text, return_tensors='pt')
+    model_output = self.model(**encoded_input, output_hidden_states=True)
     attention_mask = encoded_input['attention_mask']
 
     token_embeddings = model_output.hidden_states[-1]
@@ -31,11 +28,11 @@ def method_1(text):
     return average_embeddings.flatten()
 
 
-def method_2(text):
+def method_2(self, text):
     # https://stackoverflow.com/questions/76051807/automodelforcausallm-for-extracting-text-embeddings
     # https://stackoverflow.com/questions/76926025/sentence-embeddings-from-llama-2-huggingface-opensource
-    encoded_input = tokenizer(text, return_tensors='pt')
-    model_output = model(**encoded_input, output_hidden_states=True)
+    encoded_input = self.tokenizer(text, return_tensors='pt')
+    model_output = self.model(**encoded_input, output_hidden_states=True)
     attention_mask = encoded_input['attention_mask']
 
     last_hidden_state = model_output.hidden_states[-1]
@@ -61,23 +58,46 @@ def method_2(text):
 
 
 class Model(base.Model):
+
+    def __init__(self):
+
+        self.model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
+        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
     
-    def get_chat_response(session, query_message:str, token_length:int = 1000):
-        inputs = tokenizer(query_message, return_tensors='pt')
-        outputs = model.generate(inputs, max_new_tokens=token_length)
-        text = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+    def get_chat_response(self, query_message:str, token_length:int = 100, system_prompt=None):
+
+        prompt = f"Answer the following query using no more than {token_length} tokens. Be concise and do not add any introduction. \n\n {query_message}"
+        inputs = self.tokenizer(prompt, return_tensors='pt')
+        outputs = self.model.generate(inputs.input_ids, max_new_tokens=token_length)
+        # truncate the first part of the output, removing prompt
+        outputs = outputs[:, inputs.input_ids.shape[1]:]
+        
+        # # using chat template
+        # messages = [
+        #     {
+        #         "role": "system",
+        #         "content": f"Answer the following query using no more than {token_length} tokens. Be concise and do not add any introduction.",
+        #     },
+        # ]
+        # if system_prompt is not None:
+        #     messages.insert(0, {
+        #         "role": "system",
+        #         "content": system_prompt,
+        #     })
+        # messages.append({
+        #     "role": "user",
+        #     "content": query_message,
+        # })
+        # inputs = self.tokenizer.apply_chat_template(query_message, return_tensors='pt')
+        # outputs = self.model.generate(inputs, max_new_tokens=token_length)
+
+        text = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
 
         return text
 
 
-    @staticmethod
-    def compute_mean_embedding(embeddings):
-        # embeddings is a list of torch tensor
-        return torch.mean(torch.stack(embeddings), dim=0)
-
-
     def get_text_embedding(self, text:str):
-        embeddings = method_1(text)
+        embeddings = method_1(self, text)
         return embeddings
 
 
@@ -89,7 +109,7 @@ class Model(base.Model):
         self.vocab_embedding = target_embeddings
 
         # get all token embeddings
-        all_token_embeddings = model.get_input_embeddings().weight
+        all_token_embeddings = self.model.get_input_embeddings().weight
         # all_token_embeddings has shape (vocab_size, embedding_size)
 
         # compute cosine similarity between all token embeddings and target embeddings
@@ -97,12 +117,12 @@ class Model(base.Model):
         self.vocab_embedding_heuristic_score = logits
 
     def reset_vocab_embedding_heuristic_score(self):
-        self.vocab_embedding_heuristic_score = torch.zeros(model.config.vocab_size)
+        self.vocab_embedding_heuristic_score = torch.zeros(self.model.config.vocab_size)
 
 
     def compute_look_ahead_score(self, text:str, num_future_slots=16):
 
-        encoded_input = tokenizer(text, return_tensors='pt')
+        encoded_input = self.tokenizer(text, return_tensors='pt')
 
         # append future slot to encoded_input
         extended_input_ids = torch.cat(
@@ -116,7 +136,7 @@ class Model(base.Model):
              torch.zeros((1, num_future_slots), dtype=torch.long)], dim=-1
         )
         
-        model_output = model(input_ids=extended_input_ids, attention_mask=extended_attention_mask, output_hidden_states=True)
+        model_output = self.model(input_ids=extended_input_ids, attention_mask=extended_attention_mask, output_hidden_states=True)
 
         # sum embedding of the future slots
         future_slots_mean_embedding = model_output.hidden_states[-1][-num_future_slots:].mean(dim=1)
@@ -140,20 +160,20 @@ class Model(base.Model):
         # multiply with heuristic score
         # get the best token
 
-        encoded_input = tokenizer(text, return_tensors='pt')
-        model_output = model(**encoded_input)
+        encoded_input = self.tokenizer(text, return_tensors='pt')
+        model_output = self.model(**encoded_input)
         logits = model_output.logits
         logits = logits[0, -1, :] + 0.5 * self.vocab_embedding_heuristic_score
 
         prob = torch.softmax(logits, dim=-1)
         best_token_id = torch.argmax(prob)
-        best_token = tokenizer.decode(best_token_id)
+        best_token = self.tokenizer.decode(best_token_id)
         return best_token
     
 
     def sample_next_token(self, text:str, temperature=1.0, top_k=40):
-        encoded_input = tokenizer(text, return_tensors='pt')
-        model_output = model(**encoded_input)
+        encoded_input = self.tokenizer(text, return_tensors='pt')
+        model_output = self.model(**encoded_input)
         logits = model_output.logits
         logits = logits[0, -1, :] + 0.2 * self.vocab_embedding_heuristic_score
         
@@ -165,7 +185,7 @@ class Model(base.Model):
         prob = torch.softmax(logits / temperature, dim=-1)
 
         next_token_id = torch.multinomial(prob, num_samples=1)
-        next_token = tokenizer.decode(next_token_id)
+        next_token = self.tokenizer.decode(next_token_id)
         return next_token
 
 

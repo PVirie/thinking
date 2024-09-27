@@ -7,25 +7,32 @@ try:
 except:
     from tasks.utilities.lm import base
 
-openai_session = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 
 class Model(base.Model):
+
+    def __init__(self):
+        self.openai_session = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=30)
     
-    def get_chat_response(self, query:str, token_length:int = 1000):
-        response = openai_session.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": f"You are a helpful assistant. Answer the following questions using no more than {token_length} tokens. Go to the steps directly do not add any introduction.",
-                },
-                {
-                    "role": "user",
-                    "content": query,
-                },
-            ],
-            max_tokens=token_length,
+    def get_chat_response(self, query_message:str, token_length:int = 1000, system_prompt=None):
+        messages = [
+            {
+                "role": "system",
+                "content": f"Answer the following query using no more than {token_length} tokens. Be concise and do not add any introduction.",
+            },
+        ]
+        if system_prompt is not None:
+            messages.insert(0, {
+                "role": "system",
+                "content": system_prompt,
+            })
+        messages.append({
+            "role": "user",
+            "content": query_message,
+        })
+        response = self.openai_session.chat.completions.create(
+            model = "gpt-4o",
+            messages = messages,
+            max_tokens = token_length,
         )
         return response.choices[0].message.content
     
@@ -33,7 +40,8 @@ class Model(base.Model):
     def get_text_embedding(self, text:str):
         model="text-embedding-3-small"
         text = text.replace("\n", " ")
-        return torch.tensor(openai_session.embeddings.create(input = [text], model=model).data[0].embedding)
+        openai_results = self.openai_session.embeddings.create(input = [text], model=model).data[0].embedding
+        return torch.tensor(openai_results)
     
 
 if __name__ == "__main__":

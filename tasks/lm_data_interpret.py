@@ -54,11 +54,11 @@ if __name__ == "__main__":
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
         data = pickle.load(f)
 
+    settings = data["settings"]
 
     sentence_format = "In order to build {} in factorio, here are the steps:"
     large_model = Large_Model()
     small_model = Small_Model()
-
 
     # bootstrap embedding
 
@@ -66,6 +66,9 @@ if __name__ == "__main__":
     vocab_embedding_tensor = torch.tensor(data["vocabulary"]["embeddings"])
     vocab_embedding_tensor = torch.reshape(torch.transpose(vocab_embedding_tensor, 0, 1), (1, vocab_embedding_tensor.shape[1], vocab_embedding_tensor.shape[0]))
     
+    # generate and report
+
+    reports = []
     item_data = data["data"]
     for item_datum in item_data:
         item = item_datum["item"]
@@ -74,7 +77,7 @@ if __name__ == "__main__":
         hierarchy = item_datum["hierarchy"]
 
         logging.info(f"Item: {item}")
-        logging.info(f"Original: {text_response}")
+        # logging.info(f"Original: {text_response}")
 
         lowest_layer = hierarchy[0]
         embedding_chunks = torch.tensor(lowest_layer["embedding_chunks"])
@@ -87,8 +90,30 @@ if __name__ == "__main__":
         metric = cs(a, vocab_embedding_tensor)
         top_n = torch.topk(metric, n, dim=1).indices
 
+        content_draft = []
         for i in range(top_n.shape[0]):
-            selected_items = [vocab_list[j] for j in top_n[i]]
-            logging.info(", ".join(selected_items))
+            basis_texts = [vocab_list[top_n[i][j]] for j in n]
+            basis_texts = "\n".join(basis_texts)
+            query = f"From these texts: \n {basis_texts} \n Here is the summary of the above texts in one sentence: "
+            # now we generate the text
+            basis_summary = small_model.get_chat_response(query, token_length=100)
+            content_draft.append(basis_summary)
+
+        draft = "\n".join(content_draft)
+        query = f"Given the draft steps as follow: \n {draft} \n Here is the summary of the draft again step by step: "
+
+        # now we generate the text
+        result_text_response = small_model.get_chat_response(query, token_length=settings["max_text_length"])
+
+        reports.append({
+            "item": item,
+            "query": query,
+            "ground_truth_response": text_response,
+            "result_response": result_text_response
+        })
 
         break
+
+    with open(os.path.join(experiment_path, "text_response_report.json"), "w") as f:
+        json.dump(reports, f)
+

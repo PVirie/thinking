@@ -106,12 +106,13 @@ if __name__ == "__main__":
         "Stack filter inserter",
     ]
 
-    sentence_format = "In order to build {} in factorio, here are the steps:"
+    start_sentence = "from scratch"
+    goal_sentence_format = "building {} in factorio"
+    prompt_format = "In order to achieve the goal of {} {}, here are the steps:"
     large_model = Large_Model()
     small_model = Small_Model()
 
     settings = {
-        "text_chunk_size": 64,
         "step_size": 4,
         "num_layers": 3,
         "max_text_length": 2000
@@ -126,6 +127,27 @@ if __name__ == "__main__":
         abstract_pivot_chunks = [[i, min(i + step_size, len(embedding_chunks))] for i in range(0, len(embedding_chunks), step_size)]
         return abstract_chunks, abstract_pivot_chunks
         
+
+    def split_and_embed_text(text, processor, separators=["\n"]):
+        # split text into chunk of step_size and embed each chunk
+        embedding_chunks = []
+        pivot_chunks = []
+
+        start = 0
+        for i, char in enumerate(text):
+            if char in separators:
+                end = i + 1
+                if end - start > 1:
+                    chunk = text[start:end].strip()
+                    if len(chunk) == 0:
+                        continue
+                    embedding = processor(chunk)
+                    embedding_chunks.append(embedding)
+                    pivot_chunks.append([start, end])
+                start = end
+        return embedding_chunks, pivot_chunks
+
+
     def serialize_tensors(list_of_tensors):
         return [t.tolist() for t in list_of_tensors]
 
@@ -136,8 +158,12 @@ if __name__ == "__main__":
         if item_i % 10 == 0:
             logging.info(f"Processing item {item_i} out of {len(item_list)}")
 
-        query = sentence_format.format(item)
+        goal_sentence = goal_sentence_format.format(item)
+        query = prompt_format.format(goal_sentence, start_sentence)
         text_response = large_model.get_chat_response(query, token_length=settings["max_text_length"])
+
+        start_embedding = large_model.get_text_embedding(start_sentence).tolist()
+        goal_embedding = large_model.get_text_embedding(goal_sentence).tolist()
 
         # logging.info(query)
         # logging.info(text_response)
@@ -145,15 +171,15 @@ if __name__ == "__main__":
         hierarchy = []
         
         # split text into chunk of step_size and embed each chunk
-        embedding_chunks, pivot_chunks = process_chunk(text_response, large_model.get_text_embedding, step_size=settings["text_chunk_size"])
+        embedding_chunks, pivot_chunks = split_and_embed_text(text_response, large_model.get_text_embedding)
         hierarchy.append({
             "layer": 0,
             "embedding_chunks": serialize_tensors(embedding_chunks),
             "pivot_chunks": pivot_chunks
         })
 
-        vocab_embeddings.extends(embedding_chunks)
-        vocab_list.extends([text_response[pivot[0]:pivot[1]] for pivot in pivot_chunks])
+        vocab_embeddings.extend(embedding_chunks)
+        vocab_list.extend([text_response[pivot[0]:pivot[1]] for pivot in pivot_chunks])
 
         for i in range(1, settings["num_layers"]):
             embedding_chunks, pivot_chunks = process_chunk(embedding_chunks, average_embeddings, step_size=settings["step_size"])
@@ -167,9 +193,10 @@ if __name__ == "__main__":
             "item": item,
             "query": query,
             "text_response": text_response,
+            "start_embedding": start_embedding,
+            "goal_embedding": goal_embedding,
             "hierarchy": hierarchy
         })
-
 
 
     experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "lm_factorio")

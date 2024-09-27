@@ -41,13 +41,14 @@ If you have any issues, please let me know.
 -   Running on windows
     -   The relative path in windows that passes to docker has invalid path separators. Using POSIX path separator when passing `{path to file}` parameter when running `run_manual.sh` script. Or simply create a new configuration in `.vscode/launch.json` that fixed the file you want to run with the POSIX path separator.
 
-| Experiment     | Task            | File                  | Description                                                                            | Valid configs    | Required env vars        |
-| -------------- | --------------- | --------------------- | -------------------------------------------------------------------------------------- | ---------------- | ------------------------ |
-| Simple graph   | Train and test  | `tasks/simple.py`     | Train the model to learn simple graph tasks.                                           | jax-gpu, jax-cpu | -                        |
-|                | Clear weight    |                       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | jax-gpu, jax-cpu | -                        |
-| Language model | Prepare         | `tasks/lm_prepare.py` | Prepare data for the the language model hierarchical guide model.                      | torch-cpu        | HF_TOKEN, OPENAI_API_KEY |
-|                | Train hierarchy | `tasks/lm_train.py`   | Train the language model hierarchical guide model.                                     | jax-gpu, jax-cpu | -                        |
-|                | Interpret       | `tasks/lm_interpret`  | Print out the text generation.                                                         | torch-cpu        | HF_TOKEN                 |
+| Experiment     | Task               | File                          | Description                                                                            | Valid configs    | Required env vars        |
+| -------------- | ------------------ | ----------------------------- | -------------------------------------------------------------------------------------- | ---------------- | ------------------------ |
+| Simple graph   | Train and test     | `tasks/simple.py`             | Train the model to learn simple graph tasks.                                           | jax-gpu, jax-cpu | -                        |
+|                | Clear weight       |                               | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | jax-gpu, jax-cpu | -                        |
+| Language model | Prepare            | `tasks/lm_data_prepare.py`    | Prepare data for the the language model hierarchical guide model.                      | torch-cpu        | HF_TOKEN, OPENAI_API_KEY |
+|                | Train hierarchy    | `tasks/lm_guide_train.py`     | Train the language model hierarchical guide model.                                     | jax-gpu, jax-cpu | -                        |
+|                | Generate hierarchy | `tasks/lm_guide_inference.py` | Generate the language model hierarchical guide model.                                  | jax-gpu, jax-cpu | -                        |
+|                | Interpret          | `tasks/lm_data_interpret`     | Given the hierarchy guide, print out the text generation.                              | torch-cpu        | HF_TOKEN                 |
 
 ## To do
 
@@ -67,15 +68,14 @@ If you have any issues, please let me know.
     -   [ ] Neural statistic keeping
     -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
     -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction, and opposite results in react mode.
--   [ ] Language model experiment (abstraction with embedding)
+-   [x] Language model experiment (abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel
     -   [x] Make core models accept context of shape (batch, context length, feature length)
-    -   [ ] LLM Steering
-    -   [ ] Evaluate LLM vs HUMN augmented LLM
+    -   [x] LLM Steering
+    -   [ ] Train LM hierarchical guide model
 -   [ ] Hippocampus
     -   [ ] Tree based position encoding
--   [ ] RL experiment
-    -   [ ] Cart pole experiment
+-   [ ] [RL experiments] (https://gymnasium.farama.org/environments)
 -   [ ] Paper topic
     -   [ ] Versioning learning with asymmetric update
