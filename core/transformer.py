@@ -150,13 +150,25 @@ class Value_Score_Module(nn.Module):
     slots: int
     output_dim: int
     value_score_backbone: StackedTransformer
+    value_access: bool = False
+    # records: int
+    # query_backbone: StackedTransformer
 
     @nn.compact
-    def __call__(self, s, x, t):
-
+    def __call__(self, s, x, t, scores):
         seq_len = s.shape[1]
 
         # Query
+        # logits = self.query_backbone(t, s, True)
+        # keys = jax.nn.softmax(logits, axis=-1)
+
+        # Wvs = self.value_score_backbone(t, s, True)
+        # Wv = Wvs[:, :, :self.records * self.slots * self.output_dim]
+        # Ws = Wvs[:, :, self.records * self.slots * self.output_dim:]
+
+        # keys = jnp.reshape(keys, (-1, self.records, 1))
+        # Vs = jnp.matmul(jnp.reshape(Wv, (-1, self.slots * self.output_dim, self.records)), keys)
+        # Ss = jnp.matmul(jnp.reshape(Ws, (-1, self.slots, self.records)), keys)
 
         Wvs = self.value_score_backbone(t, s, True)
         Vs = Wvs[:, :, :self.slots * self.output_dim]
@@ -166,16 +178,20 @@ class Value_Score_Module(nn.Module):
         Ss = jnp.reshape(Ss, (-1, self.slots))
 
         # Access
+        if self.value_access:
+            x = jnp.reshape(x, (-1, self.output_dim))
+            Vl = jnp.expand_dims(x, axis=2)
+            denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
+            dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
+            # force dot_scores shape [batch, memory_size]
+            dot_scores = jnp.reshape(dot_scores, (-1, self.slots))
+            max_indices = jnp.argmax(dot_scores, axis=1, keepdims=True)    
+        else:
+            # score has range [0, 1], quantize to int slots
+            scores = jnp.reshape(scores, (-1, 1))
+            max_indices = jnp.round(scores * (self.slots - 1)).astype(jnp.int32)
+            max_indices = jnp.minimum(max_indices, self.slots - 1)
 
-        x = jnp.reshape(x, (-1, self.output_dim))
-        Vl = jnp.expand_dims(x, axis=2)
-        denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
-        dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
-
-        # dot_scores has shape [batch, memory_size, 1]
-        dot_scores = jnp.reshape(dot_scores, (-1, self.slots))
-
-        max_indices = jnp.argmax(dot_scores, axis=1, keepdims=True)
         s = jnp.take_along_axis(Ss, max_indices, axis=1)
         v = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
         
@@ -188,7 +204,19 @@ class Value_Score_Module(nn.Module):
 class Value_Score_Module_Test(Value_Score_Module):
     @nn.compact
     def __call__(self, s, t):
+        
         # Query
+        # logits = self.query_backbone(t, s, False)
+        # keys = jax.nn.softmax(logits, axis=-1)
+        # keys = keys[:, -1, :]
+
+        # Wvs = self.value_score_backbone(t, s, False)
+        # Wv = Wvs[:, -1, :self.records * self.slots * self.output_dim]
+        # Ws = Wvs[:, -1, self.records * self.slots * self.output_dim:]
+
+        # keys = jnp.reshape(keys, (-1, self.records, 1))
+        # Vs = jnp.matmul(jnp.reshape(Wv, (-1, self.slots * self.output_dim, self.records)), keys)
+        # Ss = jnp.matmul(jnp.reshape(Ws, (-1, self.slots, self.records)), keys)
 
         Wvs = self.value_score_backbone(t, s, False)
         Vs = Wvs[:, -1, :self.slots * self.output_dim]
@@ -270,7 +298,7 @@ class Train_state(struct.PyTreeNode):
 
 
 def loss_fn(params, model_fn, s, x, t, scores, masks, dropout_train_key):
-    v_, scores_, Ss = model_fn({'params': params}, s, x, t, rngs={'dropout': dropout_train_key})
+    v_, scores_, Ss = model_fn({'params': params}, s, x, t, scores, rngs={'dropout': dropout_train_key})
     
     error_S = jnp.sum(masks * (scores - scores_)**2) / jnp.sum(masks)
     error_V = jnp.sum(masks * jnp.mean((x - v_)**2, axis=-1)) / jnp.sum(masks)
@@ -323,7 +351,7 @@ def execute_fn(state, s, t, context_length, input_dims, next_state_dims, target_
 
 class Model(base.Model):
 
-    def __init__(self, dims, context_length, hidden_size, layers, memory_size=16, lr=1e-4, r_seed=42):
+    def __init__(self, dims, context_length, hidden_size, layers, memory_size=16, value_access=True, lr=1e-4, r_seed=42):
         super().__init__("model", "transformer")
 
         # if dims is an integer, then dims is the number of dimensions
@@ -342,18 +370,21 @@ class Model(base.Model):
         self.context_length = context_length
         self.hidden_size = hidden_size
         self.memory_size = memory_size
+        self.value_access = value_access
         self.layers = layers
         self.r_seed = r_seed
 
+        # query_transformer = StackedTransformer(layers=layers, d_model=self.input_dims, output_dim=hidden_size, context_length=context_length)
         value_score_decoder = StackedTransformer(layers=layers, d_model=hidden_size, output_dim=memory_size * (self.next_state_dims + 1), context_length=context_length)
-        self.train_model = Value_Score_Module(slots=memory_size, output_dim=self.next_state_dims, value_score_backbone=value_score_decoder)
-        self.test_model = Value_Score_Module_Test(slots=memory_size, output_dim=self.next_state_dims, value_score_backbone=value_score_decoder)
+        self.train_model = Value_Score_Module(slots=memory_size, output_dim=self.next_state_dims, value_score_backbone=value_score_decoder, value_access=self.value_access)
+        self.test_model = Value_Score_Module_Test(slots=memory_size, output_dim=self.next_state_dims, value_score_backbone=value_score_decoder, value_access=self.value_access)
 
         variables = self.train_model.init(
             {'params': self.r_key, 'dropout': self.dropout_r_key}, 
             jnp.empty((1, self.context_length, self.input_dims), jnp.float32), 
             jnp.empty((1, self.context_length, self.next_state_dims), jnp.float32),
             jnp.empty((1, self.context_length, self.target_dims), jnp.float32),
+            jnp.empty((1, self.context_length), jnp.float32)
         )
 
         self.learning_rate = lr
@@ -382,6 +413,7 @@ class Model(base.Model):
             "hidden_size": self.hidden_size,
             "layers": self.layers,
             "memory_size": self.memory_size,
+            "value_access": self.value_access,
             "lr": self.learning_rate,
             "r_seed": self.r_seed
         }
@@ -398,7 +430,7 @@ class Model(base.Model):
 
 
     def fit(self, s, x, t, scores, masks=None, context=None):
-        # s has shape (N, context_length, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
+        # s has shape (N, context_length, input_dims), x has shape (N, next_state_dims), t has shape (N, target_dims), scores has shape (N), masks has shape (N)
         if masks is None:
             masks = jnp.ones(scores.shape)
         self.state, loss = train_step(self.state, s, x, t, scores, masks, self.context_length, is_sequence=False)
@@ -407,7 +439,7 @@ class Model(base.Model):
 
 
     def fit_sequence(self, s, x, t, scores, masks=None, context=None):
-        # s has shape (N, seq_len, dim), x has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
+        # s has shape (N, seq_len, input_dims), x has shape (N, seq_len, next_state_dims), t has shape (N, seq_len, target_dims), scores has shape (N, seq_len), masks has shape (N, seq_len)
         # seq_len = learning_length + context_length - 1
         if masks is None:
             masks = jnp.ones(scores.shape)
@@ -417,7 +449,7 @@ class Model(base.Model):
 
 
     def infer(self, s, t, context=None):
-        # s has shape (N, context_length, dim), t has shape (N, dim)
+        # s has shape (N, context_length, input_dims), t has shape (N, target_dims)
         if s.shape[1] < self.context_length:
             # pad input
             s = jnp.pad(s, ((0, 0), (0, self.context_length - s.shape[1]), (0, 0)), mode='constant', constant_values=0)
@@ -439,7 +471,7 @@ if __name__ == "__main__":
     from datetime import datetime
     # get number of milliseconds since midnight of January 1, 1970
     millis = datetime.now().microsecond
-    model = Model(4, 2, 8, [16, 16], 4, 0.001, r_seed=millis)
+    model = Model(4, 2, 8, [16, 16], 4, lr=0.001, r_seed=millis)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])

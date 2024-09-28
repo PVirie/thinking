@@ -65,6 +65,7 @@ If you have any issues, please let me know.
     -   [x] JIT everything
     -   [x] Use optax
     -   [x] Transformer kernel
+    -   [x] Value access vs score access hyperparameter to select which type of hypothesis learning to use.
 -   [x] Abstraction
     -   [x] Implement entropy abstraction
     -   [ ] Neural statistic keeping

@@ -209,9 +209,9 @@ class Context(BaseModel):
         # ]
 
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 64, [32, 32], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 64, [32, 32], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 64, [32, 32], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -250,9 +250,9 @@ class Context(BaseModel):
         # ]
 
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 64, [32, 32], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 64, [32, 32], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 64, [32, 32], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
