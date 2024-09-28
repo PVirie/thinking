@@ -73,18 +73,23 @@ def compute_value_score(Q, params, next_state_dims, memory_size, batch_size):
     return v, s
 
 
-def compute_error(Q, V, S, M, params, r_key, next_state_dims, memory_size, batch_size):
+def compute_error(Q, V, S, M, params, r_key, next_state_dims, memory_size, batch_size, value_access=False):
     Vs, Ss = query(Q, params)
     Vs = jnp.reshape(Vs, (batch_size, memory_size, next_state_dims))
     
-    # V has shape [batch, next_state_dims]
-    # Vs has shape [batch, memory_size, next_state_dims]
-    # find the best match index in the memory using cosine similarity
-
-    Vl = jnp.expand_dims(V, axis=2)
-    denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
-    dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
-    max_indices = jnp.argmax(dot_scores, axis=1)
+    if value_access:
+        # V has shape [batch, next_state_dims]
+        # Vs has shape [batch, memory_size, next_state_dims]
+        # find the best match index in the memory using cosine similarity
+        Vl = jnp.expand_dims(V, axis=2)
+        denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
+        dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
+        max_indices = jnp.argmax(dot_scores, axis=1)
+    else:
+        # score has range [0, 1], quantize to int slots
+        scores = jnp.reshape(S, (-1, 1))
+        max_indices = jnp.round(scores * (memory_size - 1)).astype(jnp.int32)
+        max_indices = jnp.minimum(max_indices, memory_size - 1)
 
     S_ = jnp.take_along_axis(Ss, max_indices, axis=1)
     V_ = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
@@ -98,7 +103,7 @@ def compute_error(Q, V, S, M, params, r_key, next_state_dims, memory_size, batch
     return jnp.mean(error_V) + jnp.mean(error_S) + error_C * 0.1
 
 
-value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4)), static_argnames=['next_state_dims', 'memory_size', 'batch_size'])
+value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4)), static_argnames=['next_state_dims', 'memory_size', 'batch_size', 'value_access'])
 
 @partial(jax.jit, static_argnames=['context_length', 'input_dims', 'target_dims'])
 def make_query(s, t, context_length, input_dims, target_dims):
@@ -107,10 +112,10 @@ def make_query(s, t, context_length, input_dims, target_dims):
     return query
 
 
-@partial(jax.jit, static_argnames=['optimizer', 'next_state_dims', 'memory_size', 'batch_size'])
-def train_step(optimizer, params, r_key, opt_state, query, x, scores, masks, next_state_dims, memory_size, batch_size):
+@partial(jax.jit, static_argnames=['optimizer', 'next_state_dims', 'memory_size', 'batch_size', 'value_access'])
+def train_step(optimizer, params, r_key, opt_state, query, x, scores, masks, next_state_dims, memory_size, batch_size, value_access):
     r_key, subkey = jax.random.split(r_key)
-    loss, grads = value_grad_function(query, x, scores, masks, params, subkey, next_state_dims, memory_size, batch_size)
+    loss, grads = value_grad_function(query, x, scores, masks, params, subkey, next_state_dims, memory_size, batch_size, value_access)
     updates, opt_state = optimizer.update(grads, opt_state, params)
     params = optax.apply_updates(params, updates)
     return loss, params, r_key, opt_state
@@ -119,7 +124,7 @@ def train_step(optimizer, params, r_key, opt_state, query, x, scores, masks, nex
 
 class Model(base.Model):
 
-    def __init__(self, dims, context_length, hidden_size, memory_size=16, lr=0.01, iteration=0, r_seed=42):
+    def __init__(self, dims, context_length, hidden_size, memory_size=16, value_access=True, lr=0.01, iteration=0, r_seed=42):
         super().__init__("model", "linear")
 
         # if dims is an integer, then dims is the number of dimensions
@@ -136,6 +141,7 @@ class Model(base.Model):
         self.context_length = context_length
         self.hidden_size = hidden_size
         self.memory_size = memory_size
+        self.value_access = value_access
         self.r_seed = r_seed
 
         r_key = jax.random.key(r_seed)
@@ -167,6 +173,7 @@ class Model(base.Model):
             "context_length": self.context_length,
             "hidden_size": self.hidden_size,
             "memory_size": self.memory_size,
+            "value_access": self.value_access,
             "lr": self.lr,
             "iteration": self.iteration,
             "r_seed": self.r_seed
@@ -205,8 +212,8 @@ class Model(base.Model):
 
 
     def fit(self, s, x, t, scores, masks=None, context=None):
-        # s has shape (N, context_length, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
-
+        # s has shape (N, context_length, input_dims), x has shape (N, next_state_dims), t has shape (N, target_dims), scores has shape (N), masks has shape (N)
+        
         if masks is None:
             masks = jnp.ones(scores.shape)
 
@@ -217,7 +224,7 @@ class Model(base.Model):
         query = make_query(s, t, self.context_length, self.input_dims, self.target_dims)
         batch_size = query.shape[0]
 
-        loss, self.params, self.r_key, self.opt_state = train_step(self.optimizer, self.params, self.r_key, self.opt_state, query, x, scores, masks, self.next_state_dims, self.memory_size, batch_size)
+        loss, self.params, self.r_key, self.opt_state = train_step(self.optimizer, self.params, self.r_key, self.opt_state, query, x, scores, masks, self.next_state_dims, self.memory_size, batch_size, self.value_access)
 
         self.iteration += 1
 
@@ -226,9 +233,8 @@ class Model(base.Model):
 
 
     def fit_sequence(self, s, x, t, scores, masks=None, context=None):
-        # s has shape (N, seq_len, dim), x has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
-        # seq_len = learning_length + context_length - 1
-
+        # s has shape (N, seq_len, input_dims), x has shape (N, seq_len, next_state_dims), t has shape (N, seq_len, target_dims), scores has shape (N, seq_len), masks has shape (N, seq_len)
+        
         if masks is None:
             masks = jnp.ones(scores.shape)
 
@@ -248,8 +254,8 @@ class Model(base.Model):
 
 
     def infer(self, s, t, context=None):
-        # s has shape (N, context_length, dim), t has shape (N, dim)
-
+        # s has shape (N, context_length, input_dims), t has shape (N, target_dims)
+        
         if s.shape[1] < self.context_length:
             # pad input
             s = jnp.pad(s, ((0, 0), (0, self.context_length - s.shape[1]), (0, 0)), mode='constant', constant_values=0)
@@ -271,7 +277,7 @@ if __name__ == "__main__":
     from datetime import datetime
     # get number of milliseconds since midnight of January 1, 1970
     millis = datetime.now().microsecond
-    model = Model(4, 2, 8, 4, 0.01, iteration=0, r_seed=millis)
+    model = Model(4, 2, 8, 4, lr=0.01, iteration=0, r_seed=millis)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])

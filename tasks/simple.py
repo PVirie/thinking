@@ -177,7 +177,7 @@ class Context(BaseModel):
         trainer.prepare_batch(1)
         # trainer.prepare_batch(64)
 
-        loop_train([trainer], 1000)
+        loop_train([trainer], 2000)
 
         data_abstract_path = []
         max_layers = 3
@@ -209,9 +209,9 @@ class Context(BaseModel):
         # ]
 
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -250,9 +250,9 @@ class Context(BaseModel):
         # ]
 
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=8, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 8, [(8, 4), (8, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 64, [64], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -313,7 +313,7 @@ class Context(BaseModel):
             # for table model, sequential update is neccessary
             trainer.prepare_batch(1)
 
-        loop_train(trainers, 1000)
+        loop_train(trainers, 2000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,
@@ -348,8 +348,9 @@ if __name__ == "__main__":
         empty_directory(experiment_path)
         exit(0)
 
-    max_steps = 40
     with experiment_session(experiment_path) as context:
+        
+        max_steps = len(context.states)
 
         def exp_loop(model, think_ahead=False):
             total_length = 0
