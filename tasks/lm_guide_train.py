@@ -85,9 +85,9 @@ if __name__ == "__main__":
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
 
     cortex_models = [
-        cortex.Model(0, transformer.Model(embedding_dim, 64, 64, [(64, 64), (64, 64)])),
-        cortex.Model(1, transformer.Model(embedding_dim, 64, 64, [(64, 64), (64, 64)])),
-        cortex.Model(2, transformer.Model(embedding_dim, 64, 64, [(64, 64), (64, 64)]))
+        cortex.Model(0, transformer.Model(embedding_dim, 64, 64, [64, 64])),
+        cortex.Model(1, transformer.Model(embedding_dim, 64, 64, [64, 64])),
+        cortex.Model(2, transformer.Model(embedding_dim, 64, 64, [64, 64]))
     ]
     hippocampus_models = [
         hippocampus.Model(64, embedding_dim),

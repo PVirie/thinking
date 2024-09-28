@@ -109,7 +109,7 @@ class TransformerDecoderBlock(nn.Module):
 
 
 class StackedTransformer(nn.Module):
-    layers: Sequence[tuple]  # Each tuple is (num_heads, d_ff)
+    layers: Sequence[int]
     output_dim: int
     context_length: int
     d_model: int = -1  # Will infer from input if not provided
@@ -131,10 +131,10 @@ class StackedTransformer(nn.Module):
         mask = create_n_step_causal_mask(batch, seq_len, self.context_length)
 
         # Stack of Transformer blocks
-        for num_heads, d_ff in self.layers:
+        for d_ff in self.layers:
             decoder_input = TransformerDecoderBlock(
                 d_model=d_model,
-                num_heads=num_heads,
+                num_heads=d_model,
                 d_ff=d_ff,
                 dropout_rate=self.dropout_rate
             )(encoder_input, decoder_input, mask, train)
@@ -147,10 +147,8 @@ class StackedTransformer(nn.Module):
 
 
 class Value_Score_Module(nn.Module):
-    records: int
     slots: int
     output_dim: int
-    query_backbone: StackedTransformer
     value_score_backbone: StackedTransformer
 
     @nn.compact
@@ -160,19 +158,9 @@ class Value_Score_Module(nn.Module):
 
         # Query
 
-        logits = self.query_backbone(t, s, True)
-        keys = jax.nn.softmax(logits, axis=-1)
-
         Wvs = self.value_score_backbone(t, s, True)
-        Wv = Wvs[:, :, :self.records * self.slots * self.output_dim]
-        Ws = Wvs[:, :, self.records * self.slots * self.output_dim:]
-
-        keys = jnp.reshape(keys, (-1, self.records, 1))
-        Vs = jnp.matmul(jnp.reshape(Wv, (-1, self.slots * self.output_dim, self.records)), keys)
-        Ss = jnp.matmul(jnp.reshape(Ws, (-1, self.slots, self.records)), keys)
-        
-        # Vs = nn.Dense(self.slots * self.output_dim)(keys)
-        # Ss = nn.Dense(self.slots)(keys)
+        Vs = Wvs[:, :, :self.slots * self.output_dim]
+        Ss = Wvs[:, :, self.slots * self.output_dim:]
 
         Vs = jnp.reshape(Vs, (-1, self.slots, self.output_dim))
         Ss = jnp.reshape(Ss, (-1, self.slots))
@@ -202,20 +190,9 @@ class Value_Score_Module_Test(Value_Score_Module):
     def __call__(self, s, t):
         # Query
 
-        logits = self.query_backbone(t, s, False)
-        keys = jax.nn.softmax(logits, axis=-1)
-        keys = keys[:, -1, :]
-
         Wvs = self.value_score_backbone(t, s, False)
-        Wv = Wvs[:, -1, :self.records * self.slots * self.output_dim]
-        Ws = Wvs[:, -1, self.records * self.slots * self.output_dim:]
-
-        keys = jnp.reshape(keys, (-1, self.records, 1))
-        Vs = jnp.matmul(jnp.reshape(Wv, (-1, self.slots * self.output_dim, self.records)), keys)
-        Ss = jnp.matmul(jnp.reshape(Ws, (-1, self.slots, self.records)), keys)
-
-        # Vs = nn.Dense(self.slots * self.output_dim)(keys)
-        # Ss = nn.Dense(self.slots)(keys)
+        Vs = Wvs[:, -1, :self.slots * self.output_dim]
+        Ss = Wvs[:, -1, self.slots * self.output_dim:]
         
         Vs = jnp.reshape(Vs, (-1, self.slots, self.output_dim))
         Ss = jnp.reshape(Ss, (-1, self.slots))
@@ -368,10 +345,9 @@ class Model(base.Model):
         self.layers = layers
         self.r_seed = r_seed
 
-        query_transformer = StackedTransformer(layers=layers, d_model=self.input_dims, output_dim=hidden_size, context_length=context_length)
-        value_score_decoder = StackedTransformer(layers=layers, d_model=self.input_dims, output_dim=(hidden_size * memory_size * (self.next_state_dims + 1)), context_length=context_length)
-        self.train_model = Value_Score_Module(records=hidden_size, slots=memory_size, output_dim=self.next_state_dims, query_backbone=query_transformer, value_score_backbone=value_score_decoder)
-        self.test_model = Value_Score_Module_Test(records=hidden_size, slots=memory_size, output_dim=self.next_state_dims, query_backbone=query_transformer, value_score_backbone=value_score_decoder)
+        value_score_decoder = StackedTransformer(layers=layers, d_model=hidden_size, output_dim=memory_size * (self.next_state_dims + 1), context_length=context_length)
+        self.train_model = Value_Score_Module(slots=memory_size, output_dim=self.next_state_dims, value_score_backbone=value_score_decoder)
+        self.test_model = Value_Score_Module_Test(slots=memory_size, output_dim=self.next_state_dims, value_score_backbone=value_score_decoder)
 
         variables = self.train_model.init(
             {'params': self.r_key, 'dropout': self.dropout_r_key}, 
@@ -463,7 +439,7 @@ if __name__ == "__main__":
     from datetime import datetime
     # get number of milliseconds since midnight of January 1, 1970
     millis = datetime.now().microsecond
-    model = Model(4, 2, 8, [(4, 16), (4, 16)], 4, 0.001, r_seed=millis)
+    model = Model(4, 2, 8, [16, 16], 4, 0.001, r_seed=millis)
 
     eye = jnp.eye(4, dtype=jnp.float32)
     S = jnp.array([[eye[0, :], eye[1, :], eye[2, :], eye[3, :]]])

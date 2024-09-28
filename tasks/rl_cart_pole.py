@@ -68,7 +68,7 @@ class Context(BaseModel):
                         "abstraction_models": abstraction_models,
                         "name": set_metadata["name"]
                     })
-                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, random_seed=metadata["random_seed"])
+                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, average_random_steps=metadata["average_random_steps"], random_seed=metadata["random_seed"])
             return context
         except Exception as e:
             logging.warning(e)
@@ -136,9 +136,9 @@ class Context(BaseModel):
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [(4, 4), (4, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [(4, 4), (4, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [(4, 4), (4, 4)], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [16, 16], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [16, 16], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [16, 16], memory_size=4, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -160,7 +160,9 @@ class Context(BaseModel):
         skip_steps = 8
         num_layers = len(cortex_models)
         
-        for __ in range(10000):
+        total_steps = 0
+        num_trials = 10000
+        for __ in range(num_trials):
             states = []
             actions = []
             rewards = []
@@ -175,6 +177,7 @@ class Context(BaseModel):
                     break
                 else:
                     observation = next_observation
+            total_steps += len(states)
 
             # now make hierarchical data
             states = np.stack(states, axis=0)
@@ -213,7 +216,7 @@ class Context(BaseModel):
             "name": name
         })
 
-        return Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, random_seed=random_seed)
+        return Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, average_random_steps=total_steps/num_trials, random_seed=random_seed)
 
 
 
@@ -240,4 +243,5 @@ if __name__ == "__main__":
         exit(0)
 
     with experiment_session(experiment_path) as context:
-        pass
+        
+        logging.info("Baseline number of random steps: {context.average_random_steps}")
