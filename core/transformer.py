@@ -440,7 +440,6 @@ class Model(base.Model):
 
     def fit_sequence(self, s, x, t, scores, masks=None, context=None):
         # s has shape (N, seq_len, input_dims), x has shape (N, seq_len, next_state_dims), t has shape (N, seq_len, target_dims), scores has shape (N, seq_len), masks has shape (N, seq_len)
-        # seq_len = learning_length + context_length - 1
         if masks is None:
             masks = jnp.ones(scores.shape)
         self.state, loss = train_step(self.state, s, x, t, scores, masks, self.context_length, is_sequence=True)

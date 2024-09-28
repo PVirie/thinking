@@ -212,8 +212,8 @@ class Model(base.Model):
 
 
     def fit(self, s, x, t, scores, masks=None, context=None):
-        # s has shape (N, context_length, dim), x has shape (N, dim), t has shape (N, dim), scores has shape (N), masks has shape (N)
-
+        # s has shape (N, context_length, input_dims), x has shape (N, next_state_dims), t has shape (N, target_dims), scores has shape (N), masks has shape (N)
+        
         if masks is None:
             masks = jnp.ones(scores.shape)
 
@@ -233,9 +233,8 @@ class Model(base.Model):
 
 
     def fit_sequence(self, s, x, t, scores, masks=None, context=None):
-        # s has shape (N, seq_len, dim), x has shape (N, seq_len, dim), t has shape (N, seq_len, dim), scores has shape (N, seq_len), masks has shape (N, seq_len)
-        # seq_len = learning_length + context_length - 1
-
+        # s has shape (N, seq_len, input_dims), x has shape (N, seq_len, next_state_dims), t has shape (N, seq_len, target_dims), scores has shape (N, seq_len), masks has shape (N, seq_len)
+        
         if masks is None:
             masks = jnp.ones(scores.shape)
 
@@ -255,8 +254,8 @@ class Model(base.Model):
 
 
     def infer(self, s, t, context=None):
-        # s has shape (N, context_length, dim), t has shape (N, dim)
-
+        # s has shape (N, context_length, input_dims), t has shape (N, target_dims)
+        
         if s.shape[1] < self.context_length:
             # pad input
             s = jnp.pad(s, ((0, 0), (0, self.context_length - s.shape[1]), (0, 0)), mode='constant', constant_values=0)
