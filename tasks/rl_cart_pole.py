@@ -157,7 +157,6 @@ class Context(BaseModel):
 
         env = gym.make("CartPole-v1", render_mode=None)
         env.action_space.seed(random_seed)
-
         observation, info = env.reset(seed=random_seed)
 
         skip_steps = 8
@@ -256,6 +255,7 @@ if __name__ == "__main__":
 
         env = gym.make("CartPole-v1", render_mode="rgb_array")
         env.action_space.seed(random.randint(0, 1000))
+        observation, info = env.reset(seed=random.randint(0, 1000))
 
         def generate_visual(render_path, num_trials, action_method):
             observation, info = env.reset()
