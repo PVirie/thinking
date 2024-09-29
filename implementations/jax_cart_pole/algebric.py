@@ -18,6 +18,9 @@ class Action(humn.algebraic.Action):
     def zero_length(self):
         return jnp.linalg.norm(self.data) < 1e-4
     
+    def to_gym(self):
+        return self.data[0]
+    
 
 # Pivots
 class Expectation(humn.algebraic.State):
@@ -52,6 +55,9 @@ class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
     def append(self, s):
         self.data = jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int32)], axis=0)
 
+    def __len__(self):
+        return self.data.shape[0]
+
 
 class State_Action_Sequence(humn.algebraic.State_Sequence):
     def __init__(self, data):
@@ -60,6 +66,9 @@ class State_Action_Sequence(humn.algebraic.State_Sequence):
         else:
             self.data = device_put(jnp.array(data, jnp.float32))
 
+    def __len__(self):
+        return self.data.shape[0]
+
 
 class Expectation_Sequence(humn.algebraic.State_Sequence):
     def __init__(self, data):
@@ -67,3 +76,7 @@ class Expectation_Sequence(humn.algebraic.State_Sequence):
             self.data = data
         else:
             self.data = device_put(jnp.array(data, jnp.float32))
+
+
+    def __len__(self):
+        return self.data.shape[0]

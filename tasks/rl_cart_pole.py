@@ -136,9 +136,9 @@ class Context(BaseModel):
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [16, 16], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [16, 16], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 64, [16, 16], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -162,6 +162,7 @@ class Context(BaseModel):
         
         total_steps = 0
         num_trials = 10000
+        print_steps = max(1, num_trials // 100)
         for __ in range(num_trials):
             states = []
             actions = []
@@ -185,7 +186,7 @@ class Context(BaseModel):
             rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
             path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
             for i in range(num_layers):
-                path = alg.State_Action_Sequence(np.stack([states, actions], axis=1))
+                path = alg.State_Action_Sequence(np.concatenate([states, actions], axis=1))
 
                 skip_sequence = [i for i in range(0, len(states), skip_steps)]
                 # always add the last index
@@ -193,7 +194,7 @@ class Context(BaseModel):
                     skip_sequence.append(len(states) - 1)
 
                 skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
-                expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :])
+                expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
                 path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
                 states = states[skip_sequence]
@@ -201,6 +202,10 @@ class Context(BaseModel):
                 rewards = rewards[skip_sequence]
 
             trainers = model.observe(path_layer_tuples)
+
+            if i % print_steps == 0 and i > 0:
+                # print at every 1 % progress
+                logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
 
         env.close()
 
@@ -245,3 +250,28 @@ if __name__ == "__main__":
     with experiment_session(experiment_path) as context:
         
         logging.info("Baseline number of random steps: {context.average_random_steps}")
+
+        env = gym.make("CartPole-v1", render_mode="ansi")
+        env.action_space.seed(context.random_seed)
+
+        for i, parameter_set in enumerate(context.parameter_sets):
+            model = HUMN(**parameter_set)
+            observation, info = env.reset(seed=context.random_seed)
+            stable_state = alg.Expectation([0, 0, 0, 0])
+
+            total_steps = 0
+            num_trials = 10000
+            for __ in range(num_trials):
+                for _ in range(1000):
+                    # selected_action = env.action_space.sample()
+                    a = model.react(observation, stable_state)
+                    selected_action = a.to_gym()
+                    observation, reward, terminated, truncated, info = env.step(selected_action)
+                    total_steps += 1
+                    if terminated or truncated:
+                        observation, info = env.reset()
+                        break
+
+            env.close()
+
+            logging.info(f"Parameter set {i} average random steps: {total_steps/num_trials}")

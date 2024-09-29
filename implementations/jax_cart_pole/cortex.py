@@ -52,8 +52,8 @@ class Trainer(trainer.Trainer):
 
     def accumulate_batch(self, step_discount_factor, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
 
-        cart_state_sequence = path_encoding_sequence.data[:, 0, :]
-        cart_action_sequence = path_encoding_sequence.data[:, 1, :]
+        cart_state_sequence = path_encoding_sequence.data[:, :4]
+        cart_action_sequence = path_encoding_sequence.data[:, 4:]
 
         s = jnp.tile(jnp.expand_dims(cart_state_sequence, axis=0), (len(pivots), 1, 1))
         x = jnp.tile(jnp.expand_dims(cart_action_sequence, axis=0), (len(pivots), 1, 1))
