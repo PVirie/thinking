@@ -257,27 +257,28 @@ if __name__ == "__main__":
         env = gym.make("CartPole-v1", render_mode="rgb_array")
         env.action_space.seed(random.randint(0, 1000))
 
+        def generate_visual(render_path, num_trials, action_method):
+            observation, info = env.reset()
+            for j in range(5):
+                output_gif = os.path.join(render_path, f"trial_{j}.gif")
+                imgs = []
+                for _ in range(1000):
+                    selected_action = action_method(observation)
+                    observation, reward, terminated, truncated, info = env.step(selected_action)
+                    img = env.render()
+                    imgs.append(np.transpose(img, [2, 0, 1]))
+                    if terminated or truncated:
+                        observation, info = env.reset()
+                        break
+                write_gif(imgs, output_gif, fps=30)
+
+
         logging.info("----------------- Testing random behavior -----------------")
         observation, info = env.reset()
         result_path = os.path.join(experiment_path, "results", f"random")
         render_path = os.path.join(result_path, "render")
         os.makedirs(render_path, exist_ok=True)
-        for j in range(5):
-            output_gif = os.path.join(render_path, f"trial_{j}.gif")
-            imgs = []
-            
-            for _ in range(1000):
-                selected_action = env.action_space.sample()
-                observation, reward, terminated, truncated, info = env.step(selected_action)
-
-                img = env.render()
-                imgs.append(np.transpose(img, [2, 0, 1]))
-
-                if terminated or truncated:
-                    observation, info = env.reset()
-                    break
-
-            write_gif(imgs, output_gif, fps=30)
+        generate_visual(render_path, 5, lambda obs: env.action_space.sample())
 
 
         for i, parameter_set in enumerate(context.parameter_sets):
@@ -308,27 +309,11 @@ if __name__ == "__main__":
 
             render_path = os.path.join(result_path, "render")
             os.makedirs(render_path, exist_ok=True)
-            for j in range(5):
-                output_gif = os.path.join(render_path, f"trial_{j}.gif")
-                imgs = []
 
-                model = HUMN(**parameter_set)
-                observation, info = env.reset()
-                stable_state = alg.Expectation([0, 0, 0, 0])
-                
-                for _ in range(1000):
-                    # selected_action = env.action_space.sample()
-                    a = model.react(observation, stable_state)
-                    selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
-                    observation, reward, terminated, truncated, info = env.step(selected_action)
-
-                    img = env.render()
-                    imgs.append(np.transpose(img, [2, 0, 1]))
-
-                    if terminated or truncated:
-                        observation, info = env.reset()
-                        break
-
-                write_gif(imgs, output_gif, fps=30)
+            def generation_action(observation):
+                a = model.react(observation, stable_state)
+                return 1 if np.asarray(a.data)[0].item() > 0.5 else 0
+            
+            generate_visual(render_path, 5, generation_action)
 
         env.close()

@@ -77,8 +77,8 @@ If you have any issues, please let me know.
     -   [x] Make core models accept context of shape (batch, context length, feature length)
     -   [x] LLM Steering
     -   [ ] Train the LM hierarchical guide model (in progress, block by the amount of resource to train in my workstation)
--   [ ] RL Experiment
-    -   [ ] [Environment] (https://gymnasium.farama.org/environments)
+-   [x] [RL Experiment] (https://gymnasium.farama.org/environments)
+    -   [x] Cart pole
 -   [ ] Hippocampus
     -   [ ] Tree based position encoding
 -   [ ] Paper topic
