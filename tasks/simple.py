@@ -312,7 +312,7 @@ class Context(BaseModel):
             "name": "Table layers"
         })
 
-        return Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, states=states, goals=np.arange(graph_shape), graph=graph, random_seed=random_seed)
+        return Context(parameter_sets=parameter_sets, states=states, goals=np.arange(graph_shape), graph=graph, random_seed=random_seed)
 
 
 

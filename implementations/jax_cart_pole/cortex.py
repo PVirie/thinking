@@ -50,14 +50,18 @@ class Trainer(trainer.Trainer):
         self.avg_loss = 0.0
 
 
-    def accumulate_batch(self, step_discount_factor, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
+    def accumulate_batch(self, step_discount_factor, use_action, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
 
         cart_state_sequence = path_encoding_sequence.data[:, :4]
-        cart_action_sequence = path_encoding_sequence.data[:, 4:]
 
         s = jnp.tile(jnp.expand_dims(cart_state_sequence, axis=0), (len(pivots), 1, 1))
-        x = jnp.tile(jnp.expand_dims(cart_action_sequence, axis=0), (len(pivots), 1, 1))
         t = jnp.tile(jnp.expand_dims(pivots.data, axis=1), (1, len(path_encoding_sequence), 1))
+
+        if use_action:
+            cart_action_sequence = path_encoding_sequence.data[:, 4:]
+            x = jnp.tile(jnp.expand_dims(cart_action_sequence, axis=0), (len(pivots), 1, 1))
+        else:
+            x = jnp.tile(jnp.expand_dims(jnp.roll(cart_state_sequence, -1, axis=0), axis=0), (len(pivots), 1, 1))
 
         masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
 
@@ -133,9 +137,10 @@ class Trainer(trainer.Trainer):
 
 class Model(cortex_model.Model):
     
-    def __init__(self, layer: int, model: core.base.Model, step_discount_factor=0.9):
+    def __init__(self, layer: int, return_action: bool, model: core.base.Model, step_discount_factor=0.9):
         # if you wish to share the model, pass the index into learning and inference functions to differentiate between layers
         self.layer = layer
+        self.return_action = return_action
         self.step_discount_factor = step_discount_factor
         self.model = model
         self.printer = None
@@ -152,7 +157,7 @@ class Model(cortex_model.Model):
         with open(os.path.join(path, "metadata.json"), "r") as f:
             metadata = json.load(f)
         model = core.load(metadata["model"])
-        return Model(layer=metadata["layer"], model=model, step_discount_factor=metadata["step_discount_factor"])
+        return Model(layer=metadata["layer"], return_action=metadata["return_action"], model=model, step_discount_factor=metadata["step_discount_factor"])
                                                               
 
     @staticmethod
@@ -161,6 +166,7 @@ class Model(cortex_model.Model):
         with open(os.path.join(path, "metadata.json"), "w") as f:
             json.dump({
                 "layer": self.layer,
+                "return_action": self.return_action,
                 "step_discount_factor": self.step_discount_factor,
                 "model": core.save(self.model)
             }, f)
@@ -168,7 +174,7 @@ class Model(cortex_model.Model):
 
     def incrementally_learn(self, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence) -> Trainer:
         # learn to predict the next state and its probability from the current state given goal
-        return self.trainer.accumulate_batch(self.step_discount_factor, path_encoding_sequence, pivot_indices, pivots)
+        return self.trainer.accumulate_batch(self.step_discount_factor, self.return_action, path_encoding_sequence, pivot_indices, pivots)
 
 
     def infer_sub_action(self, from_encoding_sequence: Cart_State, expect_action: Action) -> Action:
@@ -176,7 +182,10 @@ class Model(cortex_model.Model):
             jnp.reshape(from_encoding_sequence.data, (1, 1, -1)), 
             jnp.reshape(expect_action.data, (1, -1))
             )
-        a = Action(next_action_data[0])
+        if self.return_action:
+            a = Action(next_action_data[0])
+        else:
+            a = Expectation(next_action_data[0])
         if self.printer is not None:
             self.printer(from_encoding_sequence + a)
         return a

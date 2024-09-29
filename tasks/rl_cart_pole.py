@@ -36,6 +36,7 @@ args = parser.parse_args()
 
 class Context(BaseModel):
     parameter_sets: List[Any]
+    average_random_steps: float
     random_seed: int = 0
 
     @staticmethod
@@ -68,7 +69,7 @@ class Context(BaseModel):
                         "abstraction_models": abstraction_models,
                         "name": set_metadata["name"]
                     })
-                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, average_random_steps=metadata["average_random_steps"], random_seed=metadata["random_seed"])
+                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, average_random_steps=0, random_seed=metadata["random_seed"])
             return context
         except Exception as e:
             logging.warning(e)
@@ -101,6 +102,7 @@ class Context(BaseModel):
                     }
                     for parameter_set in self.parameter_sets
                 ],
+                "average_random_steps": self.average_random_steps,
                 "random_seed": self.random_seed
             }, f, indent=4)
         return True
@@ -132,13 +134,13 @@ class Context(BaseModel):
 
         state_dim = 4
         action_dim = 1
-        expectation_dim = 1
+        expectation_dim = 4
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, return_action=True, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -163,7 +165,11 @@ class Context(BaseModel):
         total_steps = 0
         num_trials = 10000
         print_steps = max(1, num_trials // 100)
-        for __ in range(num_trials):
+        for i in range(num_trials):
+            if i % print_steps == 0 and i > 0:
+                # print at every 1 % progress
+                logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
+
             states = []
             actions = []
             rewards = []
@@ -185,7 +191,7 @@ class Context(BaseModel):
             actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
             rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
             path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
-            for i in range(num_layers):
+            for layer_i in range(num_layers):
                 path = alg.State_Action_Sequence(np.concatenate([states, actions], axis=1))
 
                 skip_sequence = [i for i in range(0, len(states), skip_steps)]
@@ -203,10 +209,6 @@ class Context(BaseModel):
 
             trainers = model.observe(path_layer_tuples)
 
-            if i % print_steps == 0 and i > 0:
-                # print at every 1 % progress
-                logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
-
         env.close()
 
         for trainer in trainers:
@@ -221,7 +223,7 @@ class Context(BaseModel):
             "name": name
         })
 
-        return Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, average_random_steps=total_steps/num_trials, random_seed=random_seed)
+        return Context(parameter_sets=parameter_sets, average_random_steps=total_steps/num_trials, random_seed=random_seed)
 
 
 
@@ -249,7 +251,7 @@ if __name__ == "__main__":
 
     with experiment_session(experiment_path) as context:
         
-        logging.info("Baseline number of random steps: {context.average_random_steps}")
+        logging.info(f"Baseline number of random steps: {context.average_random_steps}")
 
         env = gym.make("CartPole-v1", render_mode="ansi")
         env.action_space.seed(context.random_seed)
@@ -261,17 +263,21 @@ if __name__ == "__main__":
 
             total_steps = 0
             num_trials = 10000
-            for __ in range(num_trials):
+            print_steps = max(1, num_trials // 10)
+            for i in range(num_trials):
+                if i % print_steps == 0 and i > 0:
+                    # print at every 1 % progress
+                    logging.info(f"Environment testing: {(i * 100 / num_trials):.2f}")
                 for _ in range(1000):
                     # selected_action = env.action_space.sample()
                     a = model.react(observation, stable_state)
-                    selected_action = a.to_gym()
+                    selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
                     observation, reward, terminated, truncated, info = env.step(selected_action)
                     total_steps += 1
                     if terminated or truncated:
                         observation, info = env.reset()
                         break
 
-            env.close()
-
             logging.info(f"Parameter set {i} average random steps: {total_steps/num_trials}")
+
+        env.close()

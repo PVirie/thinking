@@ -18,12 +18,9 @@ class Action(humn.algebraic.Action):
     def zero_length(self):
         return jnp.linalg.norm(self.data) < 1e-4
     
-    def to_gym(self):
-        return self.data[0]
-    
 
 # Pivots
-class Expectation(humn.algebraic.State):
+class Expectation(humn.algebraic.Action):
     def __init__(self, data):
         # if data is jax array, then it is already on device
         if isinstance(data, jnp.ndarray):
@@ -31,6 +28,9 @@ class Expectation(humn.algebraic.State):
         else:
             self.data = device_put(jnp.array(data, jnp.float32))
     
+    def zero_length(self):
+        return False
+
 
 class Cart_State(humn.algebraic.State, humn.algebraic.Augmented_State_Squence):
     
