@@ -128,6 +128,30 @@ class Context(BaseModel):
             logging.info(f"Total learning time {time.time() - stamp}s")
 
 
+        def prepare_data_tuples(state, actions, rewards, num_layers, skip_steps):
+            states = np.stack(states, axis=0)
+            actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
+            rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
+            path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
+            for layer_i in range(num_layers):
+                path = alg.State_Action_Sequence(np.concatenate([states, actions], axis=1))
+
+                skip_sequence = [i for i in range(0, len(states), skip_steps)]
+                # always add the last index
+                if skip_sequence[-1] != len(states) - 1:
+                    skip_sequence.append(len(states) - 1)
+
+                skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
+                expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
+                path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
+
+                states = states[skip_sequence]
+                actions = actions[skip_sequence]
+                rewards = rewards[skip_sequence]
+            
+            return path_layer_tuples
+
+
         parameter_sets = []
         ############################# SET 1 ################################
 
@@ -187,26 +211,90 @@ class Context(BaseModel):
             total_steps += len(states)
 
             # now make hierarchical data
-            states = np.stack(states, axis=0)
-            actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
-            rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
-            path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
-            for layer_i in range(num_layers):
-                path = alg.State_Action_Sequence(np.concatenate([states, actions], axis=1))
+            path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
+            trainers = model.observe(path_layer_tuples)
 
-                skip_sequence = [i for i in range(0, len(states), skip_steps)]
-                # always add the last index
-                if skip_sequence[-1] != len(states) - 1:
-                    skip_sequence.append(len(states) - 1)
+        env.close()
 
-                skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
-                expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
-                path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
+        for trainer in trainers:
+            trainer.prepare_batch(16)
 
-                states = states[skip_sequence]
-                actions = actions[skip_sequence]
-                rewards = rewards[skip_sequence]
+        loop_train(trainers, 20000)
 
+        parameter_sets.append({
+            "cortex_models": cortex_models,
+            "hippocampus_models": hippocampus_models,
+            "abstraction_models": abstraction_models,
+            "name": name
+        })
+
+        previous_model = model
+
+        ############################# SET 2 ################################
+
+        name = "Skip step (Round 2)"
+
+        state_dim = 4
+        action_dim = 1
+        expectation_dim = 4
+        context_length = 1
+
+        cortex_models = [
+            cortex.Model(0, return_action=True, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+        ]
+
+        hippocampus_models = [
+            hippocampus.Model(state_dim),
+            hippocampus.Model(state_dim),
+            hippocampus.Model(state_dim)
+        ]
+
+        abstraction_models = []
+        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
+
+        logging.info(f"Training experiment {name}")
+
+        env = gym.make("CartPole-v1", render_mode=None)
+        env.action_space.seed(random_seed)
+        observation, info = env.reset(seed=random_seed)
+
+        skip_steps = 8
+        num_layers = len(cortex_models)
+        
+        total_steps = 0
+        num_trials = 10000
+        print_steps = max(1, num_trials // 100)
+        for i in range(num_trials):
+            if i % print_steps == 0 and i > 0:
+                # print at every 1 % progress
+                logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
+
+            states = []
+            actions = []
+            rewards = []
+            for _ in range(1000):
+                if random.random() < 0.1:
+                    selected_action = env.action_space.sample()
+                else:
+                    a = previous_model.react(observation, stable_state)
+                    selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
+
+                next_observation, reward, terminated, truncated, info = env.step(selected_action)
+            
+                states.append(observation)
+                actions.append(selected_action)
+                rewards.append(reward)
+                if terminated or truncated:
+                    observation, info = env.reset()
+                    break
+                else:
+                    observation = next_observation
+            total_steps += len(states)
+
+            # now make hierarchical data
+            path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
             trainers = model.observe(path_layer_tuples)
 
         env.close()
@@ -278,7 +366,7 @@ if __name__ == "__main__":
         result_path = os.path.join(experiment_path, "results", f"random")
         render_path = os.path.join(result_path, "render")
         os.makedirs(render_path, exist_ok=True)
-        generate_visual(render_path, 5, lambda obs: env.action_space.sample())
+        generate_visual(render_path, 10, lambda obs: env.action_space.sample())
 
 
         for i, parameter_set in enumerate(context.parameter_sets):
@@ -305,7 +393,8 @@ if __name__ == "__main__":
                         observation, info = env.reset()
                         break
 
-            logging.info(f"Parameter set {i} average behavior steps: {total_steps/num_trials}")
+            set_name = parameter_set["name"]
+            logging.info(f"Parameter set {set_name}; average behavior steps: {total_steps/num_trials}")
 
             render_path = os.path.join(result_path, "render")
             os.makedirs(render_path, exist_ok=True)
@@ -314,6 +403,6 @@ if __name__ == "__main__":
                 a = model.react(observation, stable_state)
                 return 1 if np.asarray(a.data)[0].item() > 0.5 else 0
             
-            generate_visual(render_path, 5, generation_action)
+            generate_visual(render_path, 10, generation_action)
 
         env.close()
