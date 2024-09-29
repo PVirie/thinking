@@ -41,16 +41,16 @@ If you have any issues, please let me know.
 -   Running on windows
     -   The relative path in windows that passes to docker has invalid path separators. Using POSIX path separator when passing `{path to file}` parameter when running `run_manual.sh` script. Or simply create a new configuration in `.vscode/launch.json` that fixed the file you want to run with the POSIX path separator.
 
-| Experiment     | Task               | File                          | Description                                                                            | Valid configs    | Required env vars        |
-| -------------- | ------------------ | ----------------------------- | -------------------------------------------------------------------------------------- | ---------------- | ------------------------ |
-| Simple graph   | Train and test     | `tasks/simple.py`             | Train the model to learn simple graph tasks.                                           | jax-gpu, jax-cpu | -                        |
-|                | Clear weight       |                               | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | jax-gpu, jax-cpu | -                        |
-| RL: cart pole  | Train and test     | `tasks/rl_cart_pole.py`       | Train the model to learn to control the cart pole.                                     | jax-gpu, jax-cpu | -                        |
-|                | Clear weight       |                               | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | jax-gpu, jax-cpu | -                        |
-| Language model | Prepare            | `tasks/lm_data_prepare.py`    | Prepare data for the the language model hierarchical guide model.                      | torch-cpu        | HF_TOKEN, OPENAI_API_KEY |
-|                | Train hierarchy    | `tasks/lm_guide_train.py`     | Train the language model hierarchical guide model.                                     | jax-gpu, jax-cpu | -                        |
-|                | Generate hierarchy | `tasks/lm_guide_inference.py` | Generate the language model hierarchical guide model.                                  | jax-gpu, jax-cpu | -                        |
-|                | Interpret          | `tasks/lm_data_interpret`     | Given the hierarchy guide, print out the text generation.                              | torch-cpu        | HF_TOKEN                 |
+| Experiment     | Task               | Description                                                                            | File                          | Valid configs    | Required env vars        |
+| -------------- | ------------------ | -------------------------------------------------------------------------------------- | ----------------------------- | ---------------- | ------------------------ |
+| Simple graph   | Train and test     | Train the model to learn simple graph tasks.                                           | `tasks/simple.py`             | jax-gpu, jax-cpu | -                        |
+|                | Clear weight       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` |                               | jax-gpu, jax-cpu | -                        |
+| RL: cart pole  | Train and test     | Train the model to learn to control the cart pole.                                     | `tasks/rl_cart_pole.py`       | jax-gpu, jax-cpu | -                        |
+|                | Clear weight       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` |                               | jax-gpu, jax-cpu | -                        |
+| Language model | Prepare            | Prepare data for the the language model hierarchical guide model.                      | `tasks/lm_data_prepare.py`    | torch-cpu        | HF_TOKEN, OPENAI_API_KEY |
+|                | Train hierarchy    | Train the language model hierarchical guide model.                                     | `tasks/lm_guide_train.py`     | jax-gpu, jax-cpu | -                        |
+|                | Generate hierarchy | Generate the language model hierarchical guide model.                                  | `tasks/lm_guide_inference.py` | jax-gpu, jax-cpu | -                        |
+|                | Interpret          | Given the hierarchy guide, print out the text generation.                              | `tasks/lm_data_interpret`     | torch-cpu        | HF_TOKEN                 |
 
 ## To do
 
@@ -66,11 +66,6 @@ If you have any issues, please let me know.
     -   [x] Use optax
     -   [x] Transformer kernel
     -   [x] Value access vs score access hyperparameter to select which type of hypothesis learning to use.
--   [x] Abstraction
-    -   [x] Implement entropy abstraction
-    -   [ ] Neural statistic keeping
-    -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
-    -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction, and opposite results in react mode.
 -   [x] Language model experiment (abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel
@@ -79,6 +74,11 @@ If you have any issues, please let me know.
     -   [ ] Train the LM hierarchical guide model (in progress, block by the amount of resource to train in my workstation)
 -   [x] [RL Experiment] (https://gymnasium.farama.org/environments)
     -   [x] Cart pole
+-   [x] Abstraction
+    -   [x] Implement entropy abstraction
+    -   [ ] Neural statistic keeping
+    -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
+    -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction, and opposite results in react mode.
 -   [ ] Hippocampus
     -   [ ] Tree based position encoding
 -   [ ] Paper topic
