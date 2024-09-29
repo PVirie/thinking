@@ -128,7 +128,7 @@ class Context(BaseModel):
             logging.info(f"Total learning time {time.time() - stamp}s")
 
 
-        def prepare_data_tuples(state, actions, rewards, num_layers, skip_steps):
+        def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
             states = np.stack(states, axis=0)
             actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
             rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
