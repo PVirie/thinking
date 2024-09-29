@@ -259,6 +259,7 @@ class Context(BaseModel):
         env = gym.make("CartPole-v1", render_mode=None)
         env.action_space.seed(random_seed)
         observation, info = env.reset(seed=random_seed)
+        stable_state = alg.Expectation([0, 0, 0, 0])
 
         skip_steps = 8
         num_layers = len(cortex_models)
@@ -379,10 +380,10 @@ if __name__ == "__main__":
             total_steps = 0
             num_trials = 100
             print_steps = max(1, num_trials // 10)
-            for i in range(num_trials):
-                if i % print_steps == 0 and i > 0:
+            for j in range(num_trials):
+                if j % print_steps == 0 and j > 0:
                     # print at every 1 % progress
-                    logging.info(f"Environment testing: {(i * 100 / num_trials):.2f}")
+                    logging.info(f"Environment testing: {(j * 100 / num_trials):.2f}")
                 for _ in range(1000):
                     # selected_action = env.action_space.sample()
                     a = model.react(observation, stable_state)
