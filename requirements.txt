@@ -1,4 +1,3 @@
-git+https://github.com/pvirie/array2gif.git#egg=array2gif
 pydantic
 numpy
 flax
@@ -10,3 +9,4 @@ sentencepiece
 transformers==4.44.2
 # RL
 gym[classic_control]
+git+https://github.com/pvirie/array2gif.git#egg=array2gif

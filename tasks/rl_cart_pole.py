@@ -11,6 +11,7 @@ import math
 import jax
 import jax.numpy
 
+from array2gif import write_gif
 import gym
 
 # replace np.bool8 with np.bool
@@ -69,7 +70,7 @@ class Context(BaseModel):
                         "abstraction_models": abstraction_models,
                         "name": set_metadata["name"]
                     })
-                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, average_random_steps=0, random_seed=metadata["random_seed"])
+                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, average_random_steps=metadata["average_random_steps"], random_seed=metadata["random_seed"])
             return context
         except Exception as e:
             logging.warning(e)
@@ -154,7 +155,7 @@ class Context(BaseModel):
 
         logging.info(f"Training experiment {name}")
 
-        env = gym.make("CartPole-v1", render_mode="ansi")
+        env = gym.make("CartPole-v1", render_mode=None)
         env.action_space.seed(random_seed)
 
         observation, info = env.reset(seed=random_seed)
@@ -253,16 +254,41 @@ if __name__ == "__main__":
         
         logging.info(f"Baseline number of random steps: {context.average_random_steps}")
 
-        env = gym.make("CartPole-v1", render_mode="ansi")
-        env.action_space.seed(context.random_seed)
+        env = gym.make("CartPole-v1", render_mode="rgb_array")
+        env.action_space.seed(random.randint(0, 1000))
+
+        logging.info("----------------- Testing random behavior -----------------")
+        observation, info = env.reset()
+        result_path = os.path.join(experiment_path, "results", f"random")
+        render_path = os.path.join(result_path, "render")
+        os.makedirs(render_path, exist_ok=True)
+        for j in range(5):
+            output_gif = os.path.join(render_path, f"trial_{j}.gif")
+            imgs = []
+            
+            for _ in range(1000):
+                selected_action = env.action_space.sample()
+                observation, reward, terminated, truncated, info = env.step(selected_action)
+
+                img = env.render()
+                imgs.append(np.transpose(img, [2, 0, 1]))
+
+                if terminated or truncated:
+                    observation, info = env.reset()
+                    break
+
+            write_gif(imgs, output_gif, fps=30)
+
 
         for i, parameter_set in enumerate(context.parameter_sets):
+            result_path = os.path.join(experiment_path, "results", f"set_{i}")
+
             model = HUMN(**parameter_set)
-            observation, info = env.reset(seed=context.random_seed)
+            observation, info = env.reset()
             stable_state = alg.Expectation([0, 0, 0, 0])
 
             total_steps = 0
-            num_trials = 10000
+            num_trials = 100
             print_steps = max(1, num_trials // 10)
             for i in range(num_trials):
                 if i % print_steps == 0 and i > 0:
@@ -278,6 +304,31 @@ if __name__ == "__main__":
                         observation, info = env.reset()
                         break
 
-            logging.info(f"Parameter set {i} average random steps: {total_steps/num_trials}")
+            logging.info(f"Parameter set {i} average behavior steps: {total_steps/num_trials}")
+
+            render_path = os.path.join(result_path, "render")
+            os.makedirs(render_path, exist_ok=True)
+            for j in range(5):
+                output_gif = os.path.join(render_path, f"trial_{j}.gif")
+                imgs = []
+
+                model = HUMN(**parameter_set)
+                observation, info = env.reset()
+                stable_state = alg.Expectation([0, 0, 0, 0])
+                
+                for _ in range(1000):
+                    # selected_action = env.action_space.sample()
+                    a = model.react(observation, stable_state)
+                    selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
+                    observation, reward, terminated, truncated, info = env.step(selected_action)
+
+                    img = env.render()
+                    imgs.append(np.transpose(img, [2, 0, 1]))
+
+                    if terminated or truncated:
+                        observation, info = env.reset()
+                        break
+
+                write_gif(imgs, output_gif, fps=30)
 
         env.close()
