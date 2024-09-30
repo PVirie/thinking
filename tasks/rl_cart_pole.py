@@ -303,9 +303,9 @@ class Context(BaseModel):
         env.close()
 
         for trainer in trainers:
-            trainer.prepare_batch(16)
+            trainer.prepare_batch(2)
 
-        loop_train(trainers, 20000)
+        loop_train(trainers, 100000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,

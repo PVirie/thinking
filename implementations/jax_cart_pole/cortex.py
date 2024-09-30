@@ -6,6 +6,7 @@ from functools import partial
 import jax.numpy as jnp
 import os
 import json
+import math
 
 try:
     from .algebric import *
@@ -31,6 +32,10 @@ def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1)
     order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
     scores = jnp.power(diminishing_factor, order)
     return jnp.transpose(masks), jnp.transpose(scores)
+
+
+def deci_ceil(x):
+    return int(math.ceil(x * 10) / 10)
 
 
 class Trainer(trainer.Trainer):
@@ -66,6 +71,15 @@ class Trainer(trainer.Trainer):
         masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
 
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
+
+        # now always pad seq_len to tens
+        seq_len = s.shape[1]
+        target_seq_len = deci_ceil(seq_len)
+        s = jnp.pad(s, ((0, 0), (target_seq_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
+        x = jnp.pad(x, ((0, 0), (target_seq_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
+        t = jnp.pad(t, ((0, 0), (target_seq_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
+        scores = jnp.pad(scores, ((0, 0), (target_seq_len - seq_len, 0)), mode="constant", constant_values=0.0)
+        masks = jnp.pad(masks, ((0, 0), (target_seq_len - seq_len, 0)), mode="constant", constant_values=0.0)
 
         self.s.append(s)
         self.x.append(x)
