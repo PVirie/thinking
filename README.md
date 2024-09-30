@@ -1,6 +1,6 @@
 # Thinking model
 
-An implementation of heuristically uncertainty minimization along networks (HUMN).
+An implementation of Hierarchical Unified Model for Actionable INterpretation.
 
 | Version | Model                                   | Description                                                                                          |
 | ------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
