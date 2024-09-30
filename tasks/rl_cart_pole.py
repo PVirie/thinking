@@ -193,18 +193,17 @@ class Context(BaseModel):
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
-
+            observation, info = env.reset()
             states = []
             actions = []
             rewards = []
-            for _ in range(1000):
+            for _ in range(500):
                 selected_action = env.action_space.sample()
                 next_observation, reward, terminated, truncated, info = env.step(selected_action)
                 states.append(observation)
                 actions.append(selected_action)
                 rewards.append(reward)
                 if terminated or truncated:
-                    observation, info = env.reset()
                     break
                 else:
                     observation = next_observation
@@ -273,11 +272,11 @@ class Context(BaseModel):
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
-
+            observation, info = env.reset()
             states = []
             actions = []
             rewards = []
-            for _ in range(1000):
+            for _ in range(500):
                 if random.random() < 0.3:
                     selected_action = env.action_space.sample()
                 else:
@@ -290,7 +289,6 @@ class Context(BaseModel):
                 actions.append(selected_action)
                 rewards.append(reward)
                 if terminated or truncated:
-                    observation, info = env.reset()
                     break
                 else:
                     observation = next_observation
@@ -303,7 +301,7 @@ class Context(BaseModel):
         env.close()
 
         for trainer in trainers:
-            trainer.prepare_batch(2)
+            trainer.prepare_batch(1)
 
         loop_train(trainers, 100000)
 
@@ -351,15 +349,15 @@ if __name__ == "__main__":
         def generate_visual(render_path, num_trials, action_method):
             observation, info = env.reset()
             for j in range(num_trials):
+                observation, info = env.reset()
                 output_gif = os.path.join(render_path, f"trial_{j}.gif")
                 imgs = []
-                for _ in range(1000):
+                for _ in range(500):
                     selected_action = action_method(observation)
                     observation, reward, terminated, truncated, info = env.step(selected_action)
                     img = env.render()
                     imgs.append(np.transpose(img, [2, 0, 1]))
                     if terminated or truncated:
-                        observation, info = env.reset()
                         break
                 write_gif(imgs, output_gif, fps=30)
 
@@ -386,14 +384,14 @@ if __name__ == "__main__":
                 if j % print_steps == 0 and j > 0:
                     # print at every 1 % progress
                     logging.info(f"Environment testing: {(j * 100 / num_trials):.2f}")
-                for _ in range(1000):
+                observation, info = env.reset()
+                for _ in range(500):
                     # selected_action = env.action_space.sample()
                     a = model.react(observation, stable_state)
                     selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
                     observation, reward, terminated, truncated, info = env.step(selected_action)
                     total_steps += 1
                     if terminated or truncated:
-                        observation, info = env.reset()
                         break
 
             set_name = parameter_set["name"]
