@@ -74,15 +74,21 @@ If you have any issues, please let me know.
     -   [ ] Train the LM hierarchical guide model (in progress, block by the amount of resource to train in my workstation)
 -   [x] Reinforcement learning
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
-    -   [ ] Learn by demonstration data
-    -   [ ] Self play
+        -   [ ] Use average state value as the goal
     -   [ ] [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
 -   [x] Abstraction
     -   [x] Implement entropy abstraction
-    -   [ ] Neural statistic keeping
+    -   [ ] Implement Neural statistic keeping
     -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
     -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction, and opposite results in react mode.
 -   [ ] Hippocampus
     -   [ ] Tree based position encoding
--   [ ] Paper topic
-    -   [ ] Versioning learning with asymmetric update
+-   [ ] Paper content
+    -   [ ] Multi-hierarchy model for goal pursuing
+        -   [ ] Discount steps
+        -   [ ] Abstraction
+        -   [ ] Reaction vs Thinking mode
+        -   [ ] Algebraic structure
+    -   [ ] Asymmetric update
+        -   [ ] Value and score access
+        -   [ ] Top layer should use value access when we do not know the range of score. But value access should perform better when we want to group action by similarity.
