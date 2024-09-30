@@ -230,6 +230,8 @@ class Context(BaseModel):
 
         previous_model = model
 
+        average_random_steps = total_steps/num_trials
+
         ############################# SET 2 ################################
 
         name = "Skip step (Round 2)"
@@ -276,7 +278,7 @@ class Context(BaseModel):
             actions = []
             rewards = []
             for _ in range(1000):
-                if random.random() < 0.1:
+                if random.random() < 0.3:
                     selected_action = env.action_space.sample()
                 else:
                     a = previous_model.react(observation, stable_state)
@@ -312,7 +314,7 @@ class Context(BaseModel):
             "name": name
         })
 
-        return Context(parameter_sets=parameter_sets, average_random_steps=total_steps/num_trials, random_seed=random_seed)
+        return Context(parameter_sets=parameter_sets, average_random_steps=average_random_steps, random_seed=random_seed)
 
 
 
@@ -348,7 +350,7 @@ if __name__ == "__main__":
 
         def generate_visual(render_path, num_trials, action_method):
             observation, info = env.reset()
-            for j in range(5):
+            for j in range(num_trials):
                 output_gif = os.path.join(render_path, f"trial_{j}.gif")
                 imgs = []
                 for _ in range(1000):
