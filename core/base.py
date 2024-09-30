@@ -20,7 +20,6 @@ class Persistent_Model:
 
 class Model(Persistent_Model):
 
-
     def fit(self, s, x, t, scores, masks=None, context=None):
         raise NotImplementedError()
 
@@ -35,10 +34,8 @@ class Model(Persistent_Model):
 
 class Stat_Model(Persistent_Model):
 
-
     def accumulate(self, S):
         raise NotImplementedError()
-
 
     def infer(self, S):
         raise NotImplementedError()

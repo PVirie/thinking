@@ -367,7 +367,7 @@ if __name__ == "__main__":
         result_path = os.path.join(experiment_path, "results", f"random")
         render_path = os.path.join(result_path, "render")
         os.makedirs(render_path, exist_ok=True)
-        generate_visual(render_path, 10, lambda obs: env.action_space.sample())
+        generate_visual(render_path, 5, lambda obs: env.action_space.sample())
 
 
         for i, parameter_set in enumerate(context.parameter_sets):
@@ -404,6 +404,6 @@ if __name__ == "__main__":
                 a = model.react(observation, stable_state)
                 return 1 if np.asarray(a.data)[0].item() > 0.5 else 0
             
-            generate_visual(render_path, 10, generation_action)
+            generate_visual(render_path, 5, generation_action)
 
         env.close()
