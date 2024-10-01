@@ -1,6 +1,6 @@
 # Thinking model
 
-An implementation of heuristically uncertainty minimization along networks (HUMN).
+An implementation of Hierarchical Unified Model for Actionable INterpretation.
 
 | Version | Model                                   | Description                                                                                          |
 | ------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -84,6 +84,9 @@ If you have any issues, please let me know.
 -   [ ] Hippocampus
     -   [ ] Tree based position encoding
 -   [ ] Paper content
+    -   [ ] Goals
+        -   [ ] Unify language models and RL models under the same architecture
+        -   [ ] Toward a more interpretable model     
     -   [ ] Multi-hierarchy model for goal pursuing
         -   [ ] Discount steps
         -   [ ] Abstraction
