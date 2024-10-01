@@ -276,7 +276,7 @@ class Context(BaseModel):
             states = []
             actions = []
             rewards = []
-            for _ in range(500):
+            for _ in range(100):
                 if random.random() < 0.3:
                     selected_action = env.action_space.sample()
                 else:
