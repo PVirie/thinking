@@ -142,12 +142,18 @@ class Context(BaseModel):
                     skip_sequence.append(len(states) - 1)
 
                 skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
-                expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
+
+                if layer_i == num_layers - 1:
+                    expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :])
+                else:
+                    expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
+                    
                 path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
                 states = states[skip_sequence]
                 actions = actions[skip_sequence]
-                rewards = rewards[skip_sequence]
+                # reward is the average of the rewards in the skip sequence
+                rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
             
             return path_layer_tuples
 
@@ -160,12 +166,13 @@ class Context(BaseModel):
         state_dim = 4
         action_dim = 1
         expectation_dim = 4
+        reward_dim = 1
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, return_action=True, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, expectation_dim, reward_dim], context_length, 128, [128, 64],  memory_size=4, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -241,9 +248,9 @@ class Context(BaseModel):
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, return_action=True, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, expectation_dim, expectation_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, expectation_dim, reward_dim], context_length, 128, [128, 64],  memory_size=4, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -260,7 +267,7 @@ class Context(BaseModel):
         env = gym.make("CartPole-v1", render_mode=None)
         env.action_space.seed(random_seed)
         observation, info = env.reset(seed=random_seed)
-        stable_state = alg.Expectation([0, 0, 0, 0])
+        stable_state = alg.Expectation([1])
 
         skip_steps = 8
         num_layers = len(cortex_models)
@@ -375,7 +382,7 @@ if __name__ == "__main__":
 
             model = HUMN(**parameter_set)
             observation, info = env.reset()
-            stable_state = alg.Expectation([0, 0, 0, 0])
+            stable_state = alg.Expectation([1])
 
             total_steps = 0
             num_trials = 100

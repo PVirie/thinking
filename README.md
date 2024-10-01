@@ -74,7 +74,7 @@ If you have any issues, please let me know.
     -   [ ] Train the LM hierarchical guide model (in progress, block by the amount of resource to train in my workstation)
 -   [x] Reinforcement learning
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
-        -   [ ] Use average state value as the goal
+        -   [x] Use average state value as the goal
     -   [ ] [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
 -   [x] Abstraction
     -   [x] Implement entropy abstraction
@@ -86,7 +86,7 @@ If you have any issues, please let me know.
 -   [ ] Paper content
     -   [ ] Goals
         -   [ ] Unify language models and RL models under the same architecture
-        -   [ ] Toward a more interpretable model     
+        -   [ ] Toward a more interpretable model
     -   [ ] Multi-hierarchy model for goal pursuing
         -   [ ] Discount steps
         -   [ ] Abstraction

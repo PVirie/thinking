@@ -102,6 +102,14 @@ def max_match(x, H):
     return prop
 
 
+def compute_sum_along_sequence(x, sequence):
+    # input x has shape [sequence, ...]
+    # sequence is a list of lengths
+    # output has shape [len(sequence), ...], each element is the mean of the corresponding mean(x[(sequence[i-1]+1):sequence[i] + 1])
+    end_sequence = np.asarray(sequence) + 1
+    start_sequence = np.pad(end_sequence[:-1], (1, 0), 'constant', constant_values=0)
+    return np.array([np.sum(x[start_sequence[i]:end_sequence[i]], axis=0) for i in range(0, len(sequence))])
+
 if __name__ == '__main__':
     graph_shape = 16
     g = random_graph(graph_shape, 0.2)
@@ -109,3 +117,5 @@ if __name__ == '__main__':
     for i in range(10):
         path = random_walk(g, 0, 10)
         print(path)
+
+    print(compute_sum_along_sequence(np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]), [0, 2, 4]))
