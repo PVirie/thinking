@@ -84,8 +84,9 @@ If you have any issues, please let me know.
 -   [ ] Hippocampus
     -   [ ] Tree based position encoding
 -   [ ] Paper content
-    -   [ ] Goals
+    -   [ ] main ideas
         -   [ ] Unify language models and RL models under the same architecture
+        -   [ ] A model that inherently pursues input goals
         -   [ ] Toward a more interpretable model
     -   [ ] Multi-hierarchy model for goal pursuing
         -   [ ] Discount steps
