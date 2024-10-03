@@ -114,3 +114,5 @@ if __name__ == "__main__":
         cortex.Model.save(c, cortex_path)
         hippocampus.Model.save(h, hippocampus_path)
         
+    with open(os.path.join(experiment_path, "metadata.json"), "w") as f:
+        json.dump({"num_layers": len(cortex_models), "num_abstraction_models": len(abstraction_models)}, f)

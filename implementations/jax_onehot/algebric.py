@@ -15,9 +15,6 @@ class Action(humn.algebraic.Action):
         else:
             self.data = device_put(jnp.array(data, jnp.float32))
 
-    def __add__(self, s): 
-        return s + self
-    
     def zero_length(self):
         return jnp.linalg.norm(self.data) < 1e-4
     
@@ -45,10 +42,15 @@ class State(humn.algebraic.State):
         return State(s_data)
 
 
-    def __sub__(self, s):
-        if self == s:
-            return Action(jnp.zeros_like(self.data))
-        
+    def __sub__(self, o):
+        if isinstance(o, State):
+            if self == o:
+                return Action(jnp.zeros_like(self.data))
+        else:
+            s = o.data[-1, 0, :]
+            if jnp.linalg.norm(self.data - s) < 1e-4:
+                return Action(jnp.zeros_like(self.data))
+
         max_index = jnp.argmax(self.data)
         a_data = jnp.zeros_like(self.data).at[max_index].set(1)
         return Action(a_data)
@@ -58,8 +60,7 @@ class State(humn.algebraic.State):
         # implement ==
         # test norm within 1e-4
         return jnp.linalg.norm(self.data - s.data) < 1e-4
-
-
+    
 
 class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
     def __init__(self, indices = []):
@@ -75,8 +76,6 @@ class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
         self.data = jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int32)], axis=0)
 
 
-
-
 class State_Sequence(humn.algebraic.State_Sequence):
     def __init__(self, states):
         if isinstance(states, List):
@@ -85,7 +84,6 @@ class State_Sequence(humn.algebraic.State_Sequence):
             self.data = states
         else:
             self.data = device_put(jnp.array(states, jnp.float32))
-
 
 
     @staticmethod
@@ -98,7 +96,6 @@ class State_Sequence(humn.algebraic.State_Sequence):
     def save(self, path):
         # save jax array to path
         jnp.save(path + ".npy", self.data)
-
 
 
     def __getitem__(self, i):

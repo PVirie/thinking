@@ -56,8 +56,8 @@ class Trainer(trainer.Trainer):
         sequence_data = path_encoding_sequence.data[:, 0, :]
 
         s = jnp.tile(jnp.expand_dims(sequence_data, axis=0), (len(pivots), 1, 1))
-        x = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=0), (len(pivots), 1, 1))
-        a = x - s
+        s_ = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=0), (len(pivots), 1, 1))
+        x = s_ - s
         t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, len(path_encoding_sequence), 1))
 
         masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
@@ -65,7 +65,7 @@ class Trainer(trainer.Trainer):
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
 
         self.s.append(s)
-        self.x.append(a)
+        self.x.append(x)
         self.t.append(t)
         self.scores.append(scores)
         self.masks.append(masks)

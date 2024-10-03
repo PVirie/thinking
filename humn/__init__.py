@@ -71,7 +71,7 @@ class HUMN:
             if not nl_sub_action.zero_length():
                 # if the next step is not the goal, specify the goal
                 if abstractor is not None:
-                    action = abstractor.specify(nl_from_state, nl_sub_action, abstractor)
+                    action = abstractor.specify(nl_from_state, nl_sub_action, state)
                 else:
                     action = nl_sub_action
 
@@ -92,11 +92,13 @@ class HUMN:
 
         for step in range(self.max_sub_steps):
             hippocampus.append(state)
-            sub_action = cortex.infer_sub_action(hippocampus.augmented_all(), target_state - state)
+            full_state = hippocampus.augmented_all()
+            target_action = target_state - full_state
+            if target_action.zero_length():
+                return
+            sub_action = cortex.infer_sub_action(full_state, target_action)
             state = state + sub_action
             yield state
-            if state == target_state:
-                return
 
         raise MaxSubStepReached(f"Max sub step of {self.max_sub_steps} reached at layer {i}")
 
@@ -131,10 +133,7 @@ class HUMN:
                 else:
                     target_state = nl_target_state
  
-                for state in self.__generate_steps(i, state, target_state):
-                    yield state
-                    if state == goal_state:
-                        return
+                yield from self.__generate_steps(i, state, target_state)
         
         yield from self.__generate_steps(i, state, goal_state)
 
