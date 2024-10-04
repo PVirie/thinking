@@ -21,17 +21,39 @@ except:
     import core
 
 
-def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
+def generate_backward_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
+    # from states to pivots
     # pivots = jnp.array(pivots, dtype=jnp.int32)
     pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
-    
     pre_pivots = jnp.concatenate([jnp.full([pre_steps], -1, dtype=jnp.int32), pivots[:-pre_steps]], axis=0)
-
-    masks = jnp.logical_and(pos > jnp.expand_dims(pre_pivots, axis=0), pos <= jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
-
+    masks = jnp.logical_and(jnp.expand_dims(pre_pivots, axis=0) < pos, pos <= jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
     order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
+
     scores = jnp.power(diminishing_factor, order)
     return jnp.transpose(masks), jnp.transpose(scores)
+
+
+def generate_forward_mask_and_score(pivots, length, diminishing_factor=0.9, post_steps=1):
+    # this one for pivots to states
+    # output has shape (seq_len, P)
+    pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
+    post_pivots = jnp.concatenate([pivots[post_steps:], jnp.full([post_steps], length, dtype=jnp.int32)], axis=0)
+    masks = jnp.logical_and(jnp.expand_dims(pivots, axis=0) <= pos, pos < jnp.expand_dims(post_pivots, axis=0)).astype(jnp.float32)
+    order = jnp.reshape(jnp.arange(0, length, 1), [-1, 1]) - jnp.expand_dims(pivots, axis=0)
+
+    scores = jnp.power(diminishing_factor, order)
+    return jnp.transpose(masks), jnp.transpose(scores)
+
+
+def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
+    forward_mask, forward_score = generate_forward_mask_and_score(pivots, length, diminishing_factor, pre_steps)
+    backward_mask, backward_score = generate_backward_mask_and_score(pivots, length, diminishing_factor, pre_steps)
+
+    # add masks and cap at 1
+    masks = jnp.minimum(forward_mask + backward_mask, 1)
+    scores = jnp.minimum(forward_score*forward_mask + backward_score*backward_mask, 1)
+
+    return masks, scores
 
 
 def deci_ceil(x):
@@ -68,9 +90,8 @@ class Trainer(trainer.Trainer):
         else:
             x = jnp.tile(jnp.expand_dims(jnp.roll(cart_state_sequence, -1, axis=0), axis=0), (len(pivots), 1, 1))
 
-        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
-
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
+        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
         if use_reward:
             # t has shape (P, seq_len, 1)
             scores = scores * jnp.reshape(t, (len(pivots), len(path_encoding_sequence)))

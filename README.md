@@ -61,6 +61,7 @@ If you have any issues, please let me know.
     -   [x] Parallelize layers
     -   [x] Use asymmetric gradient update to keep track of the best so far
     -   [x] Reset context after each goal change
+    -   [ ] Reverse masks (from pivots to states)
 -   [x] Enhancement
     -   [x] JIT everything
     -   [x] Use optax
