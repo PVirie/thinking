@@ -42,19 +42,17 @@ if __name__ == "__main__":
     for item_datum in item_data:
         item = item_datum["item"]
         hierarchy = item_datum["hierarchy"]
-        start_embedding = device_put(jnp.array([item_datum["start_embedding"]], jnp.float32))
-        goal_embedding = device_put(jnp.array([item_datum["goal_embedding"]], jnp.float32))
 
         layer_paths = []
         layer_pivot_indices = []
         for i, layer in enumerate(hierarchy):
-            path = alg.Embedding_Sequence(device_put(jnp.array(layer["embedding_chunks"], jnp.float32)))
+            path = alg.Embedding_Sequence(device_put(jnp.array([item_datum["start_embedding"]] + layer["embedding_chunks"], jnp.float32)))
             layer_paths.append(path)
 
             pivot_chunks = layer["pivot_chunks"]
             indices = []
             for j, pivot_chunk in enumerate(pivot_chunks):
-                indices.append(pivot_chunk[1])
+                indices.append(1 + pivot_chunk[1])
             pivot_indices = alg.Pointer_Sequence(indices)
             layer_pivot_indices.append(pivot_indices)
 
@@ -63,6 +61,7 @@ if __name__ == "__main__":
             layer_pivots.append(layer_paths[i + 1])
 
         # now add start and goal embedding again as the final top most layer
+        goal_embedding = device_put(jnp.array([item_datum["goal_embedding"]], jnp.float32))
         final_pivots = alg.Embedding_Sequence(jnp.tile(jnp.expand_dims(goal_embedding, axis=0), (len(layer_pivots[-1]), 1)))
         layer_pivots.append(final_pivots)
 
@@ -87,9 +86,9 @@ if __name__ == "__main__":
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
 
     cortex_models = [
-        cortex.Model(0, transformer.Model(embedding_dim, 64, 64, [64, 64])),
-        cortex.Model(1, transformer.Model(embedding_dim, 64, 64, [64, 64])),
-        cortex.Model(2, transformer.Model(embedding_dim, 64, 64, [64, 64]))
+        cortex.Model(0, transformer.Model(embedding_dim, 64, 128, [64, 64])),
+        cortex.Model(1, transformer.Model(embedding_dim, 64, 128, [64, 64])),
+        cortex.Model(2, transformer.Model(embedding_dim, 64, 128, [64, 64]))
     ]
     hippocampus_models = [
         hippocampus.Model(64, embedding_dim),
@@ -104,9 +103,9 @@ if __name__ == "__main__":
     for path_tuples in data_tuples:
         trainers = model.observe(path_tuples)
     for trainer in trainers:
-        trainer.prepare_batch(64)
+        trainer.prepare_batch(4)
 
-    loop_train(trainers, 100000)
+    loop_train(trainers, 20000)
 
     # save model
     for i, (c, h) in enumerate(zip(cortex_models, hippocampus_models)):
