@@ -356,6 +356,8 @@ if __name__ == "__main__":
                         for p in model.think(s, t - s):
                             p_i = context.states[p]
                             ps.append(p_i)
+                            if p == t:
+                                break
                         total_length = total_length + len(ps)
                     except MaxSubStepReached:
                         logging.warning("fail to find path in time.")

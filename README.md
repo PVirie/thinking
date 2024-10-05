@@ -61,7 +61,7 @@ If you have any issues, please let me know.
     -   [x] Parallelize layers
     -   [x] Use asymmetric gradient update to keep track of the best so far
     -   [x] Reset context after each goal change
-    -   [ ] Reverse masks (from pivots to states)
+    -   [ ] ~~Reverse masks (from pivots to states)~~
 -   [x] Enhancement
     -   [x] JIT everything
     -   [x] Use optax
@@ -84,16 +84,3 @@ If you have any issues, please let me know.
     -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction, and opposite results in react mode.
 -   [ ] Hippocampus
     -   [ ] Tree based position encoding
--   [ ] Paper content
-    -   [ ] main ideas
-        -   [ ] Unify language models and RL models under the same architecture
-        -   [ ] A model that inherently pursues input goals
-        -   [ ] Toward a more interpretable model
-    -   [ ] Multi-hierarchy model for goal pursuing
-        -   [ ] Discount steps
-        -   [ ] Abstraction
-        -   [ ] Reaction vs Thinking mode
-        -   [ ] Algebraic structure
-    -   [ ] Asymmetric update
-        -   [ ] Value and score access
-        -   [ ] Top layer should use value access when we do not know the range of score. But value access should perform better when we want to group action by similarity.

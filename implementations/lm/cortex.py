@@ -20,9 +20,7 @@ except:
     import core
 
 
-
-
-def generate_backward_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
+def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
     # from states to pivots
     # pivots = jnp.array(pivots, dtype=jnp.int32)
     pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
@@ -32,29 +30,6 @@ def generate_backward_mask_and_score(pivots, length, diminishing_factor=0.9, pre
 
     scores = jnp.power(diminishing_factor, order)
     return jnp.transpose(masks), jnp.transpose(scores)
-
-
-def generate_forward_mask_and_score(pivots, length, diminishing_factor=0.9, post_steps=1):
-    # this one for pivots to states
-    # output has shape (seq_len, P)
-    pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
-    post_pivots = jnp.concatenate([pivots[post_steps:], jnp.full([post_steps], length, dtype=jnp.int32)], axis=0)
-    masks = jnp.logical_and(jnp.expand_dims(pivots, axis=0) <= pos, pos < jnp.expand_dims(post_pivots, axis=0)).astype(jnp.float32)
-    order = jnp.reshape(jnp.arange(0, length, 1), [-1, 1]) - jnp.expand_dims(pivots, axis=0)
-
-    scores = jnp.power(diminishing_factor, order)
-    return jnp.transpose(masks), jnp.transpose(scores)
-
-
-def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
-    forward_mask, forward_score = generate_forward_mask_and_score(pivots, length, diminishing_factor, pre_steps)
-    backward_mask, backward_score = generate_backward_mask_and_score(pivots, length, diminishing_factor, pre_steps)
-
-    # add masks and cap at 1
-    masks = jnp.minimum(forward_mask + backward_mask, 1)
-    scores = jnp.minimum(forward_score*forward_mask + backward_score*backward_mask, 1)
-
-    return masks, scores
 
 
 class Trainer(trainer.Trainer):
