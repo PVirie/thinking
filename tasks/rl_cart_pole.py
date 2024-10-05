@@ -23,7 +23,7 @@ from utilities.utilities import *
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from implementations.jax_cart_pole import algebric as alg
+from implementations.jax_cart_pole import algebraic as alg
 from implementations.jax_cart_pole import cortex, hippocampus, abstraction
 import core
 from core import table, linear, transformer, stat_head, stat_linear, stat_table

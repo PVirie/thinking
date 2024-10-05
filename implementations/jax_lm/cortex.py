@@ -8,9 +8,9 @@ import os
 import json
 
 try:
-    from .algebric import *
+    from .algebraic import *
 except:
-    from algebric import *
+    from algebraic import *
 
 try:
     import core
@@ -51,16 +51,15 @@ class Trainer(trainer.Trainer):
 
     def accumulate_batch(self, step_discount_factor, path_encoding_sequence: Augmented_Embedding_Squence, pivot_indices: Pointer_Sequence, pivots: Embedding_Sequence):
 
-        pivots = path_encoding_sequence[pivot_indices].data[:, 0, :] + path_encoding_sequence[pivot_indices].data[:, 1, :]
+        pivots = pivots.data
         sequence_data = path_encoding_sequence.data[:, 0, :]
 
         s = jnp.tile(jnp.expand_dims(sequence_data, axis=0), (len(pivots), 1, 1))
         x = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=0), (len(pivots), 1, 1))
         t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, len(path_encoding_sequence), 1))
 
-        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
-
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
+        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
 
         self.s.append(s)
         self.x.append(x)

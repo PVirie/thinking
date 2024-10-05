@@ -18,8 +18,8 @@ from utilities.utilities import *
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from implementations.lm import algebric as alg
-from implementations.lm import cortex, hippocampus, abstraction
+from implementations.jax_lm import algebric as alg
+from implementations.jax_lm import cortex, hippocampus, abstraction
 import core
 from core import transformer
 

@@ -18,8 +18,8 @@ from utilities.utilities import *
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from implementations.lm import algebric as alg
-from implementations.lm import cortex, hippocampus, abstraction
+from implementations.jax_lm import algebraic as alg
+from implementations.jax_lm import cortex, hippocampus, abstraction
 import core
 from core import transformer
 
@@ -46,27 +46,29 @@ if __name__ == "__main__":
         goal_embedding = device_put(jnp.array([item_datum["goal_embedding"]], jnp.float32))
 
         layer_paths = []
-        layer_pivots = []
+        layer_pivot_indices = []
         for i, layer in enumerate(hierarchy):
-            # add start and goal embedding for every layer
-            embedding_chunks = jnp.concatenate([start_embedding, device_put(jnp.array(layer["embedding_chunks"], jnp.float32)), goal_embedding], dim=0)
-            path = alg.State_Sequence(embedding_chunks)
+            path = alg.Embedding_Sequence(device_put(jnp.array(layer["embedding_chunks"], jnp.float32)))
             layer_paths.append(path)
 
             pivot_chunks = layer["pivot_chunks"]
             indices = []
             for j, pivot_chunk in enumerate(pivot_chunks):
                 indices.append(pivot_chunk[1])
-
             pivot_indices = alg.Pointer_Sequence(indices)
-            layer_pivots.append(pivot_indices)
+            layer_pivot_indices.append(pivot_indices)
 
+        layer_pivots = []
         for i in range(len(layer_paths) - 1):
-            data_tuples.append((layer_paths[i], layer_pivots[i], layer_paths[i + 1]))
+            layer_pivots.append(layer_paths[i + 1])
 
         # now add start and goal embedding again as the final top most layer
-        final_pivots = alg.State_Sequence(jnp.tile(jnp.expand_dims(goal_embedding, axis=0), (len(layer_pivots[-1]), 1, 1)))
-        data_tuples.append((layer_paths[-1], layer_pivots[-1], final_pivots))
+        final_pivots = alg.Embedding_Sequence(jnp.tile(jnp.expand_dims(goal_embedding, axis=0), (len(layer_pivots[-1]), 1)))
+        layer_pivots.append(final_pivots)
+
+        # now zip
+        layer_data = list(zip(layer_paths, layer_pivot_indices, layer_pivots))
+        data_tuples.append(layer_data)
     
 
     def loop_train(trainers, num_epoch=1000):

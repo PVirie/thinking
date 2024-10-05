@@ -8,8 +8,6 @@ import math
 
 
     
-
-
 class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
     def __init__(self, indices = []):
         self.data = jnp.array(indices, dtype=jnp.int32)

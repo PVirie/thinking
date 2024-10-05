@@ -16,7 +16,7 @@ from utilities.utilities import *
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from implementations.jax_onehot import algebric as alg
+from implementations.jax_onehot import algebraic as alg
 from implementations.jax_onehot import cortex, hippocampus, abstraction
 import core
 from core import table, linear, transformer, stat_head, stat_linear, stat_table
@@ -121,7 +121,7 @@ class Context(BaseModel):
         one_hot = generate_onehot_representation(np.arange(graph_shape), graph_shape)
         states = alg.State_Sequence(one_hot)
 
-        graph = random_graph(graph_shape, 0.4)
+        graph = random_graph(graph_shape, 0.2)
         explore_steps = 5000
         path_sequences = []
         for i in range(explore_steps):
@@ -175,7 +175,6 @@ class Context(BaseModel):
             trainer = abstractor.incrementally_learn(states.generate_subsequence(p_seq))
         # for table model, sequential update is neccessary
         trainer.prepare_batch(1)
-        # trainer.prepare_batch(64)
 
         loop_train([trainer], 5000)
 
@@ -204,9 +203,9 @@ class Context(BaseModel):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, transformer.Model(graph_shape, 1, 256, [256], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 256, [256], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 256, [256], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -223,9 +222,9 @@ class Context(BaseModel):
         for path_tuples in data_skip_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
-            trainer.prepare_batch(16)
+            trainer.prepare_batch(32)
 
-        loop_train(trainers, 100000)
+        loop_train(trainers, 20000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,
@@ -240,9 +239,9 @@ class Context(BaseModel):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, transformer.Model(graph_shape, 1, 256, [256], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, transformer.Model(graph_shape, 1, 256, [256], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, transformer.Model(graph_shape, 1, 256, [256], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -262,9 +261,9 @@ class Context(BaseModel):
         for path_tuples in data_abstract_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
-            trainer.prepare_batch(16)
+            trainer.prepare_batch(32)
 
-        loop_train(trainers, 100000)
+        loop_train(trainers, 20000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,

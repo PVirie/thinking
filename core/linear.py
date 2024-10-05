@@ -73,7 +73,7 @@ def compute_value_score(Q, params, next_state_dims, memory_size, batch_size):
     return v, s
 
 
-def compute_error(Q, V, S, M, params, r_key, next_state_dims, memory_size, batch_size, value_access=False):
+def compute_error(Q, V, S, M, params, r_key, next_state_dims, memory_size, batch_size, value_access=True):
     Vs, Ss = query(Q, params)
     Vs = jnp.reshape(Vs, (batch_size, memory_size, next_state_dims))
     

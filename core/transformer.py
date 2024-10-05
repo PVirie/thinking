@@ -150,7 +150,7 @@ class Value_Score_Module(nn.Module):
     slots: int
     output_dim: int
     value_score_backbone: StackedTransformer
-    value_access: bool = False
+    value_access: bool = True
     # records: int
     # query_backbone: StackedTransformer
 

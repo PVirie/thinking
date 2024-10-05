@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import os
 import json
 
-from .algebric import *
+from .algebraic import *
 
 
 class Model(hippocampus_model.Model):
