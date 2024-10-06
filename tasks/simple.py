@@ -224,7 +224,7 @@ class Context(BaseModel):
         for trainer in trainers:
             trainer.prepare_batch(32)
 
-        loop_train(trainers, 50000)
+        loop_train(trainers, 100000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,
@@ -263,7 +263,7 @@ class Context(BaseModel):
         for trainer in trainers:
             trainer.prepare_batch(32)
 
-        loop_train(trainers, 50000)
+        loop_train(trainers, 100000)
 
         parameter_sets.append({
             "cortex_models": cortex_models,
@@ -355,8 +355,6 @@ if __name__ == "__main__":
                         for p in model.think(s, t - s):
                             p_i = context.states[p]
                             ps.append(p_i)
-                            if p == t:
-                                break
                         total_length = total_length + len(ps)
                     except MaxSubStepReached:
                         logging.warning("fail to find path in time.")

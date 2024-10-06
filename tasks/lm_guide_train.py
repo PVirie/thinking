@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
         # now add start and goal embedding again as the final top most layer
         goal_embedding = device_put(jnp.array([item_datum["goal_embedding"]], jnp.float32))
-        final_pivots = alg.Embedding_Sequence(jnp.tile(jnp.expand_dims(goal_embedding, axis=0), (len(layer_pivots[-1]), 1)))
+        final_pivots = alg.Embedding_Sequence(jnp.tile(goal_embedding, (len(layer_pivots[-1]), 1)))
         layer_pivots.append(final_pivots)
 
         # now zip

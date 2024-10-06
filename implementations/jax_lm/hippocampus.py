@@ -62,8 +62,9 @@ class Model(hippocampus_model.Model):
 
 
     def augment(self, path: Embedding_Sequence) -> Augmented_Embedding_Squence:
+        length = min(self.max_length, path.data.shape[0])
         return Augmented_Embedding_Squence(
-            jnp.stack([path.data, self.positional_encoding[:path.data.shape[0]]], axis=1)
+            jnp.stack([path.data[path.data.shape[0] - length:], self.positional_encoding[self.max_length - length:]], axis=1)
         )
 
 

@@ -133,7 +133,12 @@ class HUMN:
                 else:
                     target_state = nl_target_state
  
-                yield from self.__generate_steps(i, state, target_state)
+                for state in self.__generate_steps(i, state, target_state):
+                    yield state
+                    full_state = hippocampus.augmented_all()
+                    goal_action = goal_state - full_state
+                    if goal_action.zero_length():
+                        return
         
         yield from self.__generate_steps(i, state, goal_state)
 
