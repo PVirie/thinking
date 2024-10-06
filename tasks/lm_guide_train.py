@@ -52,6 +52,9 @@ if __name__ == "__main__":
     num_layers = 3
     step_size = 4
 
+    embedding_dim = len(data["vocabulary"]["embeddings"][0])
+    stop_embedding = jnp.zeros([1, embedding_dim], jnp.float32)
+
     data_tuples = []
     item_data = data["train_set"]
     for item_datum in item_data:
@@ -67,7 +70,7 @@ if __name__ == "__main__":
         for i in range(num_layers):
 
             # prepend with the start embedding
-            path = alg.Embedding_Sequence(jnp.concatenate([start_embedding, embedding_chunks], axis=0))
+            path = alg.Embedding_Sequence(jnp.concatenate([start_embedding, embedding_chunks, stop_embedding], axis=0))
             layer_paths.append(path)
 
             pivot_indices = alg.Pointer_Sequence([0] + [1 + p[1] for p in pivot_chunks])
@@ -98,12 +101,11 @@ if __name__ == "__main__":
                 logging.info(f"Layer loss: {', '.join([f'{trainer.avg_loss:.4f}' for trainer in trainers])}")
         logging.info(f"Total learning time {time.time() - stamp}s")
 
-    embedding_dim = len(data["vocabulary"]["embeddings"][0])
 
     cortex_models = [
-        cortex.Model(0, transformer.Model(embedding_dim, 64, 128, [64, 64])),
-        cortex.Model(1, transformer.Model(embedding_dim, 64, 128, [64, 64])),
-        cortex.Model(2, transformer.Model(embedding_dim, 64, 128, [64, 64]))
+        cortex.Model(0, transformer.Model(embedding_dim, 64, 128, [128, 128])),
+        cortex.Model(1, transformer.Model(embedding_dim, 64, 128, [128, 128])),
+        cortex.Model(2, transformer.Model(embedding_dim, 64, 128, [128, 128]))
     ]
     hippocampus_models = [
         hippocampus.Model(64, embedding_dim),
@@ -112,7 +114,7 @@ if __name__ == "__main__":
     ]
     abstraction_models = []
     
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=16)
 
     # prepare hierarchy data abstract path and train
     for path_tuples in data_tuples:

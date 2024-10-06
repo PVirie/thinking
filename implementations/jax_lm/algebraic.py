@@ -63,18 +63,16 @@ class Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
 
 
     def __add__(self, a):
-        if a.zero_length():
-            return self
-        return Text_Embedding(self.data + a.data)
+        return a
 
 
     def __sub__(self, augmented_state_sequence: Augmented_Embedding_Squence):
-        s = jnp.mean(augmented_state_sequence.data[:, 0, :], axis=0)
-        if jnp.linalg.norm(self.data - s) < 1e-2:
+        s = augmented_state_sequence.data[-1, 0, :]
+        if jnp.linalg.norm(s) < 1e-4:
             return Text_Embedding(jnp.zeros_like(self.data))
         
-        return Text_Embedding(self.data - s)
+        return Text_Embedding(self.data)
 
 
     def zero_length(self):
-        return jnp.linalg.norm(self.data) < 1e-2
+        return jnp.linalg.norm(self.data) < 1e-4
