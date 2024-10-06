@@ -46,6 +46,9 @@ if __name__ == "__main__":
     # train
     # save
 
+    large_model = OpenAI_Model("gpt-4o")
+    small_model = OpenAI_Model("gpt-4o-mini")
+
     experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "lm_factorio")
 
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
@@ -54,12 +57,10 @@ if __name__ == "__main__":
     with open(os.path.join(experiment_path, "guide_results.pkl"), "r") as f:
         guide_data = pickle.load(f)
         
-
     settings = data["settings"]
-
-    sentence_format = "In order to build {} in factorio, here are the steps:"
-    large_model = OpenAI_Model("gpt-4o")
-    small_model = OpenAI_Model("gpt-4o-mini")
+    start_sentence = settings["start_sentence"]
+    goal_sentence_format = settings["goal_sentence_format"]
+    prompt_format = settings["prompt_format"]
 
     # bootstrap embedding
 
@@ -110,7 +111,6 @@ if __name__ == "__main__":
             "ground_truth_response": text_response,
             "result_response": result_text_response
         })
-
 
     with open(os.path.join(experiment_path, "text_response_report.json"), "w") as f:
         json.dump(reports, f, indent=4)

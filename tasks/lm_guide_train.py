@@ -24,6 +24,18 @@ import core
 from core import transformer
 
 
+
+def average_embeddings(embedding_chunks):
+    return jnp.mean(embedding_chunks, axis=0)
+
+
+def process_chunk(embedding_chunks, processor, step_size=4):
+    # split chunks into sub_chunk of step_size
+    abstract_chunks = jnp.stack([processor(embedding_chunks[i:i+step_size, :]) for i in range(0, len(embedding_chunks), step_size)], axis=0)
+    abstract_pivot_chunks = [[i, min(i + step_size, len(embedding_chunks))] for i in range(0, len(embedding_chunks), step_size)]
+    return abstract_chunks, abstract_pivot_chunks
+    
+    
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
@@ -37,24 +49,33 @@ if __name__ == "__main__":
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
         data = pickle.load(f)
 
+    num_layers = 3
+    step_size = 4
+
     data_tuples = []
     item_data = data["train_set"]
     for item_datum in item_data:
+
         item = item_datum["item"]
-        hierarchy = item_datum["hierarchy"]
+        start_embedding = device_put(jnp.array([item_datum["start_embedding"]], jnp.float32))
+        goal_embedding = device_put(jnp.array([item_datum["goal_embedding"]], jnp.float32))
+        embedding_chunks = device_put(jnp.array(item_datum["embedding_chunks"], jnp.float32))
+        pivot_chunks = item_datum["pivot_chunks"]
 
         layer_paths = []
         layer_pivot_indices = []
-        for i, layer in enumerate(hierarchy):
-            path = alg.Embedding_Sequence(device_put(jnp.array([item_datum["start_embedding"]] + layer["embedding_chunks"], jnp.float32)))
+        for i in range(num_layers):
+
+            # prepend with the start embedding
+            path = alg.Embedding_Sequence(jnp.concatenate([start_embedding, embedding_chunks], axis=0))
             layer_paths.append(path)
 
-            pivot_chunks = layer["pivot_chunks"]
             pivot_indices = alg.Pointer_Sequence([0] + [1 + p[1] for p in pivot_chunks])
             layer_pivot_indices.append(pivot_indices)
 
-        # now add start and goal embedding again as the final top most layer
-        goal_embedding = device_put(jnp.array([item_datum["goal_embedding"]], jnp.float32))
+            embedding_chunks, pivot_chunks = process_chunk(embedding_chunks, average_embeddings, step_size=step_size)
+
+        # add the final pivot
         final_pivots = alg.Embedding_Sequence(goal_embedding)
         layer_pivot_indices.append(alg.Pointer_Sequence([len(layer_paths[-1])]))
         layer_paths.append(final_pivots)

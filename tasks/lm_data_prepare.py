@@ -115,23 +115,15 @@ if __name__ == "__main__":
     prompt_format = "In order to achieve the goal of {} {}, here are the steps:"
 
     settings = {
-        "step_size": 4,
-        "num_layers": 3,
+        "prompt_format": prompt_format,
+        "start_sentence": start_sentence,
+        "goal_sentence_format": goal_sentence_format,
         "max_text_length": 2000
     }
 
-    def average_embeddings(embedding_chunks):
-        return torch.mean(torch.stack(embedding_chunks), dim=0)
-
-    def process_chunk(embedding_chunks, processor, step_size=4):
-        # split chunks into sub_chunk of step_size
-        abstract_chunks = [processor(embedding_chunks[i:i+step_size]) for i in range(0, len(embedding_chunks), step_size)]
-        abstract_pivot_chunks = [[i, min(i + step_size, len(embedding_chunks))] for i in range(0, len(embedding_chunks), step_size)]
-        return abstract_chunks, abstract_pivot_chunks
-        
-
     def split_and_embed_text(text, processor, separators=["\n"]):
         # split text into chunk of step_size and embed each chunk
+        text_chunks = []
         embedding_chunks = []
         pivot_chunks = []
 
@@ -143,11 +135,11 @@ if __name__ == "__main__":
                     chunk = text[start:end].strip()
                     if len(chunk) == 0:
                         continue
-                    embedding = processor(chunk)
-                    embedding_chunks.append(embedding)
+                    text_chunks.append(chunk)
+                    embedding_chunks.append(processor(chunk))
                     pivot_chunks.append([start, end])
                 start = end
-        return embedding_chunks, pivot_chunks
+        return text_chunks, embedding_chunks, pivot_chunks
 
 
     def serialize_tensors(list_of_tensors):
@@ -170,26 +162,11 @@ if __name__ == "__main__":
         # logging.info(query)
         # logging.info(text_response)
 
-        hierarchy = []
-        
         # split text into chunk of step_size and embed each chunk
-        embedding_chunks, pivot_chunks = split_and_embed_text(text_response, large_model.get_text_embedding)
-        hierarchy.append({
-            "layer": 0,
-            "embedding_chunks": serialize_tensors(embedding_chunks),
-            "pivot_chunks": pivot_chunks
-        })
+        text_chunks, embedding_chunks, pivot_chunks = split_and_embed_text(text_response, large_model.get_text_embedding)
 
         vocab_embeddings.extend(embedding_chunks)
-        vocab_list.extend([text_response[pivot[0]:pivot[1]] for pivot in pivot_chunks])
-
-        for i in range(1, settings["num_layers"]):
-            embedding_chunks, pivot_chunks = process_chunk(embedding_chunks, average_embeddings, step_size=settings["step_size"])
-            hierarchy.append({
-                "layer": i,
-                "embedding_chunks": serialize_tensors(embedding_chunks),
-                "pivot_chunks": pivot_chunks
-            })
+        vocab_list.extend(text_chunks)
 
         train_dataset.append({
             "item": item,
@@ -197,15 +174,11 @@ if __name__ == "__main__":
             "text_response": text_response,
             "start_embedding": start_embedding,
             "goal_embedding": goal_embedding,
-            "hierarchy": hierarchy
+            "embedding_chunks": serialize_tensors(embedding_chunks),
+            "pivot_chunks": pivot_chunks
         })
 
     #============================= Test data ===============================================
-
-    test_dataset = []
-    start_sentence = "from scratch"
-    goal_sentence_format = "building {} in factorio"
-    prompt_format = "In order to achieve the goal of {} {}, here are the steps:"
 
     item_list = [
         "Processing unit, advanced circuit, and electric circuit",
@@ -213,6 +186,7 @@ if __name__ == "__main__":
         "Stack inserter and express transport belt",
     ]
 
+    test_dataset = []
     for item_i, item in enumerate(item_list):
         if item_i % 10 == 0:
             logging.info(f"Processing item {item_i} out of {len(item_list)}")

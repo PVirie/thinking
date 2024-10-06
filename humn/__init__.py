@@ -11,7 +11,7 @@ class HUMN:
                  cortex_models: List[cortex_model.Model], 
                  hippocampus_models: List[hippocampus_model.Model], 
                  abstraction_models: List[abstraction_model.Model] = [], 
-                 name="HUMN model", reset_hippocampus_on_target_changed=True, max_sub_steps=16):
+                 name="HUMN model", reset_hippocampus_on_target_changed=False, max_sub_steps=16):
         if len(cortex_models) == 0 or len(hippocampus_models) == 0:
             raise ValueError("At least one layer is required")
         
