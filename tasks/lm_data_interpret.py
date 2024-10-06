@@ -51,6 +51,10 @@ if __name__ == "__main__":
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
         data = pickle.load(f)
 
+    with open(os.path.join(experiment_path, "guide_results.pkl"), "r") as f:
+        guide_data = pickle.load(f)
+        
+
     settings = data["settings"]
 
     sentence_format = "In order to build {} in factorio, here are the steps:"
@@ -66,19 +70,16 @@ if __name__ == "__main__":
     # generate and report
 
     reports = []
-    item_data = data["data"]
-    for item_datum in item_data:
+    item_data = data["test_set"]
+    for item_datum, guide in zip(item_data, guide_data):
         item = item_datum["item"]
         query = item_datum["query"]
         text_response = item_datum["text_response"]
-        hierarchy = item_datum["hierarchy"]
 
         logging.info(f"Item: {item}")
         # logging.info(f"Original: {text_response}")
 
-        lowest_layer = hierarchy[0]
-        embedding_chunks = torch.tensor(lowest_layer["embedding_chunks"])
-        pivot_chunks = lowest_layer["pivot_chunks"]
+        embedding_chunks = torch.tensor(guide["embedding_chunks"])
 
         # top n cosine similarity with the vocab
         n = 2

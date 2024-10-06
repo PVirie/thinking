@@ -73,7 +73,7 @@ class Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
         if jnp.linalg.norm(self.data - s) < 1e-4:
             return Text_Embedding(jnp.zeros_like(self.data))
         
-        return Text_Embedding(self.data - s.data)
+        return Text_Embedding(self.data - s)
 
 
     def zero_length(self):

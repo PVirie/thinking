@@ -12,13 +12,14 @@ import pickle
 import jax
 import jax.numpy as jnp
 from jax import device_put
+import numpy as np
 
 from utilities.utilities import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from implementations.jax_lm import algebric as alg
+from implementations.jax_lm import algebraic as alg
 from implementations.jax_lm import cortex, hippocampus, abstraction
 import core
 from core import transformer
@@ -28,6 +29,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "lm_factorio")
+    core.initialize(os.path.join(experiment_path, "core"))
 
     with open(os.path.join(experiment_path, "metadata.json"), "r") as f:
         metadata = json.load(f)
@@ -49,3 +51,28 @@ if __name__ == "__main__":
         abstraction_models.append(abstraction_model)
 
     model = HUMN(cortex_models, hippocampus_models, abstraction_models)
+
+
+    with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
+        data = pickle.load(f)
+
+    data_tuples = []
+    item_data = data["test_set"]
+    for item_datum in item_data:
+        item = item_datum["item"]
+        start = alg.Text_Embedding(item_datum["start_embedding"])
+        goal = alg.Text_Embedding(item_datum["goal_embedding"])
+
+        chunks = []
+        for state in model.think(start, goal):
+            chunks.append(np.asarray(state.data).tolist())
+
+        data_tuples.append({
+            "embedding_chunks": chunks
+        })
+
+    with open(os.path.join(experiment_path, "guide_results.pkl"), "wb") as f:
+        pickle.dump(data_tuples, f)
+
+    logging.info("Done.")
+        

@@ -25,6 +25,9 @@ from utilities.lm.openai_lm import Model as OpenAI_Model
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
+    large_model = OpenAI_Model("gpt-4o")
+    small_model = OpenAI_Model("gpt-4o-mini")
+
     # 1. clear existing data
     # 2. prepare parameters
     # 3. generate text
@@ -32,6 +35,8 @@ if __name__ == "__main__":
     # 5. split into hierarchy
     # 6. embedding text
     # 7. save
+
+    #============================= Train data ===============================================
 
     item_list = [
         "Iron plate",
@@ -108,8 +113,6 @@ if __name__ == "__main__":
     start_sentence = "from scratch"
     goal_sentence_format = "building {} in factorio"
     prompt_format = "In order to achieve the goal of {} {}, here are the steps:"
-    large_model = OpenAI_Model("gpt-4o")
-    small_model = OpenAI_Model("gpt-4o-mini")
 
     settings = {
         "step_size": 4,
@@ -152,7 +155,7 @@ if __name__ == "__main__":
 
     vocab_embeddings = []
     vocab_list = []
-    data = []
+    train_dataset = []
     for item_i, item in enumerate(item_list):
         if item_i % 10 == 0:
             logging.info(f"Processing item {item_i} out of {len(item_list)}")
@@ -188,7 +191,7 @@ if __name__ == "__main__":
                 "pivot_chunks": pivot_chunks
             })
 
-        data.append({
+        train_dataset.append({
             "item": item,
             "query": query,
             "text_response": text_response,
@@ -197,6 +200,42 @@ if __name__ == "__main__":
             "hierarchy": hierarchy
         })
 
+    #============================= Test data ===============================================
+
+    test_dataset = []
+    start_sentence = "from scratch"
+    goal_sentence_format = "building {} in factorio"
+    prompt_format = "In order to achieve the goal of {} {}, here are the steps:"
+
+    item_list = [
+        "Processing unit, advanced circuit, and electric circuit",
+        "Utility science pack and Production science pack",
+        "Stack inserter and express transport belt",
+    ]
+
+    for item_i, item in enumerate(item_list):
+        if item_i % 10 == 0:
+            logging.info(f"Processing item {item_i} out of {len(item_list)}")
+
+        goal_sentence = goal_sentence_format.format(item)
+        query = prompt_format.format(goal_sentence, start_sentence)
+        text_response = large_model.get_chat_response(query, token_length=settings["max_text_length"])
+
+        start_embedding = large_model.get_text_embedding(start_sentence).tolist()
+        goal_embedding = large_model.get_text_embedding(goal_sentence).tolist()
+
+        # logging.info(query)
+
+        test_dataset.append({
+            "item": item,
+            "query": query,
+            "text_response": text_response,
+            "start_embedding": start_embedding,
+            "goal_embedding": goal_embedding,
+        })
+
+
+    #============================= Save ===============================================
 
     experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "lm_factorio")
     logging.info(f"Clearing the experiment directory: {experiment_path}")
@@ -205,7 +244,8 @@ if __name__ == "__main__":
 
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "wb") as f:
         pickle.dump({
-            "data": data,
+            "train_set": train_dataset,
+            "test_set": test_dataset,
             "settings": settings,
             "vocabulary": {
                 "embeddings": serialize_tensors(vocab_embeddings),

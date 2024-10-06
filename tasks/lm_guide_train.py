@@ -38,7 +38,7 @@ if __name__ == "__main__":
         data = pickle.load(f)
 
     data_tuples = []
-    item_data = data["data"]
+    item_data = data["train_set"]
     for item_datum in item_data:
         item = item_datum["item"]
         hierarchy = item_datum["hierarchy"]
