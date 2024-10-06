@@ -50,23 +50,17 @@ if __name__ == "__main__":
             layer_paths.append(path)
 
             pivot_chunks = layer["pivot_chunks"]
-            indices = []
-            for j, pivot_chunk in enumerate(pivot_chunks):
-                indices.append(1 + pivot_chunk[1])
-            pivot_indices = alg.Pointer_Sequence(indices)
+            pivot_indices = alg.Pointer_Sequence([0] + [1 + p[1] for p in pivot_chunks])
             layer_pivot_indices.append(pivot_indices)
-
-        layer_pivots = []
-        for i in range(len(layer_paths) - 1):
-            layer_pivots.append(layer_paths[i + 1])
 
         # now add start and goal embedding again as the final top most layer
         goal_embedding = device_put(jnp.array([item_datum["goal_embedding"]], jnp.float32))
-        final_pivots = alg.Embedding_Sequence(jnp.tile(goal_embedding, (len(layer_pivots[-1]), 1)))
-        layer_pivots.append(final_pivots)
+        final_pivots = alg.Embedding_Sequence(goal_embedding)
+        layer_pivot_indices.append(alg.Pointer_Sequence([len(layer_paths[-1])]))
+        layer_paths.append(final_pivots)
 
         # now zip
-        layer_data = list(zip(layer_paths, layer_pivot_indices, layer_pivots))
+        layer_data = list(zip(layer_paths[:-1], layer_pivot_indices[1:], layer_paths[1:]))
         data_tuples.append(layer_data)
     
 
@@ -108,6 +102,7 @@ if __name__ == "__main__":
     loop_train(trainers, 20000)
 
     # save model
+    core.initialize(os.path.join(experiment_path, "core"))
     for i, (c, h) in enumerate(zip(cortex_models, hippocampus_models)):
         layer_path = os.path.join(experiment_path, "layers", f"layer_{i}")
         cortex_path = os.path.join(layer_path, "cortex")

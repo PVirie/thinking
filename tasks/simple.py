@@ -141,20 +141,20 @@ class Context(BaseModel):
                     logging.info(f"Layer loss: {'; '.join([f'{i}| {trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
             logging.info(f"Total learning time {time.time() - stamp}s")
 
+        num_layers = 3
 
         ############################# PREPARE STEP HIERARCHY DATA ################################
 
         data_skip_path = []
-        max_layers = 3
         for p_seq in path_sequences:
             path = states.generate_subsequence(p_seq)
             layer_paths = []
-            for i in range(max_layers):
-                if i == max_layers - 1:
+            for i in range(num_layers):
+                if i == num_layers - 1:
                     pivot_indices, pivots = path.sample_skip(math.inf)
                     layer_paths.append((path, pivot_indices, pivots))
                 else:
-                    pivot_indices, pivots = path.sample_skip(3)
+                    pivot_indices, pivots = path.sample_skip(4)
                     layer_paths.append((path, pivot_indices, pivots))
                 path = pivots
             data_skip_path.append(layer_paths)
@@ -179,12 +179,11 @@ class Context(BaseModel):
         loop_train([trainer], 5000)
 
         data_abstract_path = []
-        max_layers = 3
         for p_seq in path_sequences:
             path = states.generate_subsequence(p_seq)
             layer_paths = []
-            for i in range(max_layers):
-                if i == max_layers - 1:
+            for i in range(num_layers):
+                if i == num_layers - 1:
                     pivot_indices, pivots = path.sample_skip(math.inf)
                     layer_paths.append((path, pivot_indices, pivots))
                 else:
@@ -203,15 +202,13 @@ class Context(BaseModel):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed))
+            for i in range(num_layers)
         ]
 
         hippocampus_models = [
-            hippocampus.Model(graph_shape, graph_shape),
-            hippocampus.Model(graph_shape, graph_shape),
             hippocampus.Model(graph_shape, graph_shape)
+            for i in range(num_layers)
         ]
 
         abstraction_models = []
@@ -239,15 +236,13 @@ class Context(BaseModel):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(0, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed)),
+            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed))
+            for i in range(num_layers)
         ]
 
         hippocampus_models = [
-            hippocampus.Model(graph_shape, graph_shape),
-            hippocampus.Model(graph_shape, graph_shape),
-            hippocampus.Model(graph_shape, graph_shape),
+            hippocampus.Model(graph_shape, graph_shape)
+            for i in range(num_layers)
         ]
         
         abstraction_models = []
@@ -277,13 +272,13 @@ class Context(BaseModel):
         name = "Table layers"
 
         table_cores = []
-        for i in range(3):
+        for i in range(num_layers):
             table_core = table.Model(graph_shape, 1)
             table_cores.append(table_core)
 
         cortex_models = []
         hippocampus_models = []
-        for i in range(3):
+        for i in range(num_layers):
             c = cortex.Model(i, table_cores[i])
             cortex_models.append(c)
 
