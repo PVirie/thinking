@@ -54,7 +54,7 @@ if __name__ == "__main__":
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
         data = pickle.load(f)
 
-    with open(os.path.join(experiment_path, "guide_results.pkl"), "r") as f:
+    with open(os.path.join(experiment_path, "guide_results.pkl"), "rb") as f:
         guide_data = pickle.load(f)
         
     settings = data["settings"]
@@ -71,7 +71,8 @@ if __name__ == "__main__":
     # generate and report
 
     reports = []
-    item_data = data["test_set"]
+    item_data = data["train_set"]
+    # item_data = data["test_set"]
     for item_datum, guide in zip(item_data, guide_data):
         item = item_datum["item"]
         query = item_datum["query"]

@@ -122,7 +122,7 @@ if __name__ == "__main__":
     for trainer in trainers:
         trainer.prepare_batch(4)
 
-    loop_train(trainers, 20000)
+    loop_train(trainers, 100000)
 
     # save model
     core.initialize(os.path.join(experiment_path, "core"))

@@ -11,16 +11,12 @@
                     "remoteRoot": "/app/core"
                 },
                 {
-                    "localRoot": "${workspaceFolder}/jax_onehot",
-                    "remoteRoot": "/app/jax_onehot"
-                },
-                {
-                    "localRoot": "${workspaceFolder}/llm",
-                    "remoteRoot": "/app/llm"
-                },
-                {
                     "localRoot": "${workspaceFolder}/humn",
                     "remoteRoot": "/app/humn"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/implementations",
+                    "remoteRoot": "/app/implementations"
                 },
                 {
                     "localRoot": "${workspaceFolder}/tasks",
@@ -43,16 +39,12 @@
                     "remoteRoot": "/app/core"
                 },
                 {
-                    "localRoot": "${workspaceFolder}/jax_onehot",
-                    "remoteRoot": "/app/jax_onehot"
-                },
-                {
-                    "localRoot": "${workspaceFolder}/llm",
-                    "remoteRoot": "/app/llm"
-                },
-                {
                     "localRoot": "${workspaceFolder}/humn",
                     "remoteRoot": "/app/humn"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/implementations",
+                    "remoteRoot": "/app/implementations"
                 },
                 {
                     "localRoot": "${workspaceFolder}/tasks",
@@ -75,16 +67,12 @@
                     "remoteRoot": "/app/core"
                 },
                 {
-                    "localRoot": "${workspaceFolder}/jax_onehot",
-                    "remoteRoot": "/app/jax_onehot"
-                },
-                {
-                    "localRoot": "${workspaceFolder}/llm",
-                    "remoteRoot": "/app/llm"
-                },
-                {
                     "localRoot": "${workspaceFolder}/humn",
                     "remoteRoot": "/app/humn"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/implementations",
+                    "remoteRoot": "/app/implementations"
                 },
                 {
                     "localRoot": "${workspaceFolder}/tasks",

@@ -53,14 +53,15 @@ class Trainer(trainer.Trainer):
 
         # remove stop embedding from the last pivot
         pivots = pivots.data[:-1, :]
-        sequence_data = path_encoding_sequence.data[:, 0, :]
+        len_pivots = pivot_indices.data.shape[0]
+        len_seq = len(path_encoding_sequence) - 1
 
-        s = jnp.tile(jnp.expand_dims(sequence_data, axis=0), (len(pivots), 1, 1))
-        x = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=0), (len(pivots), 1, 1))
-        t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, len(path_encoding_sequence), 1))
+        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :], axis=0), (len_pivots, 1, 1))
+        x = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[1:, 0, :], axis=0), (len_pivots, 1, 1))
+        t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, len_seq, 1))
 
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
-        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
+        masks, scores = generate_mask_and_score(pivot_indices.data, len_seq, step_discount_factor, min(2, len_pivots))
 
         self.s.append(s)
         self.x.append(x)

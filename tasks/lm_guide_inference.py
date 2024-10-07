@@ -66,8 +66,11 @@ if __name__ == "__main__":
         goal = alg.Text_Embedding(item_datum["goal_embedding"])
 
         chunks = []
-        for state in model.think(start, goal):
-            chunks.append(np.asarray(state.data).tolist())
+        try:
+            for state in model.think(start, goal):
+                chunks.append(np.asarray(state.data).tolist())
+        except MaxSubStepReached:
+            logging.warning(f"Truncated termination for item {item}.")
 
         data_tuples.append({
             "embedding_chunks": chunks
