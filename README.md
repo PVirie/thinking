@@ -80,7 +80,6 @@ If you have any issues, please let me know.
 -   [x] Abstraction
     -   [x] Implement entropy abstraction
     -   [ ] Implement Neural statistic keeping
-    -   [ ] Hypothesis: does entropy reduce model complexity to learn path?
-    -   [ ] Investigate why in think mode, entropic abstraction outperforms the skip abstraction, and opposite results in react mode.
 -   [ ] Hippocampus
-    -   [ ] Tree based position encoding
+    -   [ ] Location encoding
+    -   [ ] Tagging

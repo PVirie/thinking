@@ -50,16 +50,18 @@ if __name__ == "__main__":
             abstraction_model = abstraction.Model.load(abstraction_path)
         abstraction_models.append(abstraction_model)
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, max_sub_steps=128)
 
 
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
         data = pickle.load(f)
 
     data_tuples = []
-    item_data = data["test_set"]
+    item_data = data["train_set"]
+    # item_data = data["test_set"]
     for item_datum in item_data:
         item = item_datum["item"]
+        logging.log(logging.INFO, f"Processing {item}...")
         start = alg.Text_Embedding(item_datum["start_embedding"])
         goal = alg.Text_Embedding(item_datum["goal_embedding"])
 

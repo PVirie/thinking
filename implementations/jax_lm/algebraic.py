@@ -38,6 +38,20 @@ class Embedding_Sequence(humn.algebraic.State_Sequence):
         return self.data.shape[0]
 
 
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return Embedding_Sequence(self.data[i])
+        elif isinstance(i, Pointer_Sequence):
+            return Embedding_Sequence(self.data[i.data])
+        else:
+            return Text_Embedding(self.data[i, :])
+
+
+    def __setitem__(self, i, s):
+        self.data = self.data.at[i].set(s.data)
+
+
+
 class Augmented_Embedding_Squence(humn.algebraic.Augmented_State_Squence):
     
     def __init__(self, data):

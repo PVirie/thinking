@@ -73,17 +73,17 @@ if __name__ == "__main__":
             path = alg.Embedding_Sequence(jnp.concatenate([start_embedding, embedding_chunks, stop_embedding], axis=0))
             layer_paths.append(path)
 
-            pivot_indices = alg.Pointer_Sequence([0] + [1 + p[1] for p in pivot_chunks])
+            pivot_indices = alg.Pointer_Sequence([0] + [p[1] for p in pivot_chunks])
             layer_pivot_indices.append(pivot_indices)
 
             embedding_chunks, pivot_chunks = process_chunk(embedding_chunks, average_embeddings, step_size=step_size)
 
         # add the final pivot
-        final_pivots = alg.Embedding_Sequence(goal_embedding)
+        final_pivots = alg.Embedding_Sequence(jnp.concatenate([goal_embedding, stop_embedding], axis=0))
         layer_pivot_indices.append(alg.Pointer_Sequence([len(layer_paths[-1])]))
         layer_paths.append(final_pivots)
 
-        # now zip
+        # now zip (path, pivot_index, next_path for pivot (removed the stop embedding))
         layer_data = list(zip(layer_paths[:-1], layer_pivot_indices[1:], layer_paths[1:]))
         data_tuples.append(layer_data)
     

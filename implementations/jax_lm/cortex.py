@@ -51,7 +51,8 @@ class Trainer(trainer.Trainer):
 
     def accumulate_batch(self, step_discount_factor, path_encoding_sequence: Augmented_Embedding_Squence, pivot_indices: Pointer_Sequence, pivots: Embedding_Sequence):
 
-        pivots = pivots.data
+        # remove stop embedding from the last pivot
+        pivots = pivots.data[:-1, :]
         sequence_data = path_encoding_sequence.data[:, 0, :]
 
         s = jnp.tile(jnp.expand_dims(sequence_data, axis=0), (len(pivots), 1, 1))
