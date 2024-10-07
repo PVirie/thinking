@@ -2,13 +2,16 @@ import os
 import json
 from . import base, table, linear, transformer, stat_linear, stat_head, stat_table
 import inspect
+import shutil
 
 
 current_path = None
 model_caches = {}
 
-def initialize(path):
+def initialize(path, clear=False):
     global current_path
+    if clear and os.path.exists(path):
+        shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
     current_path = path
 

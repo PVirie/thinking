@@ -125,7 +125,7 @@ if __name__ == "__main__":
     loop_train(trainers, 100000)
 
     # save model
-    core.initialize(os.path.join(experiment_path, "core"))
+    core.initialize(os.path.join(experiment_path, "core"), clear=True)
     for i, (c, h) in enumerate(zip(cortex_models, hippocampus_models)):
         layer_path = os.path.join(experiment_path, "layers", f"layer_{i}")
         cortex_path = os.path.join(layer_path, "cortex")
