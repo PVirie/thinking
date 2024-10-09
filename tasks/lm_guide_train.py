@@ -79,8 +79,8 @@ if __name__ == "__main__":
             embedding_chunks, pivot_chunks = process_chunk(embedding_chunks, average_embeddings, step_size=step_size)
 
         # add the final pivot
+        layer_pivot_indices.append(alg.Pointer_Sequence([len(layer_paths[num_layers-1]) - 1]))
         final_pivots = alg.Embedding_Sequence(jnp.concatenate([goal_embedding, stop_embedding], axis=0))
-        layer_pivot_indices.append(alg.Pointer_Sequence([len(layer_paths[-1])]))
         layer_paths.append(final_pivots)
 
         # now zip (path, pivot_index, next_path for pivot (removed the stop embedding))
@@ -103,14 +103,12 @@ if __name__ == "__main__":
 
 
     cortex_models = [
-        cortex.Model(0, transformer.Model(embedding_dim, 64, 128, [128, 128])),
-        cortex.Model(1, transformer.Model(embedding_dim, 64, 128, [128, 128])),
-        cortex.Model(2, transformer.Model(embedding_dim, 64, 128, [128, 128]))
+        cortex.Model(i, transformer.Model(embedding_dim, 16, 128, [128, 64]))
+        for i in range(num_layers)
     ]
     hippocampus_models = [
-        hippocampus.Model(64, embedding_dim),
-        hippocampus.Model(64, embedding_dim),
         hippocampus.Model(64, embedding_dim)
+        for i in range(num_layers)
     ]
     abstraction_models = []
     

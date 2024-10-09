@@ -35,7 +35,7 @@ def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1)
 
 
 def deci_ceil(x):
-    return int(math.ceil(x * 10) / 10)
+    return int(math.ceil(x / 10) * 10)
 
 
 class Trainer(trainer.Trainer):

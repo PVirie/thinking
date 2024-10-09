@@ -59,7 +59,7 @@ if __name__ == "__main__":
     data_tuples = []
     item_data = data["train_set"]
     # item_data = data["test_set"]
-    for item_datum in item_data:
+    for item_datum in item_data[:3]:
         item = item_datum["item"]
         logging.log(logging.INFO, f"Processing {item}...")
         start = alg.Text_Embedding(item_datum["start_embedding"])
@@ -68,12 +68,16 @@ if __name__ == "__main__":
         chunks = []
         try:
             for state in model.think(start, goal):
-                chunks.append(np.asarray(state.data).tolist())
+                numpy_state = np.asarray(state.data)
+                chunks.append(numpy_state)
         except MaxSubStepReached:
             logging.warning(f"Truncated termination for item {item}.")
+        finally:
+            logging.info(", ".join([f"{np.linalg.norm(chunk):.4f}" for chunk in item_datum["embedding_chunks"]]))
+            logging.info(", ".join([f"{np.linalg.norm(chunk):.4f}" for chunk in chunks]))
 
         data_tuples.append({
-            "embedding_chunks": chunks
+            "embedding_chunks": [chunk.tolist() for chunk in chunks],
         })
 
     with open(os.path.join(experiment_path, "guide_results.pkl"), "wb") as f:

@@ -32,6 +32,10 @@ def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1)
     return jnp.transpose(masks), jnp.transpose(scores)
 
 
+def deci_ceil(x):
+    return int(math.ceil(x / 10) * 10)
+
+
 class Trainer(trainer.Trainer):
     def __init__(self, model, loss_alpha=0.05):
         self.model = model
@@ -54,14 +58,22 @@ class Trainer(trainer.Trainer):
         # remove stop embedding from the last pivot
         pivots = pivots.data[:-1, :]
         len_pivots = pivot_indices.data.shape[0]
-        len_seq = len(path_encoding_sequence) - 1
+        seq_len = len(path_encoding_sequence) - 1
 
-        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :], axis=0), (len_pivots, 1, 1))
+        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :] + path_encoding_sequence.data[:-1, 1, :], axis=0), (len_pivots, 1, 1))
         x = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[1:, 0, :], axis=0), (len_pivots, 1, 1))
-        t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, len_seq, 1))
+        t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, seq_len, 1))
 
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
-        masks, scores = generate_mask_and_score(pivot_indices.data, len_seq, step_discount_factor, min(2, len_pivots))
+        masks, scores = generate_mask_and_score(pivot_indices.data, seq_len, step_discount_factor, min(2, len_pivots))
+
+        # now always pad seq_len to tens
+        target_seq_len = deci_ceil(seq_len)
+        s = jnp.pad(s, ((0, 0), (target_seq_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
+        x = jnp.pad(x, ((0, 0), (target_seq_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
+        t = jnp.pad(t, ((0, 0), (target_seq_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
+        scores = jnp.pad(scores, ((0, 0), (target_seq_len - seq_len, 0)), mode="constant", constant_values=0.0)
+        masks = jnp.pad(masks, ((0, 0), (target_seq_len - seq_len, 0)), mode="constant", constant_values=0.0)
 
         self.s.append(s)
         self.x.append(x)
