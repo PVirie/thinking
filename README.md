@@ -76,10 +76,12 @@ If you have any issues, please let me know.
 -   [x] Reinforcement learning
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
         -   [x] Use average state value as the goal
+    -   [x] Use curriculum learning
     -   [ ] [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
 -   [x] Abstraction
     -   [x] Implement entropy abstraction
     -   [ ] Implement Neural statistic keeping
 -   [ ] Hippocampus
+    -   [ ] Test positional encoding
     -   [ ] Location encoding
     -   [ ] Tagging

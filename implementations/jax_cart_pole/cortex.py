@@ -26,7 +26,8 @@ def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1)
     # pivots = jnp.array(pivots, dtype=jnp.int32)
     pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
     pre_pivots = jnp.concatenate([jnp.full([pre_steps], -1, dtype=jnp.int32), pivots[:-pre_steps]], axis=0)
-    masks = jnp.logical_and(jnp.expand_dims(pre_pivots, axis=0) <= pos, pos < jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
+    # unlike other tasks, RL task is the action to get to those states, so we need to count the self
+    masks = jnp.logical_and(jnp.expand_dims(pre_pivots, axis=0) < pos, pos <= jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
     order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
 
     scores = jnp.power(diminishing_factor, order)
@@ -62,8 +63,8 @@ class Trainer(trainer.Trainer):
         t = jnp.tile(jnp.expand_dims(pivots.data, axis=1), (1, len(path_encoding_sequence), 1))
 
         if use_action:
-            cart_action_sequence = path_encoding_sequence.data[:, 4:]
-            x = jnp.tile(jnp.expand_dims(cart_action_sequence, axis=0), (len(pivots), 1, 1))
+            reward_sequence = path_encoding_sequence.data[:, 4:]
+            x = jnp.tile(jnp.expand_dims(reward_sequence, axis=0), (len(pivots), 1, 1))
         else:
             x = jnp.tile(jnp.expand_dims(jnp.roll(cart_state_sequence, -1, axis=0), axis=0), (len(pivots), 1, 1))
 
@@ -210,3 +211,7 @@ class Model(cortex_model.Model):
 
 if __name__ == "__main__":
     import jax
+
+    masks, scores = generate_mask_and_score(jnp.array([0, 4, 7]), 8, 0.9, 2)
+    print(masks)
+    print(scores)
