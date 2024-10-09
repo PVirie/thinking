@@ -11,7 +11,7 @@ WORKDIR /app
 
 # install
 RUN pip3 install --upgrade pip
-RUN pip3 install --upgrade jax[cpu]
+RUN pip3 install --upgrade jax[cpu] flax clu
 COPY ./requirements.txt /app/requirements.txt
 RUN pip3 install --no-cache-dir -r requirements.txt
 

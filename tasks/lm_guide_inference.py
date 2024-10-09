@@ -68,8 +68,8 @@ if __name__ == "__main__":
     for item_datum in item_data:
         item = item_datum["item"]
         logging.log(logging.INFO, f"Processing {item}...")
-        start = alg.Text_Embedding(item_datum["start_embedding"])
-        goal = alg.Text_Embedding(item_datum["goal_embedding"])
+        start = alg.Text_Embedding(jnp.array(item_datum["start_embedding"], dtype=jnp.float32))
+        goal = alg.Text_Embedding(jnp.array(item_datum["goal_embedding"], dtype=jnp.float32))
 
         chunks = []
         try:

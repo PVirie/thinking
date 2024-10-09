@@ -54,9 +54,9 @@ if __name__ == "__main__":
     for item_datum in item_data:
 
         item = item_datum["item"]
-        start_embedding = device_put(jnp.array([item_datum["start_embedding"]], jnp.float32))
-        goal_embedding = device_put(jnp.array([item_datum["goal_embedding"]], jnp.float32))
-        embedding_chunks = device_put(jnp.array(item_datum["embedding_chunks"], jnp.float32))
+        start_embedding = jnp.array([item_datum["start_embedding"]], jnp.float32)
+        goal_embedding = jnp.array([item_datum["goal_embedding"]], jnp.float32)
+        embedding_chunks = jnp.array(item_datum["embedding_chunks"], jnp.float32)
         pivot_chunks = item_datum["pivot_chunks"]
 
         layer_paths = []

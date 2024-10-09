@@ -12,7 +12,7 @@ WORKDIR /app
 
 # install jax with cuda support
 RUN pip3 install --upgrade pip
-RUN pip3 install --upgrade "jax[cuda12_local]"
+RUN pip3 install --upgrade jax[cuda12_local]==0.4.31 flax
 COPY ./requirements.txt /app/requirements.txt
 RUN pip3 install --no-cache-dir --upgrade -r requirements.txt
 
