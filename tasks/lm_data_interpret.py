@@ -4,14 +4,8 @@ This script is used to translate the data from the guide model.
 """
 import os
 import logging
-import contextlib
-import random
 import json
 from typing import List, Any
-from pydantic import BaseModel
-import argparse
-import sys
-import math
 import pickle
 import torch
 

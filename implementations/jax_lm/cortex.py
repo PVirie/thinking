@@ -60,7 +60,8 @@ class Trainer(trainer.Trainer):
         len_pivots = pivot_indices.data.shape[0]
         seq_len = len(path_encoding_sequence) - 1
 
-        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :] + path_encoding_sequence.data[:-1, 1, :], axis=0), (len_pivots, 1, 1))
+        # s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :] + path_encoding_sequence.data[:-1, 1, :], axis=0), (len_pivots, 1, 1))
+        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :], axis=0), (len_pivots, 1, 1))
         x = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[1:, 0, :], axis=0), (len_pivots, 1, 1))
         t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, seq_len, 1))
 
@@ -185,7 +186,8 @@ class Model(cortex_model.Model):
 
     def infer_sub_action(self, from_encoding_sequence: Augmented_Embedding_Squence, expect_action: Text_Embedding) -> Text_Embedding:
         next_action_data, score = self.model.infer(
-            jnp.expand_dims(from_encoding_sequence.data[:, 0, :] + from_encoding_sequence.data[:, 1, :], axis=0), 
+            jnp.expand_dims(from_encoding_sequence.data[:, 0, :] + from_encoding_sequence.data[:, 1, :], axis=0),
+            # jnp.expand_dims(from_encoding_sequence.data[:, 0, :], axis=0), 
             jnp.expand_dims(expect_action.data, axis=0)
             )
         a = Text_Embedding(next_action_data[0])

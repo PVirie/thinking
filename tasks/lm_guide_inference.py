@@ -1,18 +1,15 @@
 import os
 import logging
-import contextlib
-import random
 import json
 from typing import List, Any
-from pydantic import BaseModel
-import argparse
 import sys
-import math
 import pickle
+import random
 import jax
 import jax.numpy as jnp
 from jax import device_put
 import numpy as np
+import functools
 
 from utilities.utilities import *
 
@@ -28,6 +25,8 @@ from core import transformer
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
+    r_key = jax.random.key(random.randint(0, 1000000))
+    
     experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "lm_factorio")
     core.initialize(os.path.join(experiment_path, "core"))
 
@@ -52,14 +51,21 @@ if __name__ == "__main__":
 
     model = HUMN(cortex_models, hippocampus_models, abstraction_models, max_sub_steps=128)
 
+    def print_state(i, text_embedding):
+        logging.info(f"Layer {i}: {np.linalg.norm(np.asarray(text_embedding.data)):.4f}")
+
+    for i, c in enumerate(model.cortices):
+        c.printer = functools.partial(print_state, i)
 
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
         data = pickle.load(f)
 
+    embedding_dim = len(data["vocabulary"]["embeddings"][0])
+
     data_tuples = []
     item_data = data["train_set"]
     # item_data = data["test_set"]
-    for item_datum in item_data[:3]:
+    for item_datum in item_data:
         item = item_datum["item"]
         logging.log(logging.INFO, f"Processing {item}...")
         start = alg.Text_Embedding(item_datum["start_embedding"])
