@@ -286,7 +286,7 @@ class Context(BaseModel):
                 actions = []
                 rewards = []
                 for _ in range(100):
-                    if random.random() < 0.2:
+                    if random.random() < 0.25:
                         selected_action = env.action_space.sample()
                     else:
                         a = previous_model.react(observation, stable_state)
@@ -317,6 +317,8 @@ class Context(BaseModel):
 
             for trainer in trainers:
                 trainer.clear_batch()
+
+            previous_model = model
 
         parameter_sets.append({
             "cortex_models": cortex_models,
