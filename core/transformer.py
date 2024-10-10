@@ -158,18 +158,6 @@ class Value_Score_Module(nn.Module):
     def __call__(self, s, x, t, scores):
         seq_len = s.shape[1]
 
-        # Query
-        # logits = self.query_backbone(t, s, True)
-        # keys = jax.nn.softmax(logits, axis=-1)
-
-        # Wvs = self.value_score_backbone(t, s, True)
-        # Wv = Wvs[:, :, :self.records * self.slots * self.output_dim]
-        # Ws = Wvs[:, :, self.records * self.slots * self.output_dim:]
-
-        # keys = jnp.reshape(keys, (-1, self.records, 1))
-        # Vs = jnp.matmul(jnp.reshape(Wv, (-1, self.slots * self.output_dim, self.records)), keys)
-        # Ss = jnp.matmul(jnp.reshape(Ws, (-1, self.slots, self.records)), keys)
-
         Wvs = self.value_score_backbone(t, s, True)
         Vs = Wvs[:, :, :self.slots * self.output_dim]
         Ss = Wvs[:, :, self.slots * self.output_dim:]
@@ -205,19 +193,6 @@ class Value_Score_Module_Test(Value_Score_Module):
     @nn.compact
     def __call__(self, s, t):
         
-        # Query
-        # logits = self.query_backbone(t, s, False)
-        # keys = jax.nn.softmax(logits, axis=-1)
-        # keys = keys[:, -1, :]
-
-        # Wvs = self.value_score_backbone(t, s, False)
-        # Wv = Wvs[:, -1, :self.records * self.slots * self.output_dim]
-        # Ws = Wvs[:, -1, self.records * self.slots * self.output_dim:]
-
-        # keys = jnp.reshape(keys, (-1, self.records, 1))
-        # Vs = jnp.matmul(jnp.reshape(Wv, (-1, self.slots * self.output_dim, self.records)), keys)
-        # Ss = jnp.matmul(jnp.reshape(Ws, (-1, self.slots, self.records)), keys)
-
         Wvs = self.value_score_backbone(t, s, False)
         Vs = Wvs[:, -1, :self.slots * self.output_dim]
         Ss = Wvs[:, -1, self.slots * self.output_dim:]
@@ -231,8 +206,6 @@ class Value_Score_Module_Test(Value_Score_Module):
         s = jnp.take_along_axis(Ss, max_indices, axis=1)
         v = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)
         
-        v = jnp.reshape(v, (-1, self.output_dim))
-
         return v, s
 
     
@@ -335,8 +308,8 @@ def train_step(state, s, x, t, scores, masks, context_length, is_sequence=False)
     return state.apply_gradients(grads), loss
 
 
-@partial(jax.jit, static_argnames=['context_length', 'input_dims', 'next_state_dims', 'target_dims'])
-def execute_fn(state, s, t, context_length, input_dims, next_state_dims, target_dims):
+@partial(jax.jit, static_argnames=['context_length', 'input_dims', 'target_dims'])
+def execute_fn(state, s, t, context_length, input_dims, target_dims):
 
     s = jnp.reshape(s, (-1, context_length, input_dims))
     t = jnp.reshape(t, (-1, 1, target_dims))
@@ -344,8 +317,6 @@ def execute_fn(state, s, t, context_length, input_dims, next_state_dims, target_
 
     best_value, best_score = state.inference_fn({'params': state.params}, s, t, mutable=False, rngs={'dropout': state.dropout_key})
 
-    best_value = jnp.reshape(best_value, [-1, next_state_dims])
-    best_score = jnp.reshape(best_score, [-1])
     return best_value, best_score
 
 
@@ -449,14 +420,17 @@ class Model(base.Model):
 
     def infer(self, s, t, context=None):
         # s has shape (N, context_length, input_dims), t has shape (N, target_dims)
-        if s.shape[1] < self.context_length:
+        seq_len = s.shape[1]
+        if seq_len < self.context_length:
             # pad input
-            s = jnp.pad(s, ((0, 0), (0, self.context_length - s.shape[1]), (0, 0)), mode='constant', constant_values=0)
-        elif s.shape[1] > self.context_length:
+            s = jnp.pad(s, ((0, 0), (self.context_length - s.shape[1], 0), (0, 0)), mode='constant', constant_values=0)
+        elif seq_len > self.context_length:
             s = s[:, -self.context_length:, :]
 
-        best_value, best_score = execute_fn(self.state, s, t, self.context_length, self.input_dims, self.next_state_dims, self.target_dims)
+        best_value, best_score = execute_fn(self.state, s, t, self.context_length, self.input_dims, self.target_dims)
 
+        best_value = best_value[:, -1, :]
+        best_score = best_score[:, -1]
         return best_value, best_score
 
 

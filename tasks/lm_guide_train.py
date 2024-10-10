@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
 
     cortex_models = [
-        cortex.Model(i, transformer.Model(embedding_dim, 16, 128, [128, 64]))
+        cortex.Model(i, transformer.Model(embedding_dim, 4, 128, [128, 64]))
         for i in range(num_layers)
     ]
     hippocampus_models = [
