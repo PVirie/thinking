@@ -186,8 +186,8 @@ class Model(cortex_model.Model):
 
     def infer_sub_action(self, from_encoding_sequence: Augmented_Embedding_Squence, expect_action: Text_Embedding) -> Text_Embedding:
         next_action_data, score = self.model.infer(
-            jnp.expand_dims(from_encoding_sequence.data[:, 0, :] + from_encoding_sequence.data[:, 1, :], axis=0),
-            # jnp.expand_dims(from_encoding_sequence.data[:, 0, :], axis=0), 
+            # jnp.expand_dims(from_encoding_sequence.data[:, 0, :] + from_encoding_sequence.data[:, 1, :], axis=0),
+            jnp.expand_dims(from_encoding_sequence.data[:, 0, :], axis=0), 
             jnp.expand_dims(expect_action.data, axis=0)
             )
         a = Text_Embedding(next_action_data[0])

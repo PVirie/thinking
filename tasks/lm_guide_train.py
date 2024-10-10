@@ -73,7 +73,7 @@ if __name__ == "__main__":
             embedding_chunks, pivot_chunks = process_chunk(embedding_chunks, average_embeddings, step_size=step_size)
 
         # add the final pivot
-        layer_pivot_indices.append(alg.Pointer_Sequence([len(layer_paths[num_layers-1]) - 1]))
+        layer_pivot_indices.append(alg.Pointer_Sequence([len(layer_paths[num_layers - 1]) - 1]))
         final_pivots = alg.Embedding_Sequence(jnp.concatenate([goal_embedding, stop_embedding], axis=0))
         layer_paths.append(final_pivots)
 
