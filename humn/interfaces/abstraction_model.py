@@ -11,7 +11,6 @@ class Model:
 
     def abstract_path(self, path: algebraic.State_Sequence) -> Tuple[algebraic.Pointer_Sequence, algebraic.State_Sequence]:
         # return clusters of states under the same pivots
-        # do not forget to include end
         raise NotImplementedError("Not implemented")
 
 

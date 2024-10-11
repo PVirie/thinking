@@ -55,8 +55,7 @@ class Trainer(trainer.Trainer):
 
     def accumulate_batch(self, step_discount_factor, path_encoding_sequence: Augmented_Embedding_Squence, pivot_indices: Pointer_Sequence, pivots: Embedding_Sequence):
 
-        # remove stop embedding from the last pivot
-        pivots = pivots.data[:-1, :]
+        pivots = pivots.data
         len_pivots = pivot_indices.data.shape[0]
         seq_len = len(path_encoding_sequence) - 1
 

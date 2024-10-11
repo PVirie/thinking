@@ -9,25 +9,35 @@ import math
 
     
 class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
-    def __init__(self, indices = []):
-        self.data = jnp.array(indices, dtype=jnp.int32)
+    def __init__(self, indices = None):
+        if indices is None:
+            self.data = None
+        else:
+            self.data = jnp.array(indices, dtype=jnp.int32)
 
     def __getitem__(self, i):
         return self.data[i]
 
     def __setitem__(self, i, s):
         self.data = self.data.at[i].set(s)
+        return self
 
     def append(self, s):
-        self.data = jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int32)], axis=0)
+        if self.data is None:
+            self.data = jnp.array([s], dtype=jnp.int32)
+        else:
+            self.data = jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int32)], axis=0)
+        return self
 
     def __len__(self):
         return self.data.shape[0]
     
 
 class Embedding_Sequence(humn.algebraic.State_Sequence):
-    def __init__(self, states):
-        if isinstance(states, List):
+    def __init__(self, states = None):
+        if states is None:
+            self.data = None
+        elif isinstance(states, List):
             self.data = jnp.array([s.data for s in states])
         elif isinstance(states, jnp.ndarray):
             self.data = states
@@ -49,8 +59,35 @@ class Embedding_Sequence(humn.algebraic.State_Sequence):
 
     def __setitem__(self, i, s):
         self.data = self.data.at[i].set(s.data)
+        return self
 
 
+    def prepend(self, s):
+        # s is of Text_Embedding type
+        if self.data is None:
+            self.data = jnp.reshape(s.data, [1, -1])
+        else:
+            self.data = jnp.concatenate([jnp.reshape(s.data, [1, -1]), self.data], axis=0)
+        return self
+
+
+    def append(self, s):
+        # s is of Text_Embedding type
+        if self.data is None:
+            self.data = jnp.reshape(s.data, [1, -1])
+        else:
+            self.data = jnp.concatenate([self.data, jnp.reshape(s.data, [1, -1])], axis=0)
+        return self
+
+
+    def pre_append(self, s, t):
+        # s, t are of Text_Embedding type
+        if self.data is None:
+            self.data = jnp.concatenate([jnp.reshape(s.data, [1, -1]), jnp.reshape(t.data, [1, -1])], axis=0)
+        else:
+            self.data = jnp.concatenate([jnp.reshape(s.data, [1, -1]), self.data, jnp.reshape(t.data, [1, -1])], axis=0)
+        return self
+        
 
 class Augmented_Embedding_Squence(humn.algebraic.Augmented_State_Squence):
     
