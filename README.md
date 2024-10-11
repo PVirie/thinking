@@ -57,31 +57,38 @@ If you have any issues, please let me know.
 -   [x] Hierarchical goal pursuing
     -   [x] Table kernel
     -   [x] Linear kernel
-    -   [x] Entropic abstraction
+    -   [x] Skip step abstraction
     -   [x] Parallelize layers
     -   [x] Use asymmetric gradient update to keep track of the best so far
     -   [x] Reset context after each goal change
-    -   [ ] ~~Reverse masks (from pivots to states)~~
 -   [x] Enhancement
     -   [x] JIT everything
     -   [x] Use optax
     -   [x] Transformer kernel
     -   [x] Value access vs score access hyperparameter to select which type of hypothesis learning to use.
+    -   [ ] Use flax nnx
 -   [x] Language model experiment (abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel
     -   [x] Make core models accept context of shape (batch, context length, feature length)
     -   [x] LLM Steering
-    -   [ ] Train the LM hierarchical guide model (in progress, block by the amount of resource to train in my workstation)
+    -   [ ] Implement K-mean tokenization
+    -   [ ] Train the LM hierarchical guide model
+    -   [ ] Interpretability
 -   [x] Reinforcement learning
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
         -   [x] Use average state value as the goal
     -   [x] Use curriculum learning
     -   [ ] [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
+        -   [ ] Goals transition
 -   [x] Abstraction
-    -   [x] Implement entropy abstraction
-    -   [ ] Implement Neural statistic keeping
--   [ ] Hippocampus
+    -   [x] Abstraction interface
+    -   [x] Implement ideal entropy abstraction
+    -   [ ] Implement entropy abstraction via neural statistic keeping
+        -   [ ] Reverse masks (from pivots to states)
+-   [x] Hippocampus
+    -   [x] Hippocampus interface
     -   [ ] Test positional encoding
+    -   [ ] Rotary positional encoding
     -   [ ] Location encoding
     -   [ ] Tagging
