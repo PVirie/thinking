@@ -14,7 +14,8 @@ class Model:
         raise NotImplementedError("Not implemented")
 
 
-    def append(self, state: algebraic.State):
+    def append(self, state: algebraic.State) -> algebraic.State:
+        # return the refined version of the state
         raise NotImplementedError("Not implemented")
 
 

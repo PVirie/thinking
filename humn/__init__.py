@@ -87,18 +87,16 @@ class HUMN:
         cortex = self.cortices[i]
         hippocampus = self.hippocampi[i]
 
-        if self.reset_hippocampus_on_target_changed:
-            hippocampus.refresh()
-
+        full_state = hippocampus.augmented_all()
         for step in range(self.max_sub_steps):
-            hippocampus.append(state)
-            full_state = hippocampus.augmented_all()
             target_action = target_state - full_state
             if target_action.zero_length():
                 return
             sub_action = cortex.infer_sub_action(full_state, target_action)
-            state = state + sub_action
-            yield state
+            new_state = state + sub_action
+            refined_state = hippocampus.append(new_state)
+            full_state = hippocampus.augmented_all()
+            yield refined_state, full_state
 
         raise MaxSubStepReached(f"Max sub step of {self.max_sub_steps} reached at layer {i}")
 
@@ -133,14 +131,18 @@ class HUMN:
                 else:
                     target_state = nl_target_state
  
-                for state in self.__generate_steps(i, state, target_state):
+                for state, full_state in self.__generate_steps(i, state, target_state):
                     yield state
-                    full_state = hippocampus.augmented_all()
                     goal_action = goal_state - full_state
                     if goal_action.zero_length():
                         return
         
-        yield from self.__generate_steps(i, state, goal_state)
+                if self.reset_hippocampus_on_target_changed:
+                    hippocampus.refresh()
+                    hippocampus.append(state)
+
+        for state, full_state in self.__generate_steps(i, state, goal_state):
+            yield state
 
 
     def think(self, from_state: algebraic.State, top_action: algebraic.Action) -> Generator[algebraic.State, None, None]:
