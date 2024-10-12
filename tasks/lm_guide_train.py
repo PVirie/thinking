@@ -7,6 +7,7 @@ import pickle
 import jax
 import jax.numpy as jnp
 from jax import device_put
+import random
 
 from utilities.utilities import *
 
@@ -50,33 +51,54 @@ if __name__ == "__main__":
     num_layers = 3
     step_size = 4
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
-    abstraction_models = []
+
+    cortex_models = [
+        cortex.Model(i, transformer.Model(embedding_dim, 4, 128, [128, 64]))
+        for i in range(num_layers)
+    ]
+    hippocampus_models = [
+        hippocampus.Model(64, embedding_dim, 128, random.randint(0, 1000000))
+        for i in range(num_layers)
+    ]
+    abstraction_models = [
+        abstraction.Model(step_size)
+        for i in range(num_layers - 1)
+    ]
+    
+    fixed_embeddings = [
+        [0.0] * embedding_dim
+    ]
 
     full_path_data = []
     full_pivot_indices_data = []
     path_data = []
     for item_datum in item_data:
+        fixed_embeddings.append(item_datum["start_embedding"])
         embedding_chunks = jnp.array(item_datum["embedding_chunks"], jnp.float32)
         path = alg.Embedding_Sequence(embedding_chunks)
         path_data.append(path)
         full_path_data.append([path])
         full_pivot_indices_data.append([])
+        
+    fixed_embeddings = jnp.array(fixed_embeddings)
+    hippocampus_models[0].trainer.manually_append(jnp.array(data["vocabulary"]["embeddings"]))
+    hippocampus_models[0].trainer.manually_append(fixed_embeddings)
 
     for i in range(num_layers - 1):
-        abstraction_models.append(abstraction.Model(embedding_dim, 256, step_size))
-    
-        for path in path_data:
-            trainer = abstraction_models[i].incrementally_learn(path)
-
-        trainer.train()
-
-        next_path_data = []
-        next_pivot_indices_data = []
+        pivots_temp = []
         for j, path in enumerate(path_data):
             pivot_indices, pivots = abstraction_models[i].abstract_path(path)
             full_pivot_indices_data[j].append(pivot_indices)
-            full_path_data[j].append(pivots)
-            next_path_data.append(pivots)
+            pivots_temp.append(pivots)
+            trainer = hippocampus_models[i+1].incrementally_learn(pivots)
+        trainer.train()
+        trainer.manually_append(fixed_embeddings)
+
+        next_path_data = []
+        for j, pivots in enumerate(pivots_temp):
+            path = alg.Embedding_Sequence(hippocampus_models[i+1].refine(pivots.data))
+            full_path_data[j].append(path)
+            next_path_data.append(path)
         path_data = next_path_data
 
     # add final layer
@@ -84,15 +106,6 @@ if __name__ == "__main__":
         full_path_data[j].append(alg.Embedding_Sequence())
         full_pivot_indices_data[j].append(alg.Pointer_Sequence())
 
-    cortex_models = [
-        cortex.Model(i, transformer.Model(embedding_dim, 4, 128, [128, 64]))
-        for i in range(num_layers)
-    ]
-    hippocampus_models = [
-        hippocampus.Model(64, embedding_dim)
-        for i in range(num_layers)
-    ]
-    
     model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=16)
 
     stop_embedding = alg.Text_Embedding(jnp.zeros([embedding_dim], jnp.float32))
@@ -125,6 +138,12 @@ if __name__ == "__main__":
         hippocampus_path = os.path.join(layer_path, "hippocampus")
         cortex.Model.save(c, cortex_path)
         hippocampus.Model.save(h, hippocampus_path)
+
+    for i, model in enumerate(abstraction_models):
+        if model is None:
+            continue
+        abstraction_path = os.path.join(experiment_path, "abstraction_models", f"abstraction_{i}")
+        abstraction.Model.save(model, abstraction_path)
         
     with open(os.path.join(experiment_path, "metadata.json"), "w") as f:
         json.dump({"num_layers": len(cortex_models), "num_abstraction_models": len(abstraction_models)}, f)

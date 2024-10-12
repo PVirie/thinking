@@ -7,7 +7,10 @@ from ott.tools.k_means import k_means
 import os
 import json
 
-from .algebraic import *
+try:
+    from .algebraic import *
+except:
+    from algebraic import *
 
 
 class KMean_Trainer(trainer.Trainer):
@@ -23,9 +26,15 @@ class KMean_Trainer(trainer.Trainer):
     
     def train(self):
         data = jnp.concatenate(self.data, axis=0)
-        output = k_means(data, k=self.k, rng=self.r_key)
+        output = k_means(data, k=min(self.k, data.shape[0]), rng=self.r_key)
         if output.converged:
             self.embeddings = output.centroids
+
+    def manually_append(self, embeddings):
+        if self.embeddings is None:
+            self.embeddings = embeddings
+        else:
+            self.embeddings = jnp.concatenate([self.embeddings, embeddings], axis=0)
 
 
 class Model(hippocampus_model.Model):
@@ -104,13 +113,13 @@ class Model(hippocampus_model.Model):
         return Augmented_Embedding_Squence(
             jnp.stack([refined[path.data.shape[0] - length:], self.positional_encoding[self.max_length - length:]], axis=1)
         )
-
+    
 
     def append(self, state: Text_Embedding):
         # roll the data
         self.data = jnp.roll(self.data, -1, axis=0)
         # inplace update
-        refined = self.abstractor.refine(jnp.reshape(state.data, [1, -1]))
+        refined = self.refine(jnp.reshape(state.data, [1, -1]))
         self.data = self.data.at[-1].set(jnp.reshape(refined, [-1]))
         self.start = max(0, self.start - 1)
         return state
@@ -124,11 +133,10 @@ class Model(hippocampus_model.Model):
 
 if __name__ == "__main__":
 
-    model = Model(4, 3, 3)
-    t = model.incrementally_learn(Embedding_Sequence(jnp.array([[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 1, 0]], jnp.float32)))
+    model = Model(16, 4, 4)
+    t = model.incrementally_learn(Embedding_Sequence(jnp.array([[1, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 1, 0]], jnp.float32)))
     t.train()
     print(t.embeddings)
 
-    indices, pivots = model.abstract_path(Embedding_Sequence(jnp.array([[0.9, 0, 0, 0], [0.9, 0, 0, 0], [0.9, 0, 0, 0], [0, 1.1, 0, 0], [0, 1.1, 0, 0], [0, 1.1, 0, 0], [0, 0, 1.5, 0], [0, 0, 0.7, 0]], jnp.float32)))
-    print(indices.data)
-    print(pivots.data)
+    path = model.augment(Embedding_Sequence(jnp.array([[0.9, 0, 0, 0], [0, 1.1, 0, 0], [0, 0, 1.5, 0], [0, 0, 0, 0.7]], jnp.float32)))
+    print(path.data)
