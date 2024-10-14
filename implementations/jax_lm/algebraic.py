@@ -24,10 +24,9 @@ class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
 
     def append(self, s):
         if self.data is None:
-            self.data = jnp.array([s], dtype=jnp.int32)
+            return Pointer_Sequence(jnp.array([s], dtype=jnp.int32))
         else:
-            self.data = jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int32)], axis=0)
-        return self
+            return Pointer_Sequence(jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int32)], axis=0))
 
     def __len__(self):
         return self.data.shape[0]
@@ -62,31 +61,20 @@ class Embedding_Sequence(humn.algebraic.State_Sequence):
         return self
 
 
-    def prepend(self, s):
-        # s is of Text_Embedding type
-        if self.data is None:
-            self.data = jnp.reshape(s.data, [1, -1])
-        else:
-            self.data = jnp.concatenate([jnp.reshape(s.data, [1, -1]), self.data], axis=0)
-        return self
-
-
     def append(self, s):
         # s is of Text_Embedding type
         if self.data is None:
-            self.data = jnp.reshape(s.data, [1, -1])
+            return Embedding_Sequence(jnp.reshape(s.data, [1, -1]))
         else:
-            self.data = jnp.concatenate([self.data, jnp.reshape(s.data, [1, -1])], axis=0)
-        return self
+            return Embedding_Sequence(jnp.concatenate([self.data, jnp.reshape(s.data, [1, -1])], axis=0))
 
 
     def pre_append(self, s, t):
         # s, t are of Text_Embedding type
         if self.data is None:
-            self.data = jnp.concatenate([jnp.reshape(s.data, [1, -1]), jnp.reshape(t.data, [1, -1])], axis=0)
+            return Embedding_Sequence(jnp.concatenate([jnp.reshape(s.data, [1, -1]), jnp.reshape(t.data, [1, -1])], axis=0))
         else:
-            self.data = jnp.concatenate([jnp.reshape(s.data, [1, -1]), self.data, jnp.reshape(t.data, [1, -1])], axis=0)
-        return self
+            return Embedding_Sequence(jnp.concatenate([jnp.reshape(s.data, [1, -1]), self.data, jnp.reshape(t.data, [1, -1])], axis=0))
         
 
 class Augmented_Embedding_Squence(humn.algebraic.Augmented_State_Squence):

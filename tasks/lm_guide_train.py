@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     item_data = data["train_set"]
     num_layers = 3
-    step_size = 8
+    step_size = 4
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
 
     cortex_models = [

@@ -67,7 +67,7 @@ if __name__ == "__main__":
     data_tuples = []
     item_data = data["train_set"]
     # item_data = data["test_set"]
-    for item_datum in item_data[0:3]:
+    for item_datum in item_data:
         item = item_datum["item"]
         logging.log(logging.INFO, f"Processing {item}...")
         start = alg.Text_Embedding(jnp.array(item_datum["start_embedding"], dtype=jnp.float32))

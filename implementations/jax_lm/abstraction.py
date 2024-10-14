@@ -22,7 +22,7 @@ def process_chunk(embedding_chunks, step_size=4):
     sizes = jnp.ones([pivot_size, 1], jnp.float32) * step_size
     sizes = sizes.at[-1].set(length - (pivot_size - 1) * step_size)
     abstract_chunks = jnp.sum(data, axis=1, keepdims=False) / sizes
-    abstract_indices_chunks = [i for i in range(step_size, length, step_size)]
+    abstract_indices_chunks = [min((i + 1) * step_size, length) for i in range(pivot_size)]
     return abstract_chunks, abstract_indices_chunks
     
 
