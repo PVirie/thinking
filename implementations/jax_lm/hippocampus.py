@@ -30,11 +30,14 @@ class KMean_Trainer(trainer.Trainer):
         if output.converged:
             self.embeddings = output.centroids
 
-    def manually_append(self, embeddings):
+    def manually_prepend(self, embeddings):
         if self.embeddings is None:
             self.embeddings = embeddings
         else:
-            self.embeddings = jnp.concatenate([self.embeddings, embeddings], axis=0)
+            if isinstance(embeddings, List):
+                embeddings = jnp.array(embeddings)
+                
+            self.embeddings = jnp.concatenate([embeddings, self.embeddings], axis=0)
 
 
 class Model(hippocampus_model.Model):
@@ -48,6 +51,7 @@ class Model(hippocampus_model.Model):
 
         self.trainer = KMean_Trainer(self.token_size, r_seed=r_seed)
         self.start = self.max_length
+        self.printer = None
 
         # more efficient one
         indices = jnp.arange(0, input_dims, 2)
@@ -62,14 +66,23 @@ class Model(hippocampus_model.Model):
 
 
     def refine(self, chunks):
-
         if self.trainer.embeddings is None:
             return chunks
 
         # find max dot product
         max_indices = jnp.argmax(jnp.matmul(chunks, self.trainer.embeddings.T), axis=1, keepdims=True)
         pivots = jnp.take_along_axis(self.trainer.embeddings, max_indices, axis=0)
+
+        if self.printer is not None:
+            self.printer(max_indices)
+
         return pivots
+
+
+    def encode(self, chunks):
+        if self.trainer.embeddings is None:
+            raise ValueError("Model has not been trained yet")
+        return jnp.argmax(jnp.matmul(chunks, self.trainer.embeddings.T), axis=1)
 
 
     @staticmethod

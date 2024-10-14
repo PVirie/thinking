@@ -65,24 +65,31 @@ if __name__ == "__main__":
         for i in range(num_layers - 1)
     ]
     
-    fixed_embeddings = [
-        [0.0] * embedding_dim
-    ]
+    fixed_embeddings = []
+
+    def check_and_add(embedding):
+        found = False
+        for fixed_embedding in fixed_embeddings:
+            if jnp.linalg.norm(fixed_embedding - embedding) < 1e-2:
+                found = True
+                break
+        if not found:
+            fixed_embeddings.append(embedding)
+
+    check_and_add(jnp.zeros([embedding_dim], jnp.float32))
 
     full_path_data = []
     full_pivot_indices_data = []
     path_data = []
     for item_datum in item_data:
-        fixed_embeddings.append(item_datum["start_embedding"])
-        embedding_chunks = jnp.array(item_datum["embedding_chunks"], jnp.float32)
-        path = alg.Embedding_Sequence(embedding_chunks)
+        check_and_add(jnp.array(item_datum["start_embedding"], jnp.float32))
+        path = alg.Embedding_Sequence(jnp.array(item_datum["embedding_chunks"], jnp.float32))
         path_data.append(path)
         full_path_data.append([path])
         full_pivot_indices_data.append([])
         
-    fixed_embeddings = jnp.array(fixed_embeddings)
-    hippocampus_models[0].trainer.manually_append(jnp.array(data["vocabulary"]["embeddings"]))
-    hippocampus_models[0].trainer.manually_append(fixed_embeddings)
+    hippocampus_models[0].trainer.manually_prepend(jnp.array(data["vocabulary"]["embeddings"]))
+    hippocampus_models[0].trainer.manually_prepend(fixed_embeddings)
 
     for i in range(num_layers - 1):
         pivots_temp = []
@@ -92,7 +99,7 @@ if __name__ == "__main__":
             pivots_temp.append(pivots)
             trainer = hippocampus_models[i+1].incrementally_learn(pivots)
         trainer.train()
-        trainer.manually_append(fixed_embeddings)
+        trainer.manually_prepend(fixed_embeddings)
 
         next_path_data = []
         for j, pivots in enumerate(pivots_temp):
@@ -106,7 +113,7 @@ if __name__ == "__main__":
         full_path_data[j].append(alg.Embedding_Sequence())
         full_pivot_indices_data[j].append(alg.Pointer_Sequence())
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=16)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=False, max_sub_steps=16)
 
     stop_embedding = alg.Text_Embedding(jnp.zeros([embedding_dim], jnp.float32))
     for j, item_datum in enumerate(item_data):

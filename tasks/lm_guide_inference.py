@@ -51,11 +51,11 @@ if __name__ == "__main__":
 
     model = HUMN(cortex_models, hippocampus_models, abstraction_models, max_sub_steps=128)
 
-    def print_state(i, text_embedding):
-        logging.info(f"Layer {i}: {np.linalg.norm(np.asarray(text_embedding.data)):.4f}")
+    def print_state(i, token_indices):
+        logging.info(f"Layer {i}: {np.asarray(token_indices).tolist()}")
 
-    for i, c in enumerate(model.cortices):
-        c.printer = functools.partial(print_state, i)
+    for i, h in enumerate(model.hippocampi):
+        h.printer = functools.partial(print_state, i)
 
     with open(os.path.join(experiment_path, "text_hierarchy_data.pkl"), "rb") as f:
         data = pickle.load(f)
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     data_tuples = []
     item_data = data["train_set"]
     # item_data = data["test_set"]
-    for item_datum in item_data:
+    for item_datum in item_data[0:3]:
         item = item_datum["item"]
         logging.log(logging.INFO, f"Processing {item}...")
         start = alg.Text_Embedding(jnp.array(item_datum["start_embedding"], dtype=jnp.float32))
@@ -74,16 +74,17 @@ if __name__ == "__main__":
         chunks = []
         try:
             for state in model.think(start, goal):
-                numpy_state = np.asarray(state.data)
-                chunks.append(numpy_state)
+                chunks.append(state.data)
         except MaxSubStepReached:
             logging.warning(f"Truncated termination for item {item}.")
         finally:
-            logging.info(", ".join([f"{np.linalg.norm(chunk):.4f}" for chunk in item_datum["embedding_chunks"]]))
-            logging.info(", ".join([f"{np.linalg.norm(chunk):.4f}" for chunk in chunks]))
+            targets = hippocampus_models[0].encode(jnp.array(item_datum["embedding_chunks"], dtype=jnp.float32))
+            logging.info(np.asarray(targets).tolist())
+            infered = hippocampus_models[0].encode(jnp.stack(chunks, axis=0))
+            logging.info(np.asarray(infered).tolist())
 
         data_tuples.append({
-            "embedding_chunks": [chunk.tolist() for chunk in chunks],
+            "embedding_chunks": [np.asarray(chunk).tolist() for chunk in chunks],
         })
 
     with open(os.path.join(experiment_path, "guide_results.pkl"), "wb") as f:

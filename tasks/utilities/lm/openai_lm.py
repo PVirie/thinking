@@ -42,7 +42,8 @@ class Model(base.Model):
         model="text-embedding-3-small"
         text = text.replace("\n", " ")
         openai_results = self.openai_session.embeddings.create(input = [text], model=model).data[0].embedding
-        return torch.tensor(openai_results)
+        # openai embedding has norm 1, this causes numerical instability in the model, scale to 100
+        return torch.tensor(openai_results) * 100
     
 
 if __name__ == "__main__":
