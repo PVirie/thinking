@@ -1,6 +1,8 @@
 from humn import hippocampus_model, trainer
 from typing import Tuple
+import jax
 import jax.numpy as jnp
+import numpy as np
 
 from ott.tools.k_means import k_means
 
@@ -50,6 +52,7 @@ class Model(hippocampus_model.Model):
 
         self.trainer = KMean_Trainer(self.token_size, r_seed=r_seed)
         self.start = self.max_length
+        self.stop_end = False
         self.printer = None
 
         # more efficient one
@@ -115,7 +118,8 @@ class Model(hippocampus_model.Model):
     def augmented_all(self) -> Augmented_Embedding_Squence:
         # data has shape (N, 2, dim)
         return Augmented_Embedding_Squence(
-            jnp.stack([self.data[self.start:], self.positional_encoding[self.start:]], axis=1)
+            jnp.stack([self.data[self.start:], self.positional_encoding[self.start:]], axis=1),
+            stop_end=self.stop_end
         )
 
 
@@ -127,19 +131,27 @@ class Model(hippocampus_model.Model):
         )
     
 
-    def append(self, state: Text_Embedding):
+    def append(self, state):
+        if isinstance(state, State_Action):
+            state_data = state.data[:self.input_dims]
+            if (state.data[self.input_dims] > 0.5).any():
+                self.stop_end = True
+        else:
+            state_data = state.data
+
         # roll the data
         self.data = jnp.roll(self.data, -1, axis=0)
         # inplace update
-        refined = self.refine(jnp.reshape(state.data, [1, -1]))
+        refined = self.refine(jnp.reshape(state_data, [1, -1]))
         self.data = self.data.at[-1].set(jnp.reshape(refined, [-1]))
         self.start = max(0, self.start - 1)
-        return state
+        return Text_Embedding(state_data)
 
 
     def refresh(self):
         self.data = jnp.zeros((self.max_length, self.input_dims), dtype=jnp.float32)
         self.start = self.max_length
+        stop_end = False
 
 
 
@@ -152,3 +164,10 @@ if __name__ == "__main__":
 
     path = model.augment(Embedding_Sequence(jnp.array([[0.9, 0, 0, 0], [0, 1.1, 0, 0], [0, 0, 1.5, 0], [0, 0, 0, 0.7]], jnp.float32)))
     print(path.data)
+
+
+    test_bool = jnp.array([False, False, True, False])
+    print("yeah" if (test_bool[:2]).any() else "nope")
+    print("yeah" if (test_bool[2:]).any() else "nope")
+
+    

@@ -53,7 +53,7 @@ if __name__ == "__main__":
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
 
     cortex_models = [
-        cortex.Model(i, transformer.Model(embedding_dim, 4, 256, [256, 128]))
+        cortex.Model(i, transformer.Model([embedding_dim, embedding_dim + 1, embedding_dim], 4, 256, [256, 128]))
         for i in range(num_layers)
     ]
     hippocampus_models = [
@@ -77,10 +77,6 @@ if __name__ == "__main__":
                 break
         if not found:
             fixed_embeddings.append(embedding)
-
-    stop_embedding = jnp.ones([embedding_dim], jnp.float32)*100/jnp.sqrt(embedding_dim)
-    alg.set_stop_embedding(stop_embedding)
-    check_and_add(stop_embedding)
 
     full_path_data = []
     full_pivot_indices_data = []
@@ -113,30 +109,26 @@ if __name__ == "__main__":
         path_data = next_path_data
 
     # add final layer
-    for j in range(len(item_data)):
-        full_path_data[j].append(alg.Embedding_Sequence())
-        full_pivot_indices_data[j].append(alg.Pointer_Sequence())
+    for j, item_datum in enumerate(item_data):
+        full_pivot_indices_data[j].append(alg.Pointer_Sequence([len(full_path_data[j][-1])]))
+        full_path_data[j].append(alg.Embedding_Sequence(jnp.reshape(jnp.array(item_datum["goal_embedding"], jnp.float32), [1, -1])))
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=False, max_sub_steps=16)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=16)
 
     for j, item_datum in enumerate(item_data):
         item = item_datum["item"]
         start_embedding = alg.Text_Embedding(jnp.array(item_datum["start_embedding"], jnp.float32))
-        goal_embedding = alg.Text_Embedding(jnp.array(item_datum["goal_embedding"], jnp.float32))
 
-        # prepend start_embedding and append stop_embedding to path
-        # append len(path) to pivot_indices (offset start_embedding)
-        # append goal_embedding to pivots
-
-        paths = [x.pre_append(start_embedding, alg.STOP_EMBEDDING) for x in full_path_data[j][:-1]]
-        indices = [x.append(len(full_path_data[j][i])) for i, x in enumerate(full_pivot_indices_data[j])]
-        pivots = [x.append(goal_embedding) for x in full_path_data[j][1:]]
+        # prepend start_embedding to paths
+        paths = [x.prepend(start_embedding) for x in full_path_data[j][:-1]]
+        indices = [x for x in full_pivot_indices_data[j]]
+        pivots = [x for x in full_path_data[j][1:]]
 
         layer_data = list(zip(paths, indices, pivots))
         trainers = model.observe(layer_data)
 
     for trainer in trainers:
-        trainer.prepare_batch(4)
+        trainer.prepare_batch(32)
 
     loop_train(trainers, 100000)
 

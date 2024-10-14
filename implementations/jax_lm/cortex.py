@@ -6,6 +6,8 @@ from functools import partial
 import jax.numpy as jnp
 import os
 import json
+import numpy as np
+import math
 
 try:
     from .algebraic import *
@@ -59,9 +61,13 @@ class Trainer(trainer.Trainer):
         len_pivots = pivot_indices.data.shape[0]
         seq_len = len(path_encoding_sequence) - 1
 
+        flags = jnp.zeros((seq_len + 1, 1), dtype=jnp.float32)
+        flags = flags.at[pivot_indices.data].set(1.0)
+        state_action = jnp.concatenate([path_encoding_sequence.data[:, 0, :], flags], axis=1)
+
         # s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :] + path_encoding_sequence.data[:-1, 1, :], axis=0), (len_pivots, 1, 1))
         s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :], axis=0), (len_pivots, 1, 1))
-        x = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[1:, 0, :], axis=0), (len_pivots, 1, 1))
+        x = jnp.tile(jnp.expand_dims(state_action[1:, :], axis=0), (len_pivots, 1, 1))
         t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, seq_len, 1))
 
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
@@ -189,7 +195,7 @@ class Model(cortex_model.Model):
             jnp.expand_dims(from_encoding_sequence.data[:, 0, :], axis=0), 
             jnp.expand_dims(expect_action.data, axis=0)
             )
-        a = Text_Embedding(next_action_data[0])
+        a = State_Action(next_action_data[0])
         if self.printer is not None:
             self.printer(a)
         return a
@@ -208,5 +214,6 @@ if __name__ == "__main__":
     r_key = jax.random.key(42)
     r_key, subkey = jax.random.split(r_key)
     states = Augmented_Embedding_Squence(jax.random.normal(subkey, (10, 2, 4)))
+    targets = Embedding_Sequence(jax.random.normal(subkey, (2, 4)))
 
-    model.incrementally_learn(states, Pointer_Sequence([5, 9]), None)
+    model.incrementally_learn(states, Pointer_Sequence([5, 9]), targets)

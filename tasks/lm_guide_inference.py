@@ -49,7 +49,7 @@ if __name__ == "__main__":
             abstraction_model = abstraction.Model.load(abstraction_path)
         abstraction_models.append(abstraction_model)
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models, max_sub_steps=128)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=128)
 
     def print_state(i, token_indices):
         logging.info(f"Layer {i}: {np.asarray(token_indices).tolist()}")
@@ -61,8 +61,6 @@ if __name__ == "__main__":
         data = pickle.load(f)
 
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
-    stop_embedding = jnp.ones([embedding_dim], jnp.float32)*100/jnp.sqrt(embedding_dim)
-    alg.set_stop_embedding(stop_embedding)
 
     data_tuples = []
     item_data = data["train_set"]

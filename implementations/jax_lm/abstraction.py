@@ -5,6 +5,7 @@ import jax
 import jax.numpy as jnp
 import os
 import json
+import math
 
 try:
     from .algebraic import *
