@@ -150,7 +150,8 @@ if __name__ == "__main__":
         text_response = large_model.get_chat_response(query, token_length=settings["max_text_length"])
 
         start_embedding = large_model.get_text_embedding(start_sentence).tolist()
-        goal_embedding = large_model.get_text_embedding(goal_sentence).tolist()
+        # goal_embedding = large_model.get_text_embedding(goal_sentence).tolist()
+        goal_embedding = large_model.get_text_embedding(item).tolist()
 
         # logging.info(query)
         # logging.info(text_response)

@@ -49,15 +49,15 @@ if __name__ == "__main__":
 
     item_data = data["train_set"]
     num_layers = 3
-    step_size = 4
+    step_size = 8
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
 
     cortex_models = [
-        cortex.Model(i, transformer.Model(embedding_dim, 4, 128, [128, 64]))
+        cortex.Model(i, transformer.Model(embedding_dim, 4, 256, [256, 128]))
         for i in range(num_layers)
     ]
     hippocampus_models = [
-        hippocampus.Model(64, embedding_dim, 128, random.randint(0, 1000000))
+        hippocampus.Model(64, embedding_dim, 256, random.randint(0, 1000000))
         for i in range(num_layers)
     ]
     abstraction_models = [
@@ -70,13 +70,17 @@ if __name__ == "__main__":
     def check_and_add(embedding):
         found = False
         for fixed_embedding in fixed_embeddings:
-            if jnp.linalg.norm(fixed_embedding - embedding) < 1e-2:
+            # compute cosine similarity
+            score = (fixed_embedding * embedding) / (jnp.linalg.norm(fixed_embedding) * jnp.linalg.norm(embedding))
+            if (score > 0.9).any():
                 found = True
                 break
         if not found:
             fixed_embeddings.append(embedding)
 
-    check_and_add(jnp.zeros([embedding_dim], jnp.float32))
+    stop_embedding = jnp.ones([embedding_dim], jnp.float32)*100/jnp.sqrt(embedding_dim)
+    alg.set_stop_embedding(stop_embedding)
+    check_and_add(stop_embedding)
 
     full_path_data = []
     full_pivot_indices_data = []
@@ -115,7 +119,6 @@ if __name__ == "__main__":
 
     model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=False, max_sub_steps=16)
 
-    stop_embedding = alg.Text_Embedding(jnp.zeros([embedding_dim], jnp.float32))
     for j, item_datum in enumerate(item_data):
         item = item_datum["item"]
         start_embedding = alg.Text_Embedding(jnp.array(item_datum["start_embedding"], jnp.float32))
@@ -125,7 +128,7 @@ if __name__ == "__main__":
         # append len(path) to pivot_indices (offset start_embedding)
         # append goal_embedding to pivots
 
-        paths = [x.pre_append(start_embedding, stop_embedding) for x in full_path_data[j][:-1]]
+        paths = [x.pre_append(start_embedding, alg.STOP_EMBEDDING) for x in full_path_data[j][:-1]]
         indices = [x.append(len(full_path_data[j][i])) for i, x in enumerate(full_pivot_indices_data[j])]
         pivots = [x.append(goal_embedding) for x in full_path_data[j][1:]]
 

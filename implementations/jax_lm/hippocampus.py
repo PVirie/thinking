@@ -31,12 +31,11 @@ class KMean_Trainer(trainer.Trainer):
             self.embeddings = output.centroids
 
     def manually_prepend(self, embeddings):
+        if isinstance(embeddings, List):
+            embeddings = jnp.array(embeddings)
         if self.embeddings is None:
             self.embeddings = embeddings
         else:
-            if isinstance(embeddings, List):
-                embeddings = jnp.array(embeddings)
-                
             self.embeddings = jnp.concatenate([embeddings, self.embeddings], axis=0)
 
 

@@ -61,6 +61,8 @@ if __name__ == "__main__":
         data = pickle.load(f)
 
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
+    stop_embedding = jnp.ones([embedding_dim], jnp.float32)*100/jnp.sqrt(embedding_dim)
+    alg.set_stop_embedding(stop_embedding)
 
     data_tuples = []
     item_data = data["train_set"]
