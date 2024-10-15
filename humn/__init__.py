@@ -133,9 +133,9 @@ class HUMN:
  
                 for state, full_state in self.__generate_steps(i, state, target_state):
                     yield state
-                    goal_action = goal_state - full_state
-                    if goal_action.zero_length():
-                        return
+                    # goal_action = goal_state - full_state
+                    # if goal_action.zero_length():
+                    #     return
         
                 if self.reset_hippocampus_on_target_changed:
                     hippocampus.refresh()

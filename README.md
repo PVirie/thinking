@@ -72,7 +72,7 @@ If you have any issues, please let me know.
     -   [x] Linear embedding transformation kernel
     -   [x] Make core models accept context of shape (batch, context length, feature length)
     -   [x] LLM Steering
-    -   [ ] Implement K-mean tokenization
+    -   [x] Implement K-mean tokenization
     -   [ ] Train the LM hierarchical guide model
     -   [ ] Interpretability
 -   [x] Reinforcement learning
