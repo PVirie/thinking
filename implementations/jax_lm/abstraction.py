@@ -29,38 +29,22 @@ def process_chunk(embedding_chunks, step_size=4):
 
 class Model(abstraction_model.Model):
 
-    def __init__(self, skip_steps):
-        self.skip_steps = skip_steps
+    def __init__(self):
+        pass
 
     @staticmethod
     def load(path):
-        with open(os.path.join(path, "metadata.json"), "r") as f:
-            metadata = json.load(f)
-        model = Model(skip_steps=metadata["skip_steps"])
+        model = Model()
         return model                                               
                                                               
 
     @staticmethod
     def save(self, path):
-        os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, "metadata.json"), "w") as f:
-            json.dump({
-                "skip_steps": self.skip_steps,
-            }, f)
+        pass
 
 
-    def abstract_path(self, path: Embedding_Sequence) -> Tuple[Pointer_Sequence, Embedding_Sequence]:
-        abstract_chunks, indices = process_chunk(path.data, step_size=self.skip_steps)
-        return Pointer_Sequence(indices), Embedding_Sequence(abstract_chunks)
-
-
-    def abstract(self, from_sequence: Augmented_Embedding_Squence, action: Text_Embedding) -> Tuple[Text_Embedding, Text_Embedding]:
-        return Text_Embedding(from_sequence.data[-1, :-1]), action
-
-
-    def specify(self, nl_start: Text_Embedding, nl_action: Union[Text_Embedding, None] = None, start: Union[Text_Embedding, None] = None) -> Text_Embedding:
-        return nl_start
-
+    def specify(self, nl_action: Text_Embedding) -> Text_Embedding:
+        return nl_action
 
 
 if __name__ == "__main__":

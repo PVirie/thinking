@@ -11,19 +11,6 @@ class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
         else:
             self.data = jnp.array(indices, dtype=jnp.int32)
 
-    def __getitem__(self, i):
-        return self.data[i]
-
-    def __setitem__(self, i, s):
-        self.data = self.data.at[i].set(s)
-        return self
-
-    def append(self, s):
-        if self.data is None:
-            return Pointer_Sequence(jnp.array([s], dtype=jnp.int32))
-        else:
-            return Pointer_Sequence(jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int32)], axis=0))
-
     def __len__(self):
         return self.data.shape[0]
     
@@ -43,34 +30,6 @@ class Embedding_Sequence(humn.algebraic.State_Sequence):
         return self.data.shape[0]
 
 
-    def __getitem__(self, i):
-        if isinstance(i, slice):
-            return Embedding_Sequence(self.data[i])
-        elif isinstance(i, Pointer_Sequence):
-            return Embedding_Sequence(self.data[i.data])
-        else:
-            return Text_Embedding(self.data[i, :])
-
-
-    def __setitem__(self, i, s):
-        self.data = self.data.at[i].set(s.data)
-        return self
-
-
-    def append(self, s):
-        # s is of Text_Embedding type
-        if self.data is None:
-            return Embedding_Sequence(jnp.reshape(s.data, [1, -1]))
-        else:
-            return Embedding_Sequence(jnp.concatenate([self.data, jnp.reshape(s.data, [1, -1])], axis=0))
-
-
-    def prepend(self, s):
-        # s is of Text_Embedding type
-        if self.data is None:
-            return Embedding_Sequence(jnp.reshape(s.data, [1, -1]))
-        else:
-            return Embedding_Sequence(jnp.concatenate([jnp.reshape(s.data, [1, -1]), self.data], axis=0))
         
 
 class Augmented_Embedding_Squence(humn.algebraic.Augmented_State_Squence):
@@ -97,6 +56,15 @@ class Augmented_Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
 
 
 
+class Stop_Embedding(humn.algebraic.State, humn.algebraic.Action):
+    
+    def __init__(self):
+        pass
+
+    def zero_length(self):
+        return True
+
+
 class Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
     
     def __init__(self, data):
@@ -106,16 +74,21 @@ class Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
             self.data = device_put(jnp.array(data, jnp.float32))
 
 
-    def __add__(self, a: Augmented_Text_Embedding):
-        return a
+    def __add__(self, a):
+        if isinstance(a, Augmented_Text_Embedding):
+            max_index = jnp.argmax(a.data[:-1])
+            s_data = jnp.zeros_like(self.data).at[max_index].set(1)
+            return Text_Embedding(s_data)
+        else:
+            return a
 
 
     def __sub__(self, augmented_state_sequence: Augmented_Embedding_Squence):
         if augmented_state_sequence.data[-1, -1] > 50:
-            return Text_Embedding(jnp.zeros_like(self.data))
+            return Stop_Embedding()
         return self
 
 
     def zero_length(self):
-        return jnp.linalg.norm(self.data) < 1e-4
+        return False
     
