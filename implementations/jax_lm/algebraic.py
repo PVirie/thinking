@@ -111,8 +111,7 @@ class Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
 
 
     def __sub__(self, augmented_state_sequence: Augmented_Embedding_Squence):
-        dim_size = self.data.shape[0]
-        if augmented_state_sequence.data[-1, dim_size] > 500:
+        if augmented_state_sequence.data[-1, -1] > 50:
             return Text_Embedding(jnp.zeros_like(self.data))
         return self
 

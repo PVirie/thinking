@@ -127,7 +127,7 @@ class Model(hippocampus_model.Model):
         refined = self.refine(path.data)
 
         flags = jnp.zeros((path.data.shape[0], 1), dtype=jnp.float32)
-        flags = flags.at[pivot_sequence.data].set(1000.0)
+        flags = flags.at[pivot_sequence.data].set(100.0)
 
         return Augmented_Embedding_Squence(
             jnp.concatenate([refined[path.data.shape[0] - length:], flags[path.data.shape[0] - length:]], axis=1)
@@ -136,7 +136,7 @@ class Model(hippocampus_model.Model):
 
     def append(self, state):
         if isinstance(state, Augmented_Text_Embedding):
-            state_data = state.data[:self.input_dims]
+            state_data = state.data[:-1]
             flag = state.data[self.input_dims]
         else:
             state_data = state.data
@@ -147,16 +147,17 @@ class Model(hippocampus_model.Model):
         self.stop_flags = jnp.roll(self.stop_flags, -1, axis=0)
         # inplace update
         refined = self.refine(jnp.reshape(state_data, [1, -1]))
-        self.data = self.data.at[-1].set(jnp.reshape(refined, [-1]))
+        refined = jnp.reshape(refined, [-1])
+        self.data = self.data.at[-1].set(refined)
         self.stop_flags = self.stop_flags.at[-1, 0].set(flag)
         self.start = max(0, self.start - 1)
-        return Text_Embedding(state_data)
+        return Text_Embedding(refined)
 
 
     def refresh(self):
-        self.data = jnp.zeros((self.max_length, self.input_dims), dtype=jnp.float32)
+        # self.data = jnp.zeros((self.max_length, self.input_dims), dtype=jnp.float32)
         self.stop_flags = jnp.zeros((self.max_length, 1), dtype=jnp.float32)
-        self.start = self.max_length
+        # self.start = self.max_length
 
 
 
