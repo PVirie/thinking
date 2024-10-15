@@ -48,23 +48,23 @@ class Model(hippocampus_model.Model):
         self.input_dims = input_dims
         self.token_size = token_size
         self.data = jnp.zeros((max_length, input_dims), dtype=jnp.float32)
+        self.stop_flags = jnp.zeros((max_length, 1), dtype=jnp.float32)
         self.r_seed = r_seed
 
         self.trainer = KMean_Trainer(self.token_size, r_seed=r_seed)
         self.start = self.max_length
-        self.stop_end = False
         self.printer = None
 
-        # more efficient one
-        indices = jnp.arange(0, input_dims, 2)
-        indices = jnp.expand_dims(indices, axis=0)
-        pos = jnp.arange(0, max_length, dtype=jnp.float32)
-        pos = jnp.expand_dims(pos, axis=1)
+        # # more efficient one
+        # indices = jnp.arange(0, input_dims, 2)
+        # indices = jnp.expand_dims(indices, axis=0)
+        # pos = jnp.arange(0, max_length, dtype=jnp.float32)
+        # pos = jnp.expand_dims(pos, axis=1)
 
-        Sin = jnp.sin(pos / 10000 ** (2 * indices / input_dims))
-        Cos = jnp.cos(pos / 10000 ** (2 * indices / input_dims))
-        concat = jnp.stack([Sin, Cos], axis=1)
-        self.positional_encoding = jnp.reshape(concat, (max_length, input_dims))
+        # Sin = jnp.sin(pos / 10000 ** (2 * indices / input_dims))
+        # Cos = jnp.cos(pos / 10000 ** (2 * indices / input_dims))
+        # concat = jnp.stack([Sin, Cos], axis=1)
+        # self.positional_encoding = jnp.reshape(concat, (max_length, input_dims))
 
 
     def refine(self, chunks):
@@ -116,42 +116,47 @@ class Model(hippocampus_model.Model):
 
 
     def augmented_all(self) -> Augmented_Embedding_Squence:
-        # data has shape (N, 2, dim)
+        # data has shape (N, dim + 1)
         return Augmented_Embedding_Squence(
-            jnp.stack([self.data[self.start:], self.positional_encoding[self.start:]], axis=1),
-            stop_end=self.stop_end
+            jnp.concatenate([self.data[self.start:], self.stop_flags[self.start:]], axis=1)
         )
 
 
-    def augment(self, path: Embedding_Sequence) -> Augmented_Embedding_Squence:
+    def augment(self, path: Embedding_Sequence, pivot_sequence: Pointer_Sequence) -> Augmented_Embedding_Squence:
         length = min(self.max_length, path.data.shape[0])
         refined = self.refine(path.data)
+
+        flags = jnp.zeros((path.data.shape[0], 1), dtype=jnp.float32)
+        flags = flags.at[pivot_sequence.data].set(1000.0)
+
         return Augmented_Embedding_Squence(
-            jnp.stack([refined[path.data.shape[0] - length:], self.positional_encoding[self.max_length - length:]], axis=1)
+            jnp.concatenate([refined[path.data.shape[0] - length:], flags[path.data.shape[0] - length:]], axis=1)
         )
     
 
     def append(self, state):
-        if isinstance(state, State_Action):
+        if isinstance(state, Augmented_Text_Embedding):
             state_data = state.data[:self.input_dims]
-            if (state.data[self.input_dims] > 0.5).any():
-                self.stop_end = True
+            flag = state.data[self.input_dims]
         else:
             state_data = state.data
+            flag = 0
 
         # roll the data
         self.data = jnp.roll(self.data, -1, axis=0)
+        self.stop_flags = jnp.roll(self.stop_flags, -1, axis=0)
         # inplace update
         refined = self.refine(jnp.reshape(state_data, [1, -1]))
         self.data = self.data.at[-1].set(jnp.reshape(refined, [-1]))
+        self.stop_flags = self.stop_flags.at[-1, 0].set(flag)
         self.start = max(0, self.start - 1)
         return Text_Embedding(state_data)
 
 
     def refresh(self):
         self.data = jnp.zeros((self.max_length, self.input_dims), dtype=jnp.float32)
+        self.stop_flags = jnp.zeros((self.max_length, 1), dtype=jnp.float32)
         self.start = self.max_length
-        stop_end = False
 
 
 
@@ -162,9 +167,11 @@ if __name__ == "__main__":
     t.train()
     print(t.embeddings)
 
-    path = model.augment(Embedding_Sequence(jnp.array([[0.9, 0, 0, 0], [0, 1.1, 0, 0], [0, 0, 1.5, 0], [0, 0, 0, 0.7]], jnp.float32)))
+    path = model.augment(
+        Embedding_Sequence(jnp.array([[0.9, 0, 0, 0], [0, 1.1, 0, 0], [0, 0, 1.5, 0], [0, 0, 0, 0.7]], jnp.float32)),
+        Pointer_Sequence(jnp.array([1, 3], jnp.int32))
+    )
     print(path.data)
-
 
     test_bool = jnp.array([False, False, True, False])
     print("yeah" if (test_bool[:2]).any() else "nope")

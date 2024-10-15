@@ -49,10 +49,15 @@ if __name__ == "__main__":
             abstraction_model = abstraction.Model.load(abstraction_path)
         abstraction_models.append(abstraction_model)
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=128)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=False, max_sub_steps=16)
 
+    log_keeper = {}
     def print_state(i, token_indices):
-        logging.info(f"Layer {i}: {np.asarray(token_indices).tolist()}")
+        if i not in log_keeper:
+            log_keeper[i] = []
+        # convert from jax to int
+        index = int(token_indices[0, 0])
+        log_keeper[i].append(index)
 
     for i, h in enumerate(model.hippocampi):
         h.printer = functools.partial(print_state, i)
@@ -73,6 +78,7 @@ if __name__ == "__main__":
 
         chunks = []
         try:
+            model.refresh()
             for state in model.think(start, goal):
                 chunks.append(state.data)
         except MaxSubStepReached:
@@ -80,8 +86,10 @@ if __name__ == "__main__":
         finally:
             targets = hippocampus_models[0].encode(jnp.array(item_datum["embedding_chunks"], dtype=jnp.float32))
             logging.info(np.asarray(targets).tolist())
-            infered = hippocampus_models[0].encode(jnp.stack(chunks, axis=0))
-            logging.info(np.asarray(infered).tolist())
+            
+            for layer, indices in log_keeper.items():
+                logging.info(f"Layer {layer}: {indices}")
+            log_keeper = {}
 
         data_tuples.append({
             "embedding_chunks": [np.asarray(chunk).tolist() for chunk in chunks],

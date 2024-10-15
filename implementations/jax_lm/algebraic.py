@@ -75,21 +75,19 @@ class Embedding_Sequence(humn.algebraic.State_Sequence):
 
 class Augmented_Embedding_Squence(humn.algebraic.Augmented_State_Squence):
 
-    def __init__(self, data, stop_end=False):
-        # data has shape (N, 2, dim)
+    def __init__(self, data):
+        # data has shape (N, dim)
         if isinstance(data, jnp.ndarray):
             self.data = data
         else:
             self.data = device_put(jnp.array(data, jnp.float32))
-
-        self.stop_end = stop_end
 
     def __len__(self):
         return self.data.shape[0]
     
 
 
-class State_Action(humn.algebraic.State, humn.algebraic.Action):
+class Augmented_Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
     
     def __init__(self, data):
         if isinstance(data, jnp.ndarray):
@@ -108,12 +106,13 @@ class Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
             self.data = device_put(jnp.array(data, jnp.float32))
 
 
-    def __add__(self, a: State_Action):
+    def __add__(self, a: Augmented_Text_Embedding):
         return a
 
 
     def __sub__(self, augmented_state_sequence: Augmented_Embedding_Squence):
-        if augmented_state_sequence.stop_end:
+        dim_size = self.data.shape[0]
+        if augmented_state_sequence.data[-1, dim_size] > 500:
             return Text_Embedding(jnp.zeros_like(self.data))
         return self
 

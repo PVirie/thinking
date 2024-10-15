@@ -39,7 +39,7 @@ class Model(hippocampus_model.Model):
         )
 
 
-    def augment(self, path: State_Action_Sequence) -> State_Action_Sequence:
+    def augment(self, path: State_Action_Sequence, pivot_sequence: Pointer_Sequence) -> State_Action_Sequence:
         return path
 
 

@@ -61,7 +61,7 @@ class Model(hippocampus_model.Model):
         )
 
 
-    def augment(self, path: State_Sequence) -> Augmented_State_Squence:
+    def augment(self, path: State_Sequence, pivot_sequence: Pointer_Sequence) -> Augmented_State_Squence:
         length = min(self.max_length, path.data.shape[0])
         return Augmented_State_Squence(
             jnp.stack([path.data[path.data.shape[0] - length:], self.positional_encoding[self.max_length - length:]], axis=1)

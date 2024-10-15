@@ -57,7 +57,7 @@ if __name__ == "__main__":
         for i in range(num_layers)
     ]
     hippocampus_models = [
-        hippocampus.Model(64, embedding_dim, 256, random.randint(0, 1000000))
+        hippocampus.Model(8, embedding_dim, 512, random.randint(0, 1000000))
         for i in range(num_layers)
     ]
     abstraction_models = [
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         full_pivot_indices_data[j].append(alg.Pointer_Sequence([len(full_path_data[j][-1])]))
         full_path_data[j].append(alg.Embedding_Sequence(jnp.reshape(jnp.array(item_datum["goal_embedding"], jnp.float32), [1, -1])))
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=16)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=False, max_sub_steps=16)
 
     for j, item_datum in enumerate(item_data):
         item = item_datum["item"]
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         trainers = model.observe(layer_data)
 
     for trainer in trainers:
-        trainer.prepare_batch(32)
+        trainer.prepare_batch(16)
 
     loop_train(trainers, 100000)
 

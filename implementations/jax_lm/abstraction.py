@@ -55,7 +55,7 @@ class Model(abstraction_model.Model):
 
 
     def abstract(self, from_sequence: Augmented_Embedding_Squence, action: Text_Embedding) -> Tuple[Text_Embedding, Text_Embedding]:
-        return Text_Embedding(from_sequence.data[-1, 0, :]), action
+        return Text_Embedding(from_sequence.data[-1, :-1]), action
 
 
     def specify(self, nl_start: Text_Embedding, nl_action: Union[Text_Embedding, None] = None, start: Union[Text_Embedding, None] = None) -> Text_Embedding:

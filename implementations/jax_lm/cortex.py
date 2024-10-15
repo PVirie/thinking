@@ -61,13 +61,8 @@ class Trainer(trainer.Trainer):
         len_pivots = pivot_indices.data.shape[0]
         seq_len = len(path_encoding_sequence) - 1
 
-        flags = jnp.zeros((seq_len + 1, 1), dtype=jnp.float32)
-        flags = flags.at[pivot_indices.data].set(1.0)
-        state_action = jnp.concatenate([path_encoding_sequence.data[:, 0, :], flags], axis=1)
-
-        # s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :] + path_encoding_sequence.data[:-1, 1, :], axis=0), (len_pivots, 1, 1))
-        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 0, :], axis=0), (len_pivots, 1, 1))
-        x = jnp.tile(jnp.expand_dims(state_action[1:, :], axis=0), (len_pivots, 1, 1))
+        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, :-1], axis=0), (len_pivots, 1, 1))
+        x = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[1:, :], axis=0), (len_pivots, 1, 1))
         t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, seq_len, 1))
 
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
@@ -191,11 +186,10 @@ class Model(cortex_model.Model):
 
     def infer_sub_action(self, from_encoding_sequence: Augmented_Embedding_Squence, expect_action: Text_Embedding) -> Text_Embedding:
         next_action_data, score = self.model.infer(
-            # jnp.expand_dims(from_encoding_sequence.data[:, 0, :] + from_encoding_sequence.data[:, 1, :], axis=0),
-            jnp.expand_dims(from_encoding_sequence.data[:, 0, :], axis=0), 
+            jnp.expand_dims(from_encoding_sequence.data[:, :-1], axis=0), 
             jnp.expand_dims(expect_action.data, axis=0)
             )
-        a = State_Action(next_action_data[0])
+        a = Augmented_Text_Embedding(next_action_data[0])
         if self.printer is not None:
             self.printer(a)
         return a
