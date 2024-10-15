@@ -74,7 +74,6 @@ class Model(hippocampus_model.Model):
         # inplace update
         self.data = self.data.at[-1].set(state.data)
         self.start = max(0, self.start - 1)
-        return state
 
 
     def refresh(self):

@@ -75,7 +75,7 @@ class HUMN:
 
 
     def react(self, from_states: Union[algebraic.State, List[algebraic.State]], top_action: algebraic.Action) -> algebraic.Action:
-        if isinstance(from_states, algebraic.State):
+        if not isinstance(from_states, List):
             # duplicate to the number of layers
             base = from_states
             from_states = [base]
@@ -137,7 +137,7 @@ class HUMN:
 
 
     def think(self, from_states: Union[algebraic.State, List[algebraic.State]], top_action: algebraic.Action) -> Generator[algebraic.State, None, None]:
-        if isinstance(from_states, algebraic.State):
+        if not isinstance(from_states, List):
             # duplicate to the number of layers
             base = from_states
             from_states = [base]
