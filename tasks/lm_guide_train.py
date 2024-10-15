@@ -52,14 +52,8 @@ if __name__ == "__main__":
     step_size = 4
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
 
-    cortex_models = [
-        cortex.Model(i, transformer.Model([embedding_dim, embedding_dim + 1, embedding_dim], 4, 256, [256, 128]))
-        for i in range(num_layers)
-    ]
-    hippocampus_models = [
-        hippocampus.Model(8, embedding_dim, 512, random.randint(0, 1000000))
-        for i in range(num_layers)
-    ]
+    cortex_models = []
+    hippocampus_models = []
     abstraction_models = [
         abstraction.Model(step_size)
         for i in range(num_layers - 1)
@@ -88,39 +82,58 @@ if __name__ == "__main__":
         full_path_data.append([path])
         full_pivot_indices_data.append([])
         
+    hippocampus = hippocampus.Model(8, embedding_dim, 512, random.randint(0, 1000000))
     hippocampus_models[0].trainer.manually_prepend(jnp.array(data["vocabulary"]["embeddings"]))
     hippocampus_models[0].trainer.manually_prepend(fixed_embeddings)
+    hippocampus_models.append(hippocampus)
 
     for i in range(num_layers - 1):
+        hippocampus = hippocampus.Model(8, embedding_dim, 512, random.randint(0, 1000000))
         pivots_temp = []
         for j, path in enumerate(path_data):
             pivot_indices, pivots = abstraction_models[i].abstract_path(path)
-            full_pivot_indices_data[j].append(pivot_indices)
             pivots_temp.append(pivots)
-            trainer = hippocampus_models[i+1].incrementally_learn(pivots)
+            full_pivot_indices_data[j].append(pivot_indices)
+            trainer = hippocampus.incrementally_learn(pivots)
         trainer.train()
         trainer.manually_prepend(fixed_embeddings)
+        hippocampus_models.append(hippocampus)
 
-        next_path_data = []
         for j, pivots in enumerate(pivots_temp):
-            path = alg.Embedding_Sequence(hippocampus_models[i+1].refine(pivots.data))
+            path = alg.Embedding_Sequence(hippocampus.encode(pivots.data))
             full_path_data[j].append(path)
-            next_path_data.append(path)
-        path_data = next_path_data
+        path_data = pivots_temp
 
     # add final layer
     for j, item_datum in enumerate(item_data):
         full_pivot_indices_data[j].append(alg.Pointer_Sequence([len(full_path_data[j][-1])]))
         full_path_data[j].append(alg.Embedding_Sequence(jnp.reshape(jnp.array(item_datum["goal_embedding"], jnp.float32), [1, -1])))
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=False, max_sub_steps=16)
+    for i in range(num_layers):
+        input_dims = hippocampus_models[i].output_dims()
+        target_dims = hippocampus_models[i + 1].output_dims() if i < num_layers - 1 else embedding_dim
+        cortex = cortex.Model(i, transformer.Model(
+            [
+                input_dims, 
+                input_dims + 1, 
+                target_dims
+            ], 4, 256, [256, 128]))
+        cortex_models.append(cortex)
+
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, max_sub_steps=16)
 
     for j, item_datum in enumerate(item_data):
         item = item_datum["item"]
-        start_embedding = alg.Text_Embedding(jnp.array(item_datum["start_embedding"], jnp.float32))
+        start_embedding = jnp.reshape(jnp.array(item_datum["start_embedding"], jnp.float32), [1, -1])
+        encoded_start_embeddings = []
+        for i in range(num_layers):
+            encoded = alg.Text_Embedding(
+                jnp.reshape(hippocampus_models[i].encode(start_embedding), [-1])
+            )
+            encoded_start_embeddings.append(encoded)
 
         # prepend start_embedding to paths
-        paths = [x.prepend(start_embedding) for x in full_path_data[j][:-1]]
+        paths = [x.prepend(encoded_start_embeddings[i]) for i, x in enumerate(full_path_data[j][:-1])]
         indices = [x for x in full_pivot_indices_data[j]]
         pivots = [x for x in full_path_data[j][1:]]
 

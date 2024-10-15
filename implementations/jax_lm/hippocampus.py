@@ -41,13 +41,19 @@ class KMean_Trainer(trainer.Trainer):
             self.embeddings = jnp.concatenate([embeddings, self.embeddings], axis=0)
 
 
+def make_onehot(indices, size):
+    out = jnp.zeros((indices.shape[0], size), dtype=jnp.float32)
+    out = out.at[jnp.arange(indices.shape[0]), indices].set(1.0)
+    return out
+
+
 class Model(hippocampus_model.Model):
 
     def __init__(self, max_length: int, input_dims: int, token_size=256, r_seed=42):
         self.max_length = max_length
         self.input_dims = input_dims
         self.token_size = token_size
-        self.data = jnp.zeros((max_length, input_dims), dtype=jnp.float32)
+        self.data = jnp.zeros((max_length, 1), dtype=jnp.int32)
         self.stop_flags = jnp.zeros((max_length, 1), dtype=jnp.float32)
         self.r_seed = r_seed
 
@@ -67,24 +73,21 @@ class Model(hippocampus_model.Model):
         # self.positional_encoding = jnp.reshape(concat, (max_length, input_dims))
 
 
-    def refine(self, chunks):
-        if self.trainer.embeddings is None:
-            return chunks
-
+    def encode(self, chunks, return_indices=False):
         # find max dot product
-        max_indices = jnp.argmax(jnp.matmul(chunks, self.trainer.embeddings.T), axis=1, keepdims=True)
-        pivots = jnp.take_along_axis(self.trainer.embeddings, max_indices, axis=0)
+        max_indices = jnp.argmax(jnp.matmul(chunks, self.trainer.embeddings.T), axis=1)
 
         if self.printer is not None:
             self.printer(max_indices)
 
-        return pivots
+        if return_indices:
+            return max_indices
+
+        return make_onehot(max_indices, self.output_dims())
 
 
-    def encode(self, chunks):
-        if self.trainer.embeddings is None:
-            raise ValueError("Model has not been trained yet")
-        return jnp.argmax(jnp.matmul(chunks, self.trainer.embeddings.T), axis=1)
+    def output_dims(self):
+        return self.trainer.embeddings.shape[0]
 
 
     @staticmethod
@@ -116,18 +119,19 @@ class Model(hippocampus_model.Model):
 
 
     def augmented_all(self) -> Augmented_Embedding_Squence:
-        # data has shape (N, dim + 1)
+        # data has shape (N, output_dims + 1)
+        data = make_onehot(self.data[self.start:], self.output_dims())
         return Augmented_Embedding_Squence(
-            jnp.concatenate([self.data[self.start:], self.stop_flags[self.start:]], axis=1)
+            jnp.concatenate([data, self.stop_flags[self.start:]], axis=1)
         )
 
 
     def augment(self, path: Embedding_Sequence, pivot_sequence: Pointer_Sequence) -> Augmented_Embedding_Squence:
         length = min(self.max_length, path.data.shape[0])
-        refined = self.refine(path.data)
+        refined = self.encode(path.data)
 
         flags = jnp.zeros((path.data.shape[0], 1), dtype=jnp.float32)
-        flags = flags.at[pivot_sequence.data].set(1000.0)
+        flags = flags.at[pivot_sequence.data].set(100.0)
 
         return Augmented_Embedding_Squence(
             jnp.concatenate([refined[path.data.shape[0] - length:], flags[path.data.shape[0] - length:]], axis=1)
@@ -136,27 +140,27 @@ class Model(hippocampus_model.Model):
 
     def append(self, state):
         if isinstance(state, Augmented_Text_Embedding):
-            state_data = state.data[:self.input_dims]
+            state_data = jnp.argmax(state.data[:-1], axis=0)
             flag = state.data[self.input_dims]
         else:
-            state_data = state.data
+            state_data = jnp.argmax(state.data, axis=0)
             flag = 0
 
         # roll the data
         self.data = jnp.roll(self.data, -1, axis=0)
         self.stop_flags = jnp.roll(self.stop_flags, -1, axis=0)
         # inplace update
-        refined = self.refine(jnp.reshape(state_data, [1, -1]))
-        self.data = self.data.at[-1].set(jnp.reshape(refined, [-1]))
+        state_data = jnp.reshape(state_data, [-1])
+        self.data = self.data.at[-1].set(state_data)
         self.stop_flags = self.stop_flags.at[-1, 0].set(flag)
         self.start = max(0, self.start - 1)
-        return Text_Embedding(state_data)
+        return Text_Embedding(jnp.reshape(make_onehot(state_data, self.output_dims()), [1, -1]))
 
 
     def refresh(self):
-        self.data = jnp.zeros((self.max_length, self.input_dims), dtype=jnp.float32)
+        # self.data = jnp.zeros((self.max_length, self.input_dims), dtype=jnp.float32)
         self.stop_flags = jnp.zeros((self.max_length, 1), dtype=jnp.float32)
-        self.start = self.max_length
+        # self.start = self.max_length
 
 
 

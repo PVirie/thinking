@@ -49,7 +49,7 @@ if __name__ == "__main__":
             abstraction_model = abstraction.Model.load(abstraction_path)
         abstraction_models.append(abstraction_model)
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=False, max_sub_steps=16)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=16)
 
     log_keeper = {}
     def print_state(i, token_indices):
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         except MaxSubStepReached:
             logging.warning(f"Truncated termination for item {item}.")
         finally:
-            targets = hippocampus_models[0].encode(jnp.array(item_datum["embedding_chunks"], dtype=jnp.float32))
+            targets = hippocampus_models[0].encode(jnp.array(item_datum["embedding_chunks"], dtype=jnp.float32), return_indices = True)
             logging.info(np.asarray(targets).tolist())
             
             for layer, indices in log_keeper.items():
