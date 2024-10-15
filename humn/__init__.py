@@ -52,7 +52,7 @@ class HUMN:
         return trainers
     
 
-    def __sub_action_recursion(self, i, state, action):
+    def __sub_action_recursion(self, i, states, action):
         if action.zero_length():
             return action
         
@@ -60,26 +60,28 @@ class HUMN:
         hippocampus = self.hippocampi[i]
         abstractor = self.abstractors[i] if i < len(self.abstractors) else None
 
-        hippocampus.append(state)
+        hippocampus.append(states[i])
 
         if i < self.depth - 1:
-            if abstractor is not None:
-                nl_from_state, nl_action = abstractor.abstract(hippocampus.augmented_all(), action)
-            else:
-                nl_from_state, nl_action = state, action
-            nl_sub_action = self.__sub_action_recursion(i + 1, nl_from_state, nl_action)
+            nl_sub_action = self.__sub_action_recursion(i + 1, states, action)
             if not nl_sub_action.zero_length():
                 # if the next step is not the goal, specify the goal
                 if abstractor is not None:
-                    action = abstractor.specify(nl_from_state, nl_sub_action, state)
+                    action = abstractor.specify(nl_sub_action)
                 else:
                     action = nl_sub_action
 
         return cortex.infer_sub_action(hippocampus.augmented_all(), action)
 
 
-    def react(self, from_state: algebraic.State, top_action: algebraic.Action) -> algebraic.Action:
-        return self.__sub_action_recursion(0, from_state, top_action)
+    def react(self, from_states: Union[algebraic.State, List[algebraic.State]], top_action: algebraic.Action) -> algebraic.Action:
+        if isinstance(from_states, algebraic.State):
+            # duplicate to the number of layers
+            base = from_states
+            from_states = [base]
+            for i in range(0, self.depth - 1):
+                from_states.append(base if self.abstractors[i] is None else self.abstractors[i].abstract_start(base))
+        return self.__sub_action_recursion(0, from_states, top_action)
 
 
     def __generate_steps(self, i, state, target_state):
@@ -87,20 +89,23 @@ class HUMN:
         cortex = self.cortices[i]
         hippocampus = self.hippocampi[i]
 
+        if self.reset_hippocampus_on_target_changed:
+            hippocampus.refresh()
+
         for step in range(self.max_sub_steps):
+            hippocampus.append(state)
             full_state = hippocampus.augmented_all()
             target_action = target_state - full_state
             if target_action.zero_length():
                 return
             sub_action = cortex.infer_sub_action(full_state, target_action)
-            new_state = state + sub_action
-            refined_state = hippocampus.append(new_state)
-            yield refined_state
+            state = state + sub_action
+            yield state
 
         raise MaxSubStepReached(f"Max sub step of {self.max_sub_steps} reached at layer {i}")
 
         
-    def __think_recursion(self, i, state, action):
+    def __think_recursion(self, i, states, action):
         if action.zero_length():
             return
     
@@ -108,17 +113,11 @@ class HUMN:
         hippocampus = self.hippocampi[i]
         abstractor = self.abstractors[i] if i < len(self.abstractors) else None
         
-        hippocampus.append(state)
+        state = states[i]
         goal_state = state + action
         
         if i < self.depth - 1:
-
-            if abstractor is not None:
-                nl_from_state, nl_action = abstractor.abstract(hippocampus.augmented_all(), action)
-            else:
-                nl_from_state, nl_action = state, action
-            goal_generator = self.__think_recursion(i + 1, nl_from_state, nl_action)
-            
+            goal_generator = self.__think_recursion(i + 1, states, action)
             while True:
                 try:
                     nl_target_state = next(goal_generator)
@@ -132,15 +131,17 @@ class HUMN:
  
                 for state in self.__generate_steps(i, state, target_state):
                     yield state
-        
-                if self.reset_hippocampus_on_target_changed:
-                    hippocampus.refresh()
-                    hippocampus.append(state)
 
         for state in self.__generate_steps(i, state, goal_state):
             yield state
 
 
-    def think(self, from_state: algebraic.State, top_action: algebraic.Action) -> Generator[algebraic.State, None, None]:
-        return self.__think_recursion(0, from_state, top_action)
+    def think(self, from_states: Union[algebraic.State, List[algebraic.State]], top_action: algebraic.Action) -> Generator[algebraic.State, None, None]:
+        if isinstance(from_states, algebraic.State):
+            # duplicate to the number of layers
+            base = from_states
+            from_states = [base]
+            for i in range(0, self.depth - 1):
+                from_states.append(base if self.abstractors[i] is None else self.abstractors[i].abstract_start(base))
+        return self.__think_recursion(0, from_states, top_action)
 

@@ -14,12 +14,12 @@ class Model:
         raise NotImplementedError("Not implemented")
 
 
-    def abstract(self, from_sequence: algebraic.Augmented_State_Squence, action: algebraic.Action) -> Tuple[algebraic.State, algebraic.Action]:
-        # return next layer state and action
+    def abstract_start(self, state: algebraic.State) -> algebraic.State:
+        # return the start state of the path
         raise NotImplementedError("Not implemented")
 
 
-    def specify(self, nl_start: algebraic.State, nl_action: Union[algebraic.Action, None] = None, start: Union[algebraic.State, None] = None) -> Union[algebraic.Action, algebraic.State]:
+    def specify(self, nl_action: algebraic.Action) -> algebraic.Action:
         # inverse of abstract
         # return action if nl_action is not None, else return state
         raise NotImplementedError("Not implemented")

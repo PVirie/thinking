@@ -110,19 +110,11 @@ class Model(abstraction_model.Model):
         return Pointer_Sequence(maxima_indices), State_Sequence(path.data[maxima_indices])
 
 
-    def abstract(self, from_sequence: Augmented_State_Squence, action: Action) -> Tuple[State, Action]:
-        stat = self.model.infer(from_sequence.data[:, 0, :])
-        maxima = compute_maxima_from_stat(stat, True, False)
-
-        # get the last maximum
-        # get last true
-        last_maxima_indice = jnp.arange(len(maxima))[maxima][-1]
-        return State(from_sequence.data[last_maxima_indice, 0, :]), action
+    def abstract_start(self, state: State) -> State:
+        return state
 
 
-    def specify(self, nl_start: State, nl_action: Union[Action, None] = None, start: Union[State, None] = None) -> Union[Action, State]:
-        if nl_action is None:
-            return nl_start
+    def specify(self, nl_action: Action) -> Action:
         return nl_action
 
 
