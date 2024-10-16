@@ -8,9 +8,9 @@ import json
 import math
 
 try:
-    from .algebraic import *
-except:
     from algebraic import *
+except:
+    from .algebraic import *
 
 
 def process_chunk(embedding_chunks, step_size=4):
@@ -43,8 +43,8 @@ class Model(abstraction_model.Model):
         pass
 
 
-    def specify(self, nl_action: Text_Embedding) -> Text_Embedding:
-        return nl_action
+    def specify(self, nl_action: Augmented_Text_Embedding) -> Text_Embedding:
+        return Text_Embedding(nl_action.data[:-1])
 
 
 if __name__ == "__main__":

@@ -56,15 +56,18 @@ if __name__ == "__main__":
             tokenizer_model = tokenizer.KMean_Tokenizer.load(tokenizer_path)
         tokenizers.append(tokenizer_model)
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=16)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=64)
 
     log_keeper = {}
-    def print_state(i, text_embedding):
+    def print_state(i, augmented_text_embedding):
         if i not in log_keeper:
             log_keeper[i] = []
         # convert from jax to int
-        index = int(jnp.argmax(text_embedding.data))
+        index = int(jnp.argmax(augmented_text_embedding.data[:-1]))
         log_keeper[i].append(index)
+        if augmented_text_embedding.data[-1] > 50:
+            log_keeper[i].append("|")
+
 
     for i, c in enumerate(model.cortices):
         c.printer = functools.partial(print_state, i)
@@ -83,12 +86,14 @@ if __name__ == "__main__":
         start = jnp.array(item_datum["start_embedding"], dtype=jnp.float32)
         goal = jnp.array(item_datum["goal_embedding"], dtype=jnp.float32)
 
+        for i, h in enumerate(model.hippocampi):
+            h.reset()
+
         chunks = []
         try:
-            model.refresh()
             for state in model.think([alg.Text_Embedding(t.encode(start)) for t in tokenizers], alg.Text_Embedding(goal)):
-                decoded = tokenizers[0].decode(state.data)
-                chunks.append(state.data)
+                decoded = tokenizers[0].decode(state.data[:-1])
+                chunks.append(decoded)
         except MaxSubStepReached:
             logging.warning(f"Truncated termination for item {item}.")
         finally:

@@ -8,9 +8,9 @@ import os
 import json
 
 try:
-    from .algebraic import *
-except:
     from algebraic import *
+except:
+    from .algebraic import *
 
 try:
     import core

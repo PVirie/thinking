@@ -6,9 +6,9 @@ import os
 import json
 
 try:
-    from .algebraic import *
-except:
     from algebraic import *
+except:
+    from .algebraic import *
 
 
 class KMean_Tokenizer:
@@ -65,7 +65,7 @@ class KMean_Tokenizer:
 
 
     def freeze(self):
-        self.one_hots = jnp.eye(self.embeddings.shape[0])
+        self.one_hots = jnp.eye(self.embeddings.shape[0]) * 100
 
 
     def output_dims(self):

@@ -8,10 +8,9 @@ import os
 import json
 
 try:
-    from .algebraic import *
-except:
     from algebraic import *
-
+except:
+    from .algebraic import *
 
 
 class Model(hippocampus_model.Model):
@@ -73,8 +72,8 @@ class Model(hippocampus_model.Model):
 
     def append(self, state):
         if isinstance(state, Augmented_Text_Embedding):
-            state_data = state.data
-            flag = state.flag
+            state_data = state.data[:-1]
+            flag = state.data[-1]
         else:
             state_data = state.data
             flag = 0
@@ -89,9 +88,13 @@ class Model(hippocampus_model.Model):
 
 
     def refresh(self):
-        # self.data = self.data.at[:].set(0.0)
         self.stop_flags = self.stop_flags.at[:].set(0.0)
-        # self.start = self.max_length
+
+
+    def reset(self):
+        self.data = self.data.at[:].set(0.0)
+        self.stop_flags = self.stop_flags.at[:].set(0.0)
+        self.start = self.max_length
 
 
 

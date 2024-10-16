@@ -112,8 +112,8 @@ if __name__ == "__main__":
     for i in range(num_layers):
         input_dims = tokenizers[i].output_dims()
         target_dims = tokenizers[i + 1].output_dims() if i + 1 < num_layers else embedding_dim
-        cortex_models.append(cortex.Model(i, transformer.Model([input_dims, input_dims + 1, target_dims], 4, 256, [256, 128])))
-        hippocampus_models.append(hippocampus.Model(8, input_dims))
+        cortex_models.append(cortex.Model(i, transformer.Model([input_dims, input_dims + 1, target_dims], 4, 256, [256, 256])))
+        hippocampus_models.append(hippocampus.Model(128, input_dims))
 
     abstraction_models = []
 
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     for trainer in trainers:
         trainer.prepare_batch(16)
 
-    loop_train(trainers, 50000)
+    loop_train(trainers, 100000)
 
     # save model
     core.initialize(os.path.join(experiment_path, "core"), clear=True)

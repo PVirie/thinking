@@ -8,9 +8,9 @@ import json
 import random
 
 try:
-    from .algebraic import *
-except:
     from algebraic import *
+except:
+    from .algebraic import *
 
 try:
     import core
