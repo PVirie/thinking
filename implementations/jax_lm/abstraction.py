@@ -43,8 +43,8 @@ class Model(abstraction_model.Model):
         pass
 
 
-    def specify(self, nl_action: Augmented_Text_Embedding) -> Text_Embedding:
-        return Text_Embedding(nl_action.data[:-1])
+    def specify(self, nl_action: Text_Embedding) -> Text_Embedding:
+        return nl_action
 
 
 if __name__ == "__main__":

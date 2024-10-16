@@ -56,7 +56,7 @@ if __name__ == "__main__":
             tokenizer_model = tokenizer.KMean_Tokenizer.load(tokenizer_path)
         tokenizers.append(tokenizer_model)
 
-    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=True, max_sub_steps=64)
+    model = HUMN(cortex_models, hippocampus_models, abstraction_models, reset_hippocampus_on_target_changed=False, max_sub_steps=64)
 
     log_keeper = {}
     def print_state(i, augmented_text_embedding):
@@ -91,8 +91,11 @@ if __name__ == "__main__":
 
         chunks = []
         try:
-            for state in model.think([alg.Text_Embedding(t.encode(start)) for t in tokenizers], alg.Text_Embedding(goal)):
-                decoded = tokenizers[0].decode(state.data[:-1])
+            for state in model.think(
+                    [alg.Text_Embedding(t.encode(start)) for t in tokenizers], 
+                    alg.Text_Embedding(tokenizers[-1].encode(goal))
+                ):
+                decoded = tokenizers[0].decode(state.data)
                 chunks.append(decoded)
         except MaxSubStepReached:
             logging.warning(f"Truncated termination for item {item}.")

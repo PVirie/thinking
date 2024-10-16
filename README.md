@@ -73,7 +73,7 @@ If you have any issues, please let me know.
     -   [x] Make core models accept context of shape (batch, context length, feature length)
     -   [x] LLM Steering
     -   [x] Implement K-mean tokenization
-    -   [ ] Train the LM hierarchical guide model
+    -   [x] Train the LM hierarchical guide model
     -   [ ] Interpretability
 -   [x] Reinforcement learning
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
@@ -81,6 +81,7 @@ If you have any issues, please let me know.
     -   [x] Use curriculum learning
     -   [ ] [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
         -   [ ] Goals transition
+    -   [ ] [BankHeist] (https://ale.farama.org/environments/crossbow/)
 -   [x] Abstraction
     -   [x] Abstraction interface
     -   [x] Implement ideal entropy abstraction

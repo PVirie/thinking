@@ -101,6 +101,8 @@ class HUMN:
             sub_action = cortex.infer_sub_action(full_state, target_action)
             state = state + sub_action
             yield state
+            if sub_action.zero_length():
+                return
 
         raise MaxSubStepReached(f"Max sub step of {self.max_sub_steps} reached at layer {i}")
 

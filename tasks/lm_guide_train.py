@@ -102,18 +102,30 @@ if __name__ == "__main__":
             full_path_data[j].append(t.encode(pivots))
         path_data = next_path_data
 
+    t = tokenizer.KMean_Tokenizer(128, random.randint(0, 1000000))
+    for j, item_datum in enumerate(item_data):
+        t.accumulate_batch(jnp.reshape(jnp.array(item_datum["goal_embedding"], jnp.float32), [1, -1]))    
+    t.train()
+    t.freeze()
+    tokenizers.append(t)
+
     # add final layer
     for j, item_datum in enumerate(item_data):
         full_pivot_indices_data[j].append([len(full_path_data[j][-1])])
-        full_path_data[j].append(jnp.reshape(jnp.array(item_datum["goal_embedding"], jnp.float32), [1, -1]))
+        full_path_data[j].append(t.encode(jnp.reshape(jnp.array(item_datum["goal_embedding"], jnp.float32), [1, -1])))
 
+    hidden_states = [
+        256,
+        480,
+        480
+    ]
     cortex_models = []
     hippocampus_models = []
     for i in range(num_layers):
         input_dims = tokenizers[i].output_dims()
-        target_dims = tokenizers[i + 1].output_dims() if i + 1 < num_layers else embedding_dim
-        cortex_models.append(cortex.Model(i, transformer.Model([input_dims, input_dims + 1, target_dims], 4, 256, [256, 256])))
-        hippocampus_models.append(hippocampus.Model(128, input_dims))
+        target_dims = tokenizers[i + 1].output_dims()
+        cortex_models.append(cortex.Model(i, transformer.Model([input_dims, input_dims + 1, target_dims], 4, hidden_states[i], [hidden_states[i], hidden_states[i]])))
+        hippocampus_models.append(hippocampus.Model(64, input_dims))
 
     abstraction_models = []
 
