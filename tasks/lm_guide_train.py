@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     hidden_states = [
         256,
-        480,
+        600,
         480
     ]
     cortex_models = []

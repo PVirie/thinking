@@ -55,7 +55,7 @@ class Augmented_Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
             self.data = device_put(jnp.array(data, jnp.float32))
         
     def zero_length(self):
-        return self.data[-1] < 50
+        return self.data[-1] > 50
 
 
 
