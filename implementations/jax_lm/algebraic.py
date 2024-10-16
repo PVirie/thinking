@@ -55,7 +55,7 @@ class Augmented_Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
             self.data = device_put(jnp.array(data, jnp.float32))
         
     def zero_length(self):
-        return self.data[-1] > 50
+        return self.data[0] > 50
 
 
 
@@ -70,7 +70,7 @@ class Text_Embedding(humn.algebraic.State, humn.algebraic.Action):
 
     def __add__(self, a):
         if isinstance(a, Augmented_Text_Embedding):
-            max_index = jnp.argmax(a.data[:-1])
+            max_index = jnp.argmax(a.data[1:])
             a_data = jnp.zeros_like(self.data).at[max_index].set(100)
             return Text_Embedding(a_data)
         else:

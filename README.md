@@ -75,13 +75,14 @@ If you have any issues, please let me know.
     -   [x] Implement K-mean tokenization
     -   [x] Train the LM hierarchical guide model
     -   [ ] Interpretability
+    -   [ ] LM data
 -   [x] Reinforcement learning
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
         -   [x] Use average state value as the goal
     -   [x] Use curriculum learning
     -   [ ] [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
         -   [ ] Goals transition
-    -   [ ] [BankHeist] (https://ale.farama.org/environments/crossbow/)
+    -   [ ] [BankHeist] (https://ale.farama.org/environments/bank_heist/)
 -   [x] Abstraction
     -   [x] Abstraction interface
     -   [x] Implement ideal entropy abstraction

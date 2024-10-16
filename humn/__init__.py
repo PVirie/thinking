@@ -116,8 +116,6 @@ class HUMN:
         abstractor = self.abstractors[i] if i < len(self.abstractors) else None
         
         state = states[i]
-        goal_state = state + action
-        
         if i < self.depth - 1:
             goal_generator = self.__think_recursion(i + 1, states, action)
             while True:
@@ -133,9 +131,10 @@ class HUMN:
  
                 for state in self.__generate_steps(i, state, target_state):
                     yield state
-
-        for state in self.__generate_steps(i, state, goal_state):
-            yield state
+        else:
+            goal_state = state + action
+            for state in self.__generate_steps(i, state, goal_state):
+                yield state
 
 
     def think(self, from_states: Union[algebraic.State, List[algebraic.State]], top_action: algebraic.Action) -> Generator[algebraic.State, None, None]:

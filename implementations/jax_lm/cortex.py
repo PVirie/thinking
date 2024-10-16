@@ -61,12 +61,12 @@ class Trainer(trainer.Trainer):
         len_pivots = pivot_indices.data.shape[0]
         seq_len = len(path_encoding_sequence) - 1
 
-        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, :-1], axis=0), (len_pivots, 1, 1))
+        s = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[:-1, 1:], axis=0), (len_pivots, 1, 1))
         x = jnp.tile(jnp.expand_dims(path_encoding_sequence.data[1:, :], axis=0), (len_pivots, 1, 1))
         t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, seq_len, 1))
 
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
-        masks, scores = generate_mask_and_score(pivot_indices.data, seq_len, step_discount_factor, min(2, len_pivots))
+        masks, scores = generate_mask_and_score(pivot_indices.data, seq_len, step_discount_factor, min(1, len_pivots))
 
         # now always pad seq_len to tens
         target_seq_len = deci_ceil(seq_len)
@@ -186,7 +186,7 @@ class Model(cortex_model.Model):
 
     def infer_sub_action(self, from_encoding_sequence: Augmented_Embedding_Squence, expect_action: Text_Embedding) -> Text_Embedding:
         next_action_data, score = self.model.infer(
-            jnp.expand_dims(from_encoding_sequence.data[:, :-1], axis=0), 
+            jnp.expand_dims(from_encoding_sequence.data[:, 1:], axis=0), 
             jnp.expand_dims(expect_action.data, axis=0)
             )
         a = Augmented_Text_Embedding(next_action_data[0])

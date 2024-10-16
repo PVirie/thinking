@@ -63,9 +63,9 @@ if __name__ == "__main__":
         if i not in log_keeper:
             log_keeper[i] = []
         # convert from jax to int
-        index = int(jnp.argmax(augmented_text_embedding.data[:-1]))
+        index = int(jnp.argmax(augmented_text_embedding.data[1:]))
         log_keeper[i].append(index)
-        if augmented_text_embedding.data[-1] > 50:
+        if augmented_text_embedding.data[0] > 50:
             log_keeper[i].append("|")
 
 
@@ -86,8 +86,7 @@ if __name__ == "__main__":
         start = jnp.array(item_datum["start_embedding"], dtype=jnp.float32)
         goal = jnp.array(item_datum["goal_embedding"], dtype=jnp.float32)
 
-        for i, h in enumerate(model.hippocampi):
-            h.reset()
+        model.refresh()
 
         chunks = []
         try:

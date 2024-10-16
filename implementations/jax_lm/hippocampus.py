@@ -18,8 +18,8 @@ class Model(hippocampus_model.Model):
     def __init__(self, max_length: int, input_dims: int):
         self.max_length = max_length
         self.input_dims = input_dims
-        self.data = jnp.zeros((max_length, input_dims), dtype=jnp.float32)
         self.stop_flags = jnp.zeros((max_length, 1), dtype=jnp.float32)
+        self.data = jnp.zeros((max_length, input_dims), dtype=jnp.float32)
         self.start = self.max_length
 
         # # more efficient one
@@ -55,7 +55,7 @@ class Model(hippocampus_model.Model):
     def augmented_all(self) -> Augmented_Embedding_Squence:
         # data has shape (N, dims + 1)
         return Augmented_Embedding_Squence(
-            jnp.concatenate([self.data[self.start:], self.stop_flags[self.start:]], axis=1)
+            jnp.concatenate([self.stop_flags[self.start:], self.data[self.start:]], axis=1)
         )
 
 
@@ -66,34 +66,30 @@ class Model(hippocampus_model.Model):
         flags = flags.at[pivot_sequence.data].set(100.0)
 
         return Augmented_Embedding_Squence(
-            jnp.concatenate([path.data[path.data.shape[0] - length:], flags[path.data.shape[0] - length:]], axis=1)
+            jnp.concatenate([flags[-length:], path.data[-length:]], axis=1)
         )
     
 
     def append(self, state):
         if isinstance(state, Augmented_Text_Embedding):
-            state_data = state.data[:-1]
-            flag = state.data[-1]
+            flag = state.data[0]
+            state_data = state.data[1:]
         else:
-            state_data = state.data
             flag = 0
+            state_data = state.data
 
         # roll the data
-        self.data = jnp.roll(self.data, -1, axis=0)
         self.stop_flags = jnp.roll(self.stop_flags, -1, axis=0)
+        self.data = jnp.roll(self.data, -1, axis=0)
         # inplace update
-        self.data = self.data.at[-1, :].set(state_data)
         self.stop_flags = self.stop_flags.at[-1, 0].set(flag)
+        self.data = self.data.at[-1, :].set(state_data)
         self.start = max(0, self.start - 1)
 
 
     def refresh(self):
         self.stop_flags = self.stop_flags.at[:].set(0.0)
-
-
-    def reset(self):
         self.data = self.data.at[:].set(0.0)
-        self.stop_flags = self.stop_flags.at[:].set(0.0)
         self.start = self.max_length
 
 

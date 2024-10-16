@@ -30,7 +30,7 @@ def loop_train(trainers, num_epoch=1000):
             # print at every 1 % progress
             # compute time to finish in seconds
             logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-            logging.info(f"Layer loss: {', '.join([f'{trainer.avg_loss:.4f}' for trainer in trainers])}")
+            logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
     logging.info(f"Total learning time {time.time() - stamp}s")
 
     
@@ -143,6 +143,16 @@ if __name__ == "__main__":
             paths.append(alg.Embedding_Sequence(jnp.concatenate([tokenizers[i].encode(start_embedding), full_path_data[j][i]], axis = 0)))
             indices.append(alg.Pointer_Sequence(full_pivot_indices_data[j][i]))
             pivots.append(alg.Embedding_Sequence(full_path_data[j][i + 1]))
+
+        # print data
+        if j == 0:
+            for i, path in enumerate(paths):
+                path_indices = jnp.argmax(path.data, axis=1)
+                logging.info(f"Data {j} Path {i}: {path_indices}")
+
+            for i, pivot in enumerate(pivots):
+                path_indices = jnp.argmax(pivot.data, axis=1)
+                logging.info(f"Data {j} Pivot {i}: {path_indices}")
 
         layer_data = list(zip(paths, indices, pivots))
         trainers = model.observe(layer_data)
