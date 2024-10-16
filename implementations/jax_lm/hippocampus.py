@@ -86,6 +86,8 @@ class Model(hippocampus_model.Model):
         self.data = self.data.at[-1, :].set(state_data)
         self.stop_flags = self.stop_flags.at[-1, 0].set(flag)
         self.start = max(0, self.start - 1)
+        
+        return state
 
 
     def refresh(self):

@@ -13,6 +13,7 @@ class Model:
 
 
     def append(self, state: algebraic.State):
+        # return refined version of the state
         raise NotImplementedError("Not implemented")
 
 

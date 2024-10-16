@@ -45,6 +45,7 @@ class Model(hippocampus_model.Model):
 
     def append(self, state: Cart_State):
         self.data = state.data
+        return state
 
 
     def refresh(self):

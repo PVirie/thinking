@@ -89,17 +89,14 @@ class HUMN:
         cortex = self.cortices[i]
         hippocampus = self.hippocampi[i]
 
-        if self.reset_hippocampus_on_target_changed:
-            hippocampus.refresh()
-
         for step in range(self.max_sub_steps):
-            hippocampus.append(state)
             full_state = hippocampus.augmented_all()
             target_action = target_state - full_state
             if target_action.zero_length():
                 return
             sub_action = cortex.infer_sub_action(full_state, target_action)
             state = state + sub_action
+            state = hippocampus.append(state)
             yield state
 
         raise MaxSubStepReached(f"Max sub step of {self.max_sub_steps} reached at layer {i}")
@@ -115,6 +112,7 @@ class HUMN:
         
         state = states[i]
         goal_state = state + action
+        hippocampus.append(state)
         
         if i < self.depth - 1:
             goal_generator = self.__think_recursion(i + 1, states, action)
@@ -131,6 +129,11 @@ class HUMN:
  
                 for state in self.__generate_steps(i, state, target_state):
                     yield state
+
+                if self.reset_hippocampus_on_target_changed:
+                    hippocampus.refresh()
+                    hippocampus.append(state)
+
 
         for state in self.__generate_steps(i, state, goal_state):
             yield state
