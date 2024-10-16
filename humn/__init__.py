@@ -52,28 +52,6 @@ class HUMN:
         return trainers
     
 
-    def __sub_action_recursion(self, i, states, action):
-        if action.zero_length():
-            return action
-        
-        cortex = self.cortices[i]
-        hippocampus = self.hippocampi[i]
-        abstractor = self.abstractors[i] if i < len(self.abstractors) else None
-
-        hippocampus.append(states[i])
-
-        if i < self.depth - 1:
-            nl_sub_action = self.__sub_action_recursion(i + 1, states, action)
-            if not nl_sub_action.zero_length():
-                # if the next step is not the goal, specify the goal
-                if abstractor is not None:
-                    action = abstractor.specify(nl_sub_action)
-                else:
-                    action = nl_sub_action
-
-        return cortex.infer_sub_action(hippocampus.augmented_all(), action)
-
-
     def react(self, from_states: Union[algebraic.State, List[algebraic.State]], top_action: algebraic.Action) -> algebraic.Action:
         if not isinstance(from_states, List):
             # duplicate to the number of layers
@@ -81,7 +59,15 @@ class HUMN:
             from_states = [base]
             for i in range(0, self.depth - 1):
                 from_states.append(base if self.abstractors[i] is None else self.abstractors[i].abstract_start(base))
-        return self.__sub_action_recursion(0, from_states, top_action)
+
+        action = top_action
+        for i in range(self.depth - 1, -1, -1):
+            self.hippocampi[i].append(from_states[i])
+            if i < self.depth - 1 and self.abstractors[i] is not None:
+                action = self.abstractors[i].specify(action)
+            if not action.zero_length():
+                action = self.cortices[i].infer_sub_action(self.hippocampi[i].augmented_all(), action)
+        return action
 
 
     def __generate_steps(self, i, state, target_state):

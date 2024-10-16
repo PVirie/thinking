@@ -116,8 +116,8 @@ if __name__ == "__main__":
 
     hidden_states = [
         256,
-        600,
-        480
+        640,
+        512
     ]
     cortex_models = []
     hippocampus_models = []
