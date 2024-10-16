@@ -60,7 +60,7 @@ class HUMN:
             for i in range(0, self.depth - 1):
                 from_states.append(base if self.abstractors[i] is None else self.abstractors[i].abstract_start(base))
 
-        for i in range(self.depth-1, -1, -1):
+        for i in range(self.depth - 1, -1, -1):
             self.hippocampi[i].append(from_states[i])
             if i < self.depth - 1 and self.abstractors[i] is not None:
                 top_action = self.abstractors[i].specify(action)
@@ -79,51 +79,24 @@ class HUMN:
         if self.reset_hippocampus_on_target_changed:
             hippocampus.refresh()
 
-        for step in range(self.max_sub_steps):
+        output_states = []
+        for _ in range(self.max_sub_steps):
             hippocampus.append(state)
             full_state = hippocampus.augmented_all()
             target_action = target_state - full_state
             if target_action.zero_length():
-                return
+                break
             sub_action = cortex.infer_sub_action(full_state, target_action)
             state = state + sub_action
-            yield state
+            output_states.append(state)
             if sub_action.zero_length():
-                return
-
-        raise MaxSubStepReached(f"Max sub step of {self.max_sub_steps} reached at layer {i}")
-
-        
-    def __think_recursion(self, i, states, action):
-        if action.zero_length():
-            return
-    
-        cortex = self.cortices[i]
-        hippocampus = self.hippocampi[i]
-        abstractor = self.abstractors[i] if i < len(self.abstractors) else None
-        
-        state = states[i]
-        if i < self.depth - 1:
-            goal_generator = self.__think_recursion(i + 1, states, action)
-            while True:
-                try:
-                    nl_target_state = next(goal_generator)
-                except StopIteration:
-                    break
-
-                if abstractor is not None:
-                    target_state = abstractor.specify(nl_target_state)
-                else:
-                    target_state = nl_target_state
- 
-                for state in self.__generate_steps(i, state, target_state):
-                    yield state
+                break
         else:
-            goal_state = state + action
-            for state in self.__generate_steps(i, state, goal_state):
-                yield state
+            raise MaxSubStepReached(f"Max sub step of {self.max_sub_steps} reached at layer {i}")
+        
+        return output_states, state
 
-
+        
     def think(self, from_states: Union[algebraic.State, List[algebraic.State]], top_action: algebraic.Action) -> Generator[algebraic.State, None, None]:
         if not isinstance(from_states, List):
             # duplicate to the number of layers
@@ -131,5 +104,17 @@ class HUMN:
             from_states = [base]
             for i in range(0, self.depth - 1):
                 from_states.append(base if self.abstractors[i] is None else self.abstractors[i].abstract_start(base))
-        return self.__think_recursion(0, from_states, top_action)
+
+        top_states = [from_states[-1] + top_action]
+        for i in range(self.depth - 1, -1, -1):
+            if i < self.depth - 1 and self.abstractors[i] is not None:
+                abstractor = self.abstractors[i]
+                top_states = [abstractor.specify(s) for s in top_states] 
+            current_state = from_states[i]
+            states = []
+            for top_state in top_states:
+                state_batches, current_state = self.__generate_steps(i, current_state, top_state)
+                states.extend(state_batches)
+            top_states = states
+        return states
 
