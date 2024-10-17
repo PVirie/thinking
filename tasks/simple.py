@@ -126,7 +126,7 @@ class Context(BaseModel):
         explore_steps = 5000
         path_sequences = []
         for i in range(explore_steps):
-            path = random_walk(graph, 0, graph.shape[0] - 1)
+            path = random_walk(graph, math.floor(32 * i / explore_steps), graph.shape[0] - 1)
             path_sequences.append(alg.Pointer_Sequence(path))
 
         def loop_train(trainers, num_epoch=1000):
@@ -175,7 +175,7 @@ class Context(BaseModel):
         # for table model, sequential update is neccessary
         trainer.prepare_batch(1)
 
-        loop_train([trainer], 5000)
+        loop_train([trainer], explore_steps)
 
         data_abstract_path = []
         for p_seq in path_sequences:
@@ -203,7 +203,7 @@ class Context(BaseModel):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.001, r_seed=random_seed), max_steps = skip_step_size**(i+1))
+            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.001, r_seed=random_seed), max_steps = graph_shape)
             for i in range(num_layers)
         ]
 
@@ -237,7 +237,7 @@ class Context(BaseModel):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.001, r_seed=random_seed), max_steps = skip_step_size**(i+1))
+            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.001, r_seed=random_seed), max_steps = graph_shape)
             for i in range(num_layers)
         ]
 
@@ -280,7 +280,7 @@ class Context(BaseModel):
         cortex_models = []
         hippocampus_models = []
         for i in range(num_layers):
-            c = cortex.Model(i, table_cores[i], max_steps = skip_step_size**(i+1))
+            c = cortex.Model(i, table_cores[i], max_steps = graph_shape)
             cortex_models.append(c)
 
             h = hippocampus.Model(graph_shape, graph_shape)
@@ -298,7 +298,7 @@ class Context(BaseModel):
             # for table model, sequential update is neccessary
             trainer.prepare_batch(1)
 
-        loop_train(trainers, 5000)
+        loop_train(trainers, explore_steps)
 
         parameter_sets.append({
             "cortex_models": cortex_models,
