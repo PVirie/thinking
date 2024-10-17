@@ -178,7 +178,7 @@ class Value_Score_Module(nn.Module):
             # score has range [0, 1], quantize to int slots
             scores = jnp.reshape(scores, (-1, 1))
             max_indices = jnp.round(scores * (self.slots - 1)).astype(jnp.int32)
-            max_indices = jnp.minimum(max_indices, self.slots - 1)
+            max_indices = jnp.clip(max_indices, min=0, max=self.slots - 1)
 
         s = jnp.take_along_axis(Ss, max_indices, axis=1)
         v = jnp.take_along_axis(Vs, jnp.expand_dims(max_indices, axis=-1), axis=1)

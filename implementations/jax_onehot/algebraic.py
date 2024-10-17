@@ -76,6 +76,30 @@ class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
         self.data = jnp.concatenate([self.data, jnp.array([s], dtype=jnp.int32)], axis=0)
 
 
+class Distance_Sequence(humn.algebraic.State_Sequence):
+    def __init__(self, indices = []):
+        self.data = jnp.array(indices, dtype=jnp.float32)
+
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return Distance_Sequence(self.data[i])
+        elif isinstance(i, Pointer_Sequence):
+            return Distance_Sequence(self.data[i.data])
+        else:
+            return Distance_Sequence(self.data[i])
+
+
+    def __setitem__(self, i, s):
+        self.data = self.data.at[i].set(s)
+
+
+    def __len__(self):
+        return self.data.shape[0]
+
+
+
+
 class State_Sequence(humn.algebraic.State_Sequence):
     def __init__(self, states):
         if isinstance(states, List):

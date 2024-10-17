@@ -9,7 +9,8 @@ import argparse
 import sys
 import math
 import jax
-import jax.numpy
+import jax.numpy as jnp
+from functools import partial
 
 from utilities.utilities import *
 
@@ -142,28 +143,26 @@ class Context(BaseModel):
             logging.info(f"Total learning time {time.time() - stamp}s")
 
         num_layers = 3
+        skip_step_size = int(4)
 
         ############################# PREPARE STEP HIERARCHY DATA ################################
 
         data_skip_path = []
         for p_seq in path_sequences:
             path = states.generate_subsequence(p_seq)
+            distances = alg.Distance_Sequence(jnp.arange(len(path), dtype=jnp.float32))
             layer_paths = []
             for i in range(num_layers):
                 if i == num_layers - 1:
                     pivot_indices, pivots = path.sample_skip(math.inf)
-                    layer_paths.append((path, pivot_indices, pivots))
+                    layer_paths.append((path, pivot_indices, distances))
                 else:
-                    pivot_indices, pivots = path.sample_skip(4)
-                    layer_paths.append((path, pivot_indices, pivots))
+                    pivot_indices, pivots = path.sample_skip(skip_step_size)
+                    layer_paths.append((path, pivot_indices, distances))
                 path = pivots
+                distances = distances[pivot_indices.data]
             data_skip_path.append(layer_paths)
 
-        for datum in data_skip_path:
-            path = datum[-1][0]
-            logging.info("-" + str(jax.numpy.argmax(path.data, axis=1)))
-            pivots = datum[-1][2]
-            logging.info(">" + str(jax.numpy.argmax(pivots.data, axis=1)))
 
         ############################# PREPARE ENTROPIC HIERARCHY DATA ################################
 
@@ -181,15 +180,17 @@ class Context(BaseModel):
         data_abstract_path = []
         for p_seq in path_sequences:
             path = states.generate_subsequence(p_seq)
+            distances = alg.Distance_Sequence(jnp.arange(len(path), dtype=jnp.float32))
             layer_paths = []
             for i in range(num_layers):
                 if i == num_layers - 1:
                     pivot_indices, pivots = path.sample_skip(math.inf)
-                    layer_paths.append((path, pivot_indices, pivots))
+                    layer_paths.append((path, pivot_indices, distances))
                 else:
                     pivot_indices, pivots = abstractor.abstract_path(path)
-                    layer_paths.append((path, pivot_indices, pivots))
+                    layer_paths.append((path, pivot_indices, distances))
                 path = pivots
+                distances = distances[pivot_indices.data]
             data_abstract_path.append(layer_paths)
 
         # print entropy
@@ -202,7 +203,7 @@ class Context(BaseModel):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed))
+            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.001, r_seed=random_seed), max_steps = skip_step_size**(i+1))
             for i in range(num_layers)
         ]
 
@@ -236,7 +237,7 @@ class Context(BaseModel):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=16, value_access=False, lr=0.001, r_seed=random_seed))
+            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.001, r_seed=random_seed), max_steps = skip_step_size**(i+1))
             for i in range(num_layers)
         ]
 
@@ -279,7 +280,7 @@ class Context(BaseModel):
         cortex_models = []
         hippocampus_models = []
         for i in range(num_layers):
-            c = cortex.Model(i, table_cores[i])
+            c = cortex.Model(i, table_cores[i], max_steps = skip_step_size**(i+1))
             cortex_models.append(c)
 
             h = hippocampus.Model(graph_shape, graph_shape)

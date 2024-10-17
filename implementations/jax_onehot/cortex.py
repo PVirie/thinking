@@ -20,16 +20,15 @@ except:
     import core
 
 
-def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
+def generate_mask_and_distance(pivots, length, distances, pre_steps=1):
     # from states to pivots
     # pivots = jnp.array(pivots, dtype=jnp.int32)
     pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
     pre_pivots = jnp.concatenate([jnp.full([pre_steps], -1, dtype=jnp.int32), pivots[:-pre_steps]], axis=0)
     masks = jnp.logical_and(jnp.expand_dims(pre_pivots, axis=0) <= pos, pos < jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
-    order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
+    orders = jnp.reshape(distances[pivots], [1, -1]) - jnp.reshape(distances, [-1, 1])
 
-    scores = jnp.power(diminishing_factor, order)
-    return jnp.transpose(masks), jnp.transpose(scores)
+    return jnp.transpose(masks), jnp.transpose(orders)
 
 
 class Trainer(trainer.Trainer):
@@ -49,10 +48,11 @@ class Trainer(trainer.Trainer):
         self.avg_loss = 0.0
 
 
-    def accumulate_batch(self, step_discount_factor, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Pointer_Sequence, pivots: State_Sequence):
+    def accumulate_batch(self, max_steps, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Pointer_Sequence, distances: Distance_Sequence):
 
         pivots = path_encoding_sequence[pivot_indices].data[:, 0, :]
         sequence_data = path_encoding_sequence.data[:, 0, :]
+        distances = distances.data
 
         s = jnp.tile(jnp.expand_dims(sequence_data, axis=0), (len(pivots), 1, 1))
         s_ = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=0), (len(pivots), 1, 1))
@@ -60,7 +60,12 @@ class Trainer(trainer.Trainer):
         t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, len(path_encoding_sequence), 1))
 
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
-        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
+        pivot_look_ahead_steps = min(2, pivot_indices.data.shape[0])
+        masks, scores = generate_mask_and_distance(pivot_indices.data, len(path_encoding_sequence), distances, pivot_look_ahead_steps)
+
+        max_gap = max_steps * pivot_look_ahead_steps
+        # distance 0 get scores 1, distance max_gap get scores 0, linearly interpolate
+        scores = 1 - scores / max_gap
 
         self.s.append(s)
         self.x.append(x)
@@ -132,10 +137,10 @@ class Trainer(trainer.Trainer):
 
 class Model(cortex_model.Model):
     
-    def __init__(self, layer: int, model: core.base.Model, step_discount_factor=0.9):
+    def __init__(self, layer: int, model: core.base.Model, max_steps=16):
         # if you wish to share the model, pass the index into learning and inference functions to differentiate between layers
         self.layer = layer
-        self.step_discount_factor = step_discount_factor
+        self.max_steps = max_steps
         self.model = model
         self.printer = None
 
@@ -151,7 +156,7 @@ class Model(cortex_model.Model):
         with open(os.path.join(path, "metadata.json"), "r") as f:
             metadata = json.load(f)
         model = core.load(metadata["model"])
-        return Model(layer=metadata["layer"], model=model, step_discount_factor=metadata["step_discount_factor"])
+        return Model(layer=metadata["layer"], model=model, max_steps=metadata["max_steps"])
                                                               
 
     @staticmethod
@@ -160,14 +165,14 @@ class Model(cortex_model.Model):
         with open(os.path.join(path, "metadata.json"), "w") as f:
             json.dump({
                 "layer": self.layer,
-                "step_discount_factor": self.step_discount_factor,
+                "max_steps": self.max_steps,
                 "model": core.save(self.model)
             }, f)
 
 
-    def incrementally_learn(self, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Pointer_Sequence, pivots: State_Sequence) -> Trainer:
+    def incrementally_learn(self, path_encoding_sequence: Augmented_State_Squence, pivot_indices: Pointer_Sequence, pivots: Distance_Sequence) -> Trainer:
         # learn to predict the next state and its probability from the current state given goal
-        return self.trainer.accumulate_batch(self.step_discount_factor, path_encoding_sequence, pivot_indices, pivots)
+        return self.trainer.accumulate_batch(self.max_steps, path_encoding_sequence, pivot_indices, pivots)
 
 
     def infer_sub_action(self, from_encoding_sequence: Augmented_State_Squence, expect_action: Action) -> Action:
@@ -185,9 +190,9 @@ class Model(cortex_model.Model):
 if __name__ == "__main__":
     import jax
 
-    masks, scores = generate_mask_and_score(jnp.array([0, 3, 7]), 8, 0.9, 2)
+    masks, distances = generate_mask_and_distance(jnp.array([0, 3, 7]), 8, jnp.arange(8), 2)
     print(masks)
-    print(scores)
+    print(distances)
 
     table_model = core.table.Model(4, 1)
     model = Model(0, table_model)
@@ -196,4 +201,4 @@ if __name__ == "__main__":
     r_key, subkey = jax.random.split(r_key)
     states = Augmented_State_Squence(jax.random.normal(subkey, (10, 2, 4)))
 
-    model.incrementally_learn(states, Pointer_Sequence([5, 9]), None)
+    model.incrementally_learn(states, Pointer_Sequence([5, 9]), Distance_Sequence(jnp.arange(10, dtype=jnp.float32)))
