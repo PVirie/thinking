@@ -52,38 +52,18 @@ if __name__ == "__main__":
     step_size = 4
     embedding_dim = len(data["vocabulary"]["embeddings"][0])
 
-    tokenizers = []
-    fixed_embeddings = []
     full_path_data = []
     full_pivot_indices_data = []
 
-    def check_and_add(embedding):
-        found = False
-        for fixed_embedding in fixed_embeddings:
-            # compute cosine similarity
-            score = (fixed_embedding * embedding) / (jnp.linalg.norm(fixed_embedding) * jnp.linalg.norm(embedding))
-            if (score > 0.9).any():
-                found = True
-                break
-        if not found:
-            fixed_embeddings.append(embedding)
-
     for item_datum in item_data:
-        check_and_add(jnp.array(item_datum["start_embedding"], jnp.float32))
         full_path_data.append([])
         full_pivot_indices_data.append([])
-
-    t = tokenizer.KMean_Tokenizer(512, random.randint(0, 1000000))
-    t.manually_prepend(jnp.array(data["vocabulary"]["embeddings"]))
-    t.manually_prepend(fixed_embeddings)
-    t.freeze()
-    tokenizers.append(t)
 
     path_data = []
     for j, item_datum in enumerate(item_data):
         path = jnp.array(item_datum["embedding_chunks"], jnp.float32)
         path_data.append(path)
-        full_path_data[j].append(t.encode(path))
+        full_path_data[j].append(path)
 
     for i in range(num_layers - 1):
         next_path_data = []
@@ -91,41 +71,24 @@ if __name__ == "__main__":
         for j, path in enumerate(path_data):
             pivots, pivot_indices = abstraction.process_chunk(path, step_size)
             full_pivot_indices_data[j].append(pivot_indices)
-            next_path_data.append(pivots)
-            t.accumulate_batch(pivots)
-        t.train()
-        t.manually_prepend(fixed_embeddings)
-        t.freeze()
-        tokenizers.append(t)
-
-        for j, pivots in enumerate(next_path_data):
             full_path_data[j].append(t.encode(pivots))
         path_data = next_path_data
-
-    t = tokenizer.KMean_Tokenizer(128, random.randint(0, 1000000))
-    for j, item_datum in enumerate(item_data):
-        t.accumulate_batch(jnp.reshape(jnp.array(item_datum["goal_embedding"], jnp.float32), [1, -1]))    
-    t.train()
-    t.freeze()
-    tokenizers.append(t)
 
     # add final layer
     for j, item_datum in enumerate(item_data):
         full_pivot_indices_data[j].append([len(full_path_data[j][-1])])
-        full_path_data[j].append(t.encode(jnp.reshape(jnp.array(item_datum["goal_embedding"], jnp.float32), [1, -1])))
+        full_path_data[j].append(jnp.reshape(jnp.array(item_datum["goal_embedding"], jnp.float32), [1, -1]))
 
-    hidden_states = [
-        [512],
-        [256, 256],
-        [256, 256, 256]
+    cortex_models = [
+        cortex.Model(i, transformer.Model([embedding_dim, embedding_dim + 1, embedding_dim], 4, 512, [512, 256])),
+        cortex.Model(i, transformer.Model([embedding_dim, embedding_dim + 1, embedding_dim], 2, 512, [512, 256])),
+        cortex.Model(i, transformer.Model([embedding_dim, embedding_dim + 1, embedding_dim], 1, 512, [512, 256]))
     ]
-    cortex_models = []
-    hippocampus_models = []
-    for i in range(num_layers):
-        input_dims = tokenizers[i].output_dims()
-        target_dims = tokenizers[i + 1].output_dims()
-        cortex_models.append(cortex.Model(i, transformer.Model([input_dims, input_dims + 1, target_dims], 4, hidden_states[i][0], hidden_states[i])))
-        hippocampus_models.append(hippocampus.Model(64, input_dims))
+    hippocampus_models = [
+        hippocampus.Model(64, embedding_dim),
+        hippocampus.Model(64, embedding_dim),
+        hippocampus.Model(64, embedding_dim)
+    ]
 
     abstraction_models = []
 
@@ -140,7 +103,7 @@ if __name__ == "__main__":
         pivots = []
         for i in range(num_layers):
             # prepend start_embedding to paths
-            paths.append(alg.Embedding_Sequence(jnp.concatenate([tokenizers[i].encode(start_embedding), full_path_data[j][i]], axis = 0)))
+            paths.append(alg.Embedding_Sequence(jnp.concatenate([start_embedding, full_path_data[j][i]], axis = 0)))
             indices.append(alg.Pointer_Sequence(full_pivot_indices_data[j][i]))
             pivots.append(alg.Embedding_Sequence(full_path_data[j][i + 1]))
 
@@ -177,13 +140,8 @@ if __name__ == "__main__":
         abstraction_path = os.path.join(experiment_path, "abstraction_models", f"abstraction_{i}")
         abstraction.Model.save(model, abstraction_path)
 
-    for i, model in enumerate(tokenizers):
-        tokenizer_path = os.path.join(experiment_path, "tokenizers", f"tokenizer_{i}")
-        tokenizer.KMean_Tokenizer.save(model, tokenizer_path)
-        
     with open(os.path.join(experiment_path, "metadata.json"), "w") as f:
         json.dump({
             "num_layers": len(cortex_models), 
             "num_abstraction_models": len(abstraction_models),
-            "num_tokenizers": len(tokenizers)
         }, f)
