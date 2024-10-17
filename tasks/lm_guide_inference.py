@@ -79,7 +79,7 @@ if __name__ == "__main__":
             log_keeper[i] = []
         # convert from jax to int
         index = encode(augmented_text_embedding.data[1:])
-        log_keeper[i].append(index)
+        log_keeper[i].append(int(index))
         if augmented_text_embedding.data[0] > 50:
             log_keeper[i].append("|")
 
@@ -104,8 +104,11 @@ if __name__ == "__main__":
             while True:
                 action = model.react(alg.Text_Embedding(state), alg.Text_Embedding(goal))
                 index = encode(action.data[1:])
-                decoded = decode(index)
-                chunks.append(decoded)
+                state = decode(index)
+                chunks.append(state)
+                if action.data[0] > 50:
+                    break
+
         except MaxSubStepReached:
             logging.warning(f"Truncated termination for item {item}.")
         finally:

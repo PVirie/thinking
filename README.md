@@ -75,7 +75,7 @@ If you have any issues, please let me know.
     -   [x] Implement K-mean tokenization
     -   [x] Train the LM hierarchical guide model
     -   [ ] Interpretability
-    -   [ ] LM data
+    -   [ ] Unix command optimize data
 -   [x] Reinforcement learning
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
         -   [x] Use average state value as the goal

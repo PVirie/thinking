@@ -67,11 +67,11 @@ if __name__ == "__main__":
 
     for i in range(num_layers - 1):
         next_path_data = []
-        t = tokenizer.KMean_Tokenizer(512, random.randint(0, 1000000))
         for j, path in enumerate(path_data):
             pivots, pivot_indices = abstraction.process_chunk(path, step_size)
             full_pivot_indices_data[j].append(pivot_indices)
-            full_path_data[j].append(t.encode(pivots))
+            full_path_data[j].append(pivots)
+            next_path_data.append(pivots)
         path_data = next_path_data
 
     # add final layer

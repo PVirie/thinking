@@ -43,8 +43,12 @@ class Model(abstraction_model.Model):
         pass
 
 
-    def specify(self, nl_action: Text_Embedding) -> Text_Embedding:
-        return nl_action
+    def abstract_start(self, state: Text_Embedding) -> Text_Embedding:
+        return state
+
+
+    def specify(self, nl_action: Augmented_Text_Embedding) -> Text_Embedding:
+        return Text_Embedding(nl_action.data[1:])
 
 
 if __name__ == "__main__":
