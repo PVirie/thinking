@@ -101,7 +101,7 @@ if __name__ == "__main__":
         chunks = []
         try:
             state = start
-            while True:
+            for i in range(64):
                 action = model.react(alg.Text_Embedding(state), alg.Text_Embedding(goal))
                 index = encode(action.data[1:])
                 state = decode(index)

@@ -63,7 +63,7 @@ class Model(hippocampus_model.Model):
         length = min(self.max_length, path.data.shape[0])
 
         flags = jnp.zeros((path.data.shape[0], 1), dtype=jnp.float32)
-        flags = flags.at[pivot_sequence.data].set(100.0)
+        flags = flags.at[-1, 0].set(100.0)
 
         return Augmented_Embedding_Squence(
             jnp.concatenate([flags[-length:], path.data[-length:]], axis=1)
