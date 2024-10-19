@@ -191,7 +191,7 @@ class Context(BaseModel):
         goals = [
             alg.Expectation([1, 1, 0.5]), # jump forward
             alg.Expectation([1, 0, 0]), # stand still
-            alg.Expectation([1, 1, 0]), # jump up
+            alg.Expectation([1, 0, 1]), # jump up
         ]
 
         skip_steps = 8
@@ -280,7 +280,7 @@ if __name__ == "__main__":
 
     with experiment_session(experiment_path) as context:
         
-        env = gym.make('Hopper-v5', ctrl_cost_weight=1e-3, render_mode="rgb_array")
+        env = gym.make('Hopper-v5', healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, render_mode="rgb_array")
         env.action_space.seed(random.randint(0, 1000))
         observation, info = env.reset(seed=random.randint(0, 1000))
 
@@ -302,7 +302,7 @@ if __name__ == "__main__":
         goals = [
             alg.Expectation([1, 1, 0.5]), # jump forward
             alg.Expectation([1, 0, 0]), # stand still
-            alg.Expectation([1, 1, 0]), # jump up
+            alg.Expectation([1, 0, 1]), # jump up
         ]
 
         for goal in goals:
@@ -339,6 +339,6 @@ if __name__ == "__main__":
                     a = model.react(alg.State(observation.data), goals)
                     return np.asarray(a.data)
                 
-                generate_visual(render_path, 1, generation_action)
+                generate_visual(render_path, 5, generation_action)
 
         env.close()
