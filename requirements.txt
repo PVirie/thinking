@@ -2,5 +2,6 @@ pydantic
 numpy
 debugpy
 # RL
-gym[classic_control]
+gymnasium[classic-control]
+gymnasium[mujoco]
 git+https://github.com/pvirie/array2gif.git#egg=array2gif

@@ -70,7 +70,7 @@ class Context(BaseModel):
                         "abstraction_models": abstraction_models,
                         "name": set_metadata["name"]
                     })
-                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, average_random_steps=metadata["average_random_steps"], random_seed=metadata["random_seed"])
+                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, random_seed=metadata["random_seed"])
             return context
         except Exception as e:
             logging.warning(e)
@@ -103,7 +103,6 @@ class Context(BaseModel):
                     }
                     for parameter_set in self.parameter_sets
                 ],
-                "average_random_steps": self.average_random_steps,
                 "random_seed": self.random_seed
             }, f, indent=4)
         return True
@@ -128,10 +127,16 @@ class Context(BaseModel):
             logging.info(f"Total learning time {time.time() - stamp}s")
 
 
+        def states_to_expectation(states, rewards):
+            velocities = states[:, 5]
+            heights = states[:, 0]
+            return np.stack([rewards, velocities, heights], axis=1)
+
+
         def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
             states = np.stack(states, axis=0)
-            actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
-            rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
+            actions = np.stack(actions, axis=0)
+            expectations = states_to_expectation(states, rewards)
             path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
             for layer_i in range(num_layers):
                 path = alg.State_Action_Sequence(states, actions)
@@ -142,16 +147,13 @@ class Context(BaseModel):
                     skip_sequence.append(len(states) - 1)
                 skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
-                if layer_i == num_layers - 1:
-                    expectation_sequence = alg.Expectation_Sequence(rewards)
-                else:
-                    expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
+                expectation_sequence = alg.Expectation_Sequence(expectations[skip_sequence, :])
                 path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
                 states = states[skip_sequence]
                 actions = actions[skip_sequence]
-                # reward is the average of the rewards in the skip sequence
-                rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
+                # expectation is the average of the expectations in the skip sequence
+                expectations = compute_sum_along_sequence(expectations, skip_sequence) / skip_steps
             
             return path_layer_tuples
 
@@ -159,96 +161,17 @@ class Context(BaseModel):
         parameter_sets = []
         ############################# SET 1 ################################
 
-        name = "Kindergarden (Skip steps)"
-
-        state_dim = 4
-        action_dim = 1
-        reward_dim = 1
-        context_length = 1
-
-        cortex_models = [
-            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-        ]
-
-        hippocampus_models = [
-            hippocampus.Model(state_dim),
-            hippocampus.Model(state_dim),
-            hippocampus.Model(state_dim)
-        ]
-
-        abstraction_models = []
-        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
-
-        logging.info(f"Training experiment {name}")
-
-        env = gym.make("CartPole-v1", render_mode=None)
-        env.action_space.seed(random_seed)
-        observation, info = env.reset(seed=random_seed)
-
-        skip_steps = 8
-        num_layers = len(cortex_models)
-        
-        total_steps = 0
-        num_trials = 10000
-        print_steps = max(1, num_trials // 100)
-        for i in range(num_trials):
-            if i % print_steps == 0 and i > 0:
-                # print at every 1 % progress
-                logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
-            observation, info = env.reset()
-            states = []
-            actions = []
-            rewards = []
-            for _ in range(500):
-                selected_action = env.action_space.sample()
-                next_observation, reward, terminated, truncated, info = env.step(selected_action)
-                states.append(observation)
-                actions.append(selected_action)
-                rewards.append(reward)
-                if terminated or truncated:
-                    break
-                else:
-                    observation = next_observation
-            total_steps += len(states)
-
-            # now make hierarchical data
-            path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
-            trainers = model.observe(path_layer_tuples)
-
-        logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
-        env.close()
-
-        for trainer in trainers:
-            trainer.prepare_batch(16)
-
-        loop_train(trainers, 20000)
-
-        parameter_sets.append({
-            "cortex_models": cortex_models,
-            "hippocampus_models": hippocampus_models,
-            "abstraction_models": abstraction_models,
-            "name": name
-        })
-
-        previous_model = model
-
-        average_random_steps = total_steps/num_trials
-
-        ############################# SET 2 ################################
-
         name = "Curriculum (Skip steps)"
 
-        state_dim = 4
-        action_dim = 1
-        reward_dim = 1
+        state_dim = 11
+        action_dim = 3
+        expectation_dim = 3 # reward, speed, and hop height
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -262,15 +185,20 @@ class Context(BaseModel):
 
         logging.info(f"Training experiment {name}")
 
-        env = gym.make("CartPole-v1", render_mode=None)
+        env = gym.make('Hopper-v5', healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, render_mode=None)
         env.action_space.seed(random_seed)
         observation, info = env.reset(seed=random_seed)
-        stable_state = alg.Expectation([1])
+        goals = [
+            alg.Expectation([1, 1, 0.5]), # jump forward
+            alg.Expectation([1, 0, 0]), # stand still
+            alg.Expectation([1, 1, 0]), # jump up
+        ]
 
         skip_steps = 8
         num_layers = len(cortex_models)
 
-        for course in range(2):
+        for course in range(5):
+            logging.info(f"Course {course}")
             total_steps = 0
             num_trials = 5000
             print_steps = max(1, num_trials // 100)
@@ -282,11 +210,13 @@ class Context(BaseModel):
                 states = []
                 actions = []
                 rewards = []
-                for _ in range(100):
-                    if random.random() < 0.25:
+
+                stable_state = goals[i % len(goals)]
+                for _ in range(1000):
+                    if random.random() < 0.25 or course == 0:
                         selected_action = env.action_space.sample()
                     else:
-                        a = previous_model.react(alg.State(observation.data), stable_state)
+                        a = model.react(alg.State(observation.data), stable_state)
                         selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
@@ -308,14 +238,12 @@ class Context(BaseModel):
             env.close()
 
             for trainer in trainers:
-                trainer.prepare_batch(1)
+                trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=16)
 
             loop_train(trainers, 50000)
 
             for trainer in trainers:
                 trainer.clear_batch()
-
-            previous_model = model
 
         parameter_sets.append({
             "cortex_models": cortex_models,
@@ -324,7 +252,7 @@ class Context(BaseModel):
             "name": name
         })
 
-        return Context(parameter_sets=parameter_sets, average_random_steps=average_random_steps, random_seed=random_seed)
+        return Context(parameter_sets=parameter_sets, random_seed=random_seed)
 
 
 
@@ -343,7 +271,7 @@ def experiment_session(path, force_clear=None):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "cart_pole")
+    experiment_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "experiments", "hopper")
 
     if args.clear:
         # just clear and return
@@ -352,9 +280,7 @@ if __name__ == "__main__":
 
     with experiment_session(experiment_path) as context:
         
-        logging.info(f"Baseline number of random steps: {context.average_random_steps}")
-
-        env = gym.make("CartPole-v1", render_mode="rgb_array")
+        env = gym.make('Hopper-v5', ctrl_cost_weight=1e-3, render_mode="rgb_array")
         env.action_space.seed(random.randint(0, 1000))
         observation, info = env.reset(seed=random.randint(0, 1000))
 
@@ -373,49 +299,46 @@ if __name__ == "__main__":
                         break
                 write_gif(imgs, output_gif, fps=30)
 
+        goals = [
+            alg.Expectation([1, 1, 0.5]), # jump forward
+            alg.Expectation([1, 0, 0]), # stand still
+            alg.Expectation([1, 1, 0]), # jump up
+        ]
 
-        logging.info("----------------- Testing random behavior -----------------")
-        observation, info = env.reset()
-        result_path = os.path.join(experiment_path, "results", f"random")
-        render_path = os.path.join(result_path, "render")
-        os.makedirs(render_path, exist_ok=True)
-        generate_visual(render_path, 5, lambda obs: env.action_space.sample())
+        for goal in goals:
 
+            for i, parameter_set in enumerate(context.parameter_sets):
+                result_path = os.path.join(experiment_path, "results", f"set_{i}")
 
-        for i, parameter_set in enumerate(context.parameter_sets):
-            result_path = os.path.join(experiment_path, "results", f"set_{i}")
-
-            model = HUMN(**parameter_set)
-            observation, info = env.reset()
-            stable_state = alg.Expectation([1])
-
-            total_steps = 0
-            num_trials = 100
-            print_steps = max(1, num_trials // 10)
-            for j in range(num_trials):
-                if j % print_steps == 0 and j > 0:
-                    # print at every 1 % progress
-                    logging.info(f"Environment testing: {(j * 100 / num_trials):.2f}")
+                model = HUMN(**parameter_set)
                 observation, info = env.reset()
-                for _ in range(500):
-                    # selected_action = env.action_space.sample()
-                    a = model.react(alg.State(observation.data), stable_state)
-                    selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
-                    observation, reward, terminated, truncated, info = env.step(selected_action)
-                    total_steps += 1
-                    if terminated or truncated:
-                        break
 
-            set_name = parameter_set["name"]
-            logging.info(f"Parameter set {set_name}; average behavior steps: {total_steps/num_trials}")
+                total_steps = 0
+                num_trials = 100
+                print_steps = max(1, num_trials // 10)
+                for j in range(num_trials):
+                    if j % print_steps == 0 and j > 0:
+                        # print at every 1 % progress
+                        logging.info(f"Environment testing: {(j * 100 / num_trials):.2f}")
+                    observation, info = env.reset()
+                    for _ in range(1000):
+                        # selected_action = env.action_space.sample()
+                        a = model.react(alg.State(observation.data), goals)
+                        observation, reward, terminated, truncated, info = env.step(np.asarray(a.data))
+                        total_steps += 1
+                        if terminated or truncated:
+                            break
 
-            render_path = os.path.join(result_path, "render")
-            os.makedirs(render_path, exist_ok=True)
+                set_name = parameter_set["name"]
+                logging.info(f"Parameter set {set_name}; average behavior steps: {total_steps/num_trials}")
 
-            def generation_action(observation):
-                a = model.react(alg.State(observation.data), stable_state)
-                return 1 if np.asarray(a.data)[0].item() > 0.5 else 0
-            
-            generate_visual(render_path, 5, generation_action)
+                render_path = os.path.join(result_path, "render")
+                os.makedirs(render_path, exist_ok=True)
+
+                def generation_action(observation):
+                    a = model.react(alg.State(observation.data), goals)
+                    return np.asarray(a.data)
+                
+                generate_visual(render_path, 1, generation_action)
 
         env.close()
