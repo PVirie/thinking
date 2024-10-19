@@ -23,8 +23,8 @@ from utilities.utilities import *
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from humn import *
-from implementations.jax_cart_pole import algebraic as alg
-from implementations.jax_cart_pole import cortex, hippocampus, abstraction
+from implementations.jax_rl import algebraic as alg
+from implementations.jax_rl import cortex, hippocampus, abstraction
 import core
 from core import table, linear, transformer, stat_head, stat_linear, stat_table
 
@@ -289,7 +289,7 @@ class Context(BaseModel):
                     if random.random() < 0.25:
                         selected_action = env.action_space.sample()
                     else:
-                        a = previous_model.react(alg.Cart_State(observation.data), stable_state)
+                        a = previous_model.react(alg.State(observation.data), stable_state)
                         selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
@@ -402,7 +402,7 @@ if __name__ == "__main__":
                 observation, info = env.reset()
                 for _ in range(500):
                     # selected_action = env.action_space.sample()
-                    a = model.react(alg.Cart_State(observation.data), stable_state)
+                    a = model.react(alg.State(observation.data), stable_state)
                     selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
                     observation, reward, terminated, truncated, info = env.step(selected_action)
                     total_steps += 1
@@ -416,7 +416,7 @@ if __name__ == "__main__":
             os.makedirs(render_path, exist_ok=True)
 
             def generation_action(observation):
-                a = model.react(alg.Cart_State(observation.data), stable_state)
+                a = model.react(alg.State(observation.data), stable_state)
                 return 1 if np.asarray(a.data)[0].item() > 0.5 else 0
             
             generate_visual(render_path, 5, generation_action)

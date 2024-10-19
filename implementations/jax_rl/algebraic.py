@@ -32,7 +32,7 @@ class Expectation(humn.algebraic.Action):
         return False
 
 
-class Cart_State(humn.algebraic.State, humn.algebraic.Augmented_State_Squence):
+class State(humn.algebraic.State, humn.algebraic.Augmented_State_Squence):
     
     def __init__(self, data):
         if isinstance(data, jnp.ndarray):

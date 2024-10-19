@@ -33,8 +33,8 @@ class Model(hippocampus_model.Model):
 
 
 
-    def augmented_all(self) -> Cart_State:
-        return Cart_State(
+    def augmented_all(self) -> State:
+        return State(
             self.data
         )
 
@@ -43,7 +43,7 @@ class Model(hippocampus_model.Model):
         return path
 
 
-    def append(self, state: Cart_State):
+    def append(self, state: State):
         self.data = state.data
 
 

@@ -195,7 +195,7 @@ class Model(cortex_model.Model):
         return self.trainer.accumulate_batch(self.step_discount_factor, self.return_action, self.use_reward, path_encoding_sequence, pivot_indices, pivots)
 
 
-    def infer_sub_action(self, from_encoding_sequence: Cart_State, expect_action: Action) -> Action:
+    def infer_sub_action(self, from_encoding_sequence: State, expect_action: Action) -> Action:
         next_action_data, score = self.model.infer(
             jnp.reshape(from_encoding_sequence.data, (1, 1, -1)), 
             jnp.reshape(expect_action.data, (1, -1))
