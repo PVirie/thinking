@@ -105,6 +105,7 @@ class Trainer(trainer.Trainer):
         current_scores = []
         current_masks = []
         for i in range(len(self.s)):
+            batch_len = self.s[i].shape[0]
             seq_len = self.s[i].shape[1]
             # split into max learning sequence size
             round_up_len = math.ceil(seq_len / max_learning_sequence) * max_learning_sequence
@@ -115,41 +116,53 @@ class Trainer(trainer.Trainer):
             scores = jnp.pad(self.scores[i], ((0, 0), (round_up_len - seq_len, 0)), mode="constant", constant_values=0.0)
             masks = jnp.pad(self.masks[i], ((0, 0), (round_up_len - seq_len, 0)), mode="constant", constant_values=0.0)
 
-            current_size += round_up_len / max_learning_sequence
+            current_size += batch_len * int(round_up_len / max_learning_sequence)
             current_s.append(jnp.reshape(s, (-1, max_learning_sequence, s.shape[2])))
             current_x.append(jnp.reshape(x, (-1, max_learning_sequence, x.shape[2])))
             current_t.append(jnp.reshape(t, (-1, max_learning_sequence, t.shape[2])))
             current_scores.append(jnp.reshape(scores, (-1, max_learning_sequence)))
             current_masks.append(jnp.reshape(masks, (-1, max_learning_sequence)))
 
-            while current_size > max_mini_batch_size:
-                S = jnp.concatenate(current_s, axis=0), 
-                X = jnp.concatenate(current_x, axis=0),  
-                T = jnp.concatenate(current_t, axis=0), 
-                Scores = jnp.concatenate(current_scores, axis=0), 
+            if current_size > max_mini_batch_size:
+                S = jnp.concatenate(current_s, axis=0)
+                X = jnp.concatenate(current_x, axis=0)
+                T = jnp.concatenate(current_t, axis=0)
+                Scores = jnp.concatenate(current_scores, axis=0)
                 Masks = jnp.concatenate(current_masks, axis=0)
-                self.epoch_batch.append((
-                    S[:max_mini_batch_size],
-                    X[:max_mini_batch_size],
-                    T[:max_mini_batch_size],
-                    Scores[:max_mini_batch_size],
-                    Masks[:max_mini_batch_size]
-                ))
+
+                for j in range(0, current_size - max_mini_batch_size, max_mini_batch_size):
+                    self.epoch_batch.append((
+                        S[j:j + max_mini_batch_size],
+                        X[j:j + max_mini_batch_size],
+                        T[j:j + max_mini_batch_size],
+                        Scores[j:j + max_mini_batch_size],
+                        Masks[j:j + max_mini_batch_size]
+                    ))
+
+                residual = current_size % max_mini_batch_size
 
                 # add residual
-                current_size = current_size - max_mini_batch_size
-                if current_size > 0:
-                    current_s = [S[max_mini_batch_size:]]
-                    current_x = [X[max_mini_batch_size:]]
-                    current_t = [T[max_mini_batch_size:]]
-                    current_scores = [Scores[max_mini_batch_size:]]
-                    current_masks = [Masks[max_mini_batch_size:]]
+                if residual > 0:
+                    current_size = residual
+                    current_s = [S[-residual:]]
+                    current_x = [X[-residual:]]
+                    current_t = [T[-residual:]]
+                    current_scores = [Scores[-residual:]]
+                    current_masks = [Masks[-residual:]]
+                else:
+                    current_size = 0
+                    current_s = []
+                    current_x = []
+                    current_t = []
+                    current_scores = []
+                    current_masks = []
+    
 
         if current_size > 0:
-            S = jnp.concatenate(current_s, axis=0), 
-            X = jnp.concatenate(current_x, axis=0),  
-            T = jnp.concatenate(current_t, axis=0), 
-            Scores = jnp.concatenate(current_scores, axis=0), 
+            S = jnp.concatenate(current_s, axis=0)
+            X = jnp.concatenate(current_x, axis=0)
+            T = jnp.concatenate(current_t, axis=0)
+            Scores = jnp.concatenate(current_scores, axis=0)
             Masks = jnp.concatenate(current_masks, axis=0)
             self.epoch_batch.append((
                 S,

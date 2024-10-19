@@ -123,7 +123,7 @@ class Context(BaseModel):
         states = alg.State_Sequence(one_hot)
 
         graph = random_graph(graph_shape, 0.2)
-        explore_steps = 5000
+        explore_steps = 10000
         path_sequences = []
         for i in range(explore_steps):
             path = random_walk(graph, math.floor(32 * i / explore_steps), graph.shape[0] - 1)

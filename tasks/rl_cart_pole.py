@@ -143,7 +143,7 @@ class Context(BaseModel):
                 skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
                 if layer_i == num_layers - 1:
-                    expectation_sequence = alg.Expectation_Sequence(rewards)
+                    expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :])
                 else:
                     expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
                 path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
@@ -308,7 +308,7 @@ class Context(BaseModel):
             env.close()
 
             for trainer in trainers:
-                trainer.prepare_batch(1)
+                trainer.prepare_batch(16)
 
             loop_train(trainers, 50000)
 

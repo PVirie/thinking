@@ -60,14 +60,17 @@ class HUMN:
             for i in range(0, self.depth - 1):
                 from_states.append(base if self.abstractors[i] is None else self.abstractors[i].abstract_start(base))
 
+        action = top_action
+        if action.zero_length():
+            return action
+        
         for i in range(self.depth - 1, -1, -1):
             self.hippocampi[i].append(from_states[i])
             if i < self.depth - 1 and self.abstractors[i] is not None:
-                top_action = self.abstractors[i].specify(action)
-            if not top_action.zero_length():
-                action = self.cortices[i].infer_sub_action(self.hippocampi[i].augmented_all(), top_action)
-            else:
-                action = top_action
+                action = self.abstractors[i].specify(action)
+            inferred_action = self.cortices[i].infer_sub_action(self.hippocampi[i].augmented_all(), action)
+            if not inferred_action.zero_length():
+                action = inferred_action
         return action
 
 
@@ -115,6 +118,7 @@ class HUMN:
             for top_state in top_states:
                 state_batches, current_state = self.__generate_steps(i, current_state, top_state)
                 states.extend(state_batches)
-            top_states = states
+            if len(states) > 0:
+                top_states = states
         return states
 

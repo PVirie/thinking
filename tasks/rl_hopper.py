@@ -212,7 +212,7 @@ class Context(BaseModel):
                 rewards = []
 
                 stable_state = goals[i % len(goals)]
-                for _ in range(1000):
+                for _ in range(100):
                     if random.random() < 0.25 or course == 0:
                         selected_action = env.action_space.sample()
                     else:
