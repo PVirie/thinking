@@ -146,6 +146,7 @@ class Context(BaseModel):
                     expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :])
                 else:
                     expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
+                    
                 path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
                 states = states[skip_sequence]

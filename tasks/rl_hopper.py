@@ -37,7 +37,6 @@ args = parser.parse_args()
 
 class Context(BaseModel):
     parameter_sets: List[Any]
-    average_random_steps: float
     random_seed: int = 0
 
     @staticmethod
@@ -147,7 +146,11 @@ class Context(BaseModel):
                     skip_sequence.append(len(states) - 1)
                 skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
-                expectation_sequence = alg.Expectation_Sequence(expectations[skip_sequence, :])
+                if layer_i == num_layers - 1:
+                    expectation_sequence = alg.Expectation_Sequence(expectations[skip_sequence, :])
+                else:
+                    expectation_sequence = alg.Expectation_Sequence(expectations[skip_sequence, 0:1], states[skip_sequence, :])
+                    
                 path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
                 states = states[skip_sequence]
@@ -217,7 +220,7 @@ class Context(BaseModel):
                         selected_action = env.action_space.sample()
                     else:
                         a = model.react(alg.State(observation.data), stable_state)
-                        selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
+                        selected_action = np.asarray(a.data)
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
                 
