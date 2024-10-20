@@ -20,6 +20,7 @@ services:
             - LOG_LEVEL=info
             - PYTHONUNBUFFERED=TRUE
             - TF_CPP_MIN_LOG_LEVEL=0
+            - MUJOCO_GL=osmesa
         env_file:
             - ./secrets.env
         ports:
@@ -53,6 +54,7 @@ services:
             - LOG_LEVEL=info
             - PYTHONUNBUFFERED=TRUE
             - TF_CPP_MIN_LOG_LEVEL=0
+            - MUJOCO_GL=osmesa
         env_file:
             - ./secrets.env
         ports:

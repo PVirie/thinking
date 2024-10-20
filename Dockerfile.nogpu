@@ -1,6 +1,7 @@
 FROM python:3.10
 
 RUN apt update && apt install python3-pip git python3-venv -y
+RUN apt install -y libgl1-mesa-glx libosmesa6
 
 # create virtual environment, the correct way https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
 ENV VIRTUAL_ENV=/app/venv

@@ -11,7 +11,6 @@ import math
 import jax
 import jax.numpy
 
-from array2gif import write_gif
 import gymnasium as gym
 
 # replace np.bool8 with np.bool
@@ -192,9 +191,9 @@ class Context(BaseModel):
         env.action_space.seed(random_seed)
         observation, info = env.reset(seed=random_seed)
         goals = [
-            alg.Expectation([1, 1, 0.5]), # jump forward
-            alg.Expectation([1, 0, 0]), # stand still
-            alg.Expectation([1, 0, 1]), # jump up
+            (alg.Expectation([1, 1, 2]), "jump forward"),
+            (alg.Expectation([1, 0, 0.7]), "stand still"),
+            (alg.Expectation([1, 0, 2]), "jump up"),
         ]
 
         skip_steps = 8
@@ -214,8 +213,8 @@ class Context(BaseModel):
                 actions = []
                 rewards = []
 
-                stable_state = goals[i % len(goals)]
-                for _ in range(100):
+                stable_state = goals[i % len(goals)][0]
+                for _ in range(200):
                     if random.random() < 0.25 or course == 0:
                         selected_action = env.action_space.sample()
                     else:
@@ -283,7 +282,11 @@ if __name__ == "__main__":
 
     with experiment_session(experiment_path) as context:
         
-        env = gym.make('Hopper-v5', healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, render_mode="rgb_array")
+        env = gym.make(
+            'Hopper-v5', 
+            healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, 
+            render_mode="rgb_array", width=1280, height=720
+        )
         env.action_space.seed(random.randint(0, 1000))
         observation, info = env.reset(seed=random.randint(0, 1000))
 
@@ -297,21 +300,21 @@ if __name__ == "__main__":
                     selected_action = action_method(observation)
                     observation, reward, terminated, truncated, info = env.step(selected_action)
                     img = env.render()
-                    imgs.append(np.transpose(img, [2, 0, 1]))
+                    imgs.append(img)
                     if terminated or truncated:
                         break
                 write_gif(imgs, output_gif, fps=30)
 
         goals = [
-            alg.Expectation([1, 1, 0.5]), # jump forward
-            alg.Expectation([1, 0, 0]), # stand still
-            alg.Expectation([1, 0, 1]), # jump up
+            (alg.Expectation([1, 1, 2]), "jump forward"),
+            (alg.Expectation([1, 0, 0.7]), "stand still"),
+            (alg.Expectation([1, 0, 2]), "jump up"),
         ]
 
-        for goal in goals:
+        for goal, goal_text in goals:
 
             for i, parameter_set in enumerate(context.parameter_sets):
-                result_path = os.path.join(experiment_path, "results", f"set_{i}")
+                result_path = os.path.join(experiment_path, "results", goal_text, f"set_{i}")
 
                 model = HUMN(**parameter_set)
                 observation, info = env.reset()
@@ -326,7 +329,7 @@ if __name__ == "__main__":
                     observation, info = env.reset()
                     for _ in range(1000):
                         # selected_action = env.action_space.sample()
-                        a = model.react(alg.State(observation.data), goals)
+                        a = model.react(alg.State(observation.data), goal)
                         observation, reward, terminated, truncated, info = env.step(np.asarray(a.data))
                         total_steps += 1
                         if terminated or truncated:
@@ -339,7 +342,7 @@ if __name__ == "__main__":
                 os.makedirs(render_path, exist_ok=True)
 
                 def generation_action(observation):
-                    a = model.react(alg.State(observation.data), goals)
+                    a = model.react(alg.State(observation.data), goal)
                     return np.asarray(a.data)
                 
                 generate_visual(render_path, 5, generation_action)

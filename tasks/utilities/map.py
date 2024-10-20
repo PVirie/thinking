@@ -4,7 +4,7 @@ import random
 import math
 import os
 from queue import PriorityQueue
-from array2gif import write_gif
+from utilities import write_gif
 
 
 def search_path(minkowsky_map, start, end):
@@ -125,7 +125,7 @@ def toGif(frames, filename):
     imgs = []
     for i in range(frames.shape[0]):
         img = cv2.cvtColor((frames[i] * 255).astype(np.uint8), cv2.COLOR_GRAY2RGB)
-        imgs.append(np.transpose(img, [2, 0, 1]))
+        imgs.append(img)
     write_gif(imgs, filename, fps=5)
 
 

@@ -2,6 +2,7 @@ import time
 import os
 import shutil
 import numpy as np
+from PIL import Image
 
 
 def empty_directory(output_dir):
@@ -109,6 +110,12 @@ def compute_sum_along_sequence(x, sequence):
     end_sequence = np.asarray(sequence) + 1
     start_sequence = np.pad(end_sequence[:-1], (1, 0), 'constant', constant_values=0)
     return np.array([np.sum(x[start_sequence[i]:end_sequence[i]], axis=0) for i in range(0, len(sequence))])
+
+
+def write_gif(imgs, path, fps=30):
+    imgs = [Image.fromarray(img) for img in imgs]
+    imgs[0].save(path, save_all=True, append_images=imgs[1:], loop=0, duration=1000 / fps)
+
 
 if __name__ == '__main__':
     graph_shape = 16

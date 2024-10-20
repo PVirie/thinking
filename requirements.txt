@@ -4,4 +4,4 @@ debugpy
 # RL
 gymnasium[classic-control]
 gymnasium[mujoco]
-git+https://github.com/pvirie/array2gif.git#egg=array2gif
+Pillow

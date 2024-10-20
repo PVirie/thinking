@@ -11,7 +11,6 @@ import math
 import jax
 import jax.numpy
 
-from array2gif import write_gif
 import gymnasium as gym
 
 # replace np.bool8 with np.bool
@@ -146,7 +145,7 @@ class Context(BaseModel):
                     expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :])
                 else:
                     expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
-                    
+
                 path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
                 states = states[skip_sequence]
@@ -369,7 +368,7 @@ if __name__ == "__main__":
                     selected_action = action_method(observation)
                     observation, reward, terminated, truncated, info = env.step(selected_action)
                     img = env.render()
-                    imgs.append(np.transpose(img, [2, 0, 1]))
+                    imgs.append(img)
                     if terminated or truncated:
                         break
                 write_gif(imgs, output_gif, fps=30)
