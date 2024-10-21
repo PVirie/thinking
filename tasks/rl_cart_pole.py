@@ -69,7 +69,7 @@ class Context(BaseModel):
                         "abstraction_models": abstraction_models,
                         "name": set_metadata["name"]
                     })
-                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, average_random_steps=metadata["average_random_steps"], random_seed=metadata["random_seed"])
+                context = Context(parameter_sets=parameter_sets, average_random_steps=metadata["average_random_steps"], random_seed=metadata["random_seed"])
             return context
         except Exception as e:
             logging.warning(e)

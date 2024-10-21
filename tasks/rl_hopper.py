@@ -36,6 +36,7 @@ args = parser.parse_args()
 
 class Context(BaseModel):
     parameter_sets: List[Any]
+    goals: List[Tuple[Any, str]] = []
     random_seed: int = 0
 
     @staticmethod
@@ -68,7 +69,7 @@ class Context(BaseModel):
                         "abstraction_models": abstraction_models,
                         "name": set_metadata["name"]
                     })
-                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, random_seed=metadata["random_seed"])
+                context = Context(parameter_sets=parameter_sets, goals=metadata["goals"], random_seed=metadata["random_seed"])
             return context
         except Exception as e:
             logging.warning(e)
@@ -101,6 +102,7 @@ class Context(BaseModel):
                     }
                     for parameter_set in self.parameter_sets
                 ],
+                "goals": self.goals,
                 "random_seed": self.random_seed
             }, f, indent=4)
         return True
@@ -191,9 +193,9 @@ class Context(BaseModel):
         env.action_space.seed(random_seed)
         observation, info = env.reset(seed=random_seed)
         goals = [
-            (alg.Expectation([1, 1, 2]), "jump forward"),
-            (alg.Expectation([1, 0, 0.7]), "stand still"),
-            (alg.Expectation([1, 0, 2]), "jump up"),
+            ([1, 1, 2], "jump forward"),
+            ([1, 0, 1.25], "stand still"),
+            ([1, 0, 2.5], "jump up"),
         ]
 
         skip_steps = 8
@@ -232,7 +234,7 @@ class Context(BaseModel):
                     # print at every 1 % progress
                     logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
                 
-                stable_state = goals[i % len(goals)][0]
+                stable_state = alg.Expectation(goals[i % len(goals)][0])
                 observation, info = env.reset()
                 states = []
                 actions = []
@@ -284,7 +286,7 @@ class Context(BaseModel):
             "name": name
         })
 
-        return Context(parameter_sets=parameter_sets, random_seed=random_seed)
+        return Context(parameter_sets=parameter_sets, goals=goals, random_seed=random_seed)
 
 
 
@@ -335,13 +337,7 @@ if __name__ == "__main__":
                         break
                 write_gif(imgs, output_gif, fps=30)
 
-        goals = [
-            (alg.Expectation([1, 1, 2]), "jump forward"),
-            (alg.Expectation([1, 0, 0.7]), "stand still"),
-            (alg.Expectation([1, 0, 2]), "jump up"),
-        ]
-
-        for goal, goal_text in goals:
+        for goal, goal_text in context.goals:
 
             for i, parameter_set in enumerate(context.parameter_sets):
                 result_path = os.path.join(experiment_path, "results", goal_text, f"set_{i}")
@@ -359,7 +355,7 @@ if __name__ == "__main__":
                     observation, info = env.reset()
                     for _ in range(1000):
                         # selected_action = env.action_space.sample()
-                        a = model.react(alg.State(observation.data), goal)
+                        a = model.react(alg.State(observation.data), alg.Expectation(goal))
                         observation, reward, terminated, truncated, info = env.step(np.asarray(a.data))
                         total_steps += 1
                         if terminated or truncated:

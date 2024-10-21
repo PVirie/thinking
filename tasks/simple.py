@@ -69,7 +69,7 @@ class Context(BaseModel):
                 states = alg.State_Sequence.load(os.path.join(path, "states"))
                 goals = np.load(os.path.join(path, "goals.npy"))
                 graph = np.load(os.path.join(path, "graph.npy"))
-                context = Context(parameter_sets=parameter_sets, abstraction_models=abstraction_models, states=states, goals=goals, graph=graph, random_seed=metadata["random_seed"])
+                context = Context(parameter_sets=parameter_sets, states=states, goals=goals, graph=graph, random_seed=metadata["random_seed"])
             return context
         except Exception as e:
             logging.warning(e)
