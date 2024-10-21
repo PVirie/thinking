@@ -172,8 +172,8 @@ class Context(BaseModel):
 
         cortex_models = [
             cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -198,24 +198,47 @@ class Context(BaseModel):
 
         skip_steps = 8
         num_layers = len(cortex_models)
-
-        for course in range(5):
+        num_courses = 5
+        for course in range(num_courses):
             logging.info(f"Course {course}")
             total_steps = 0
             num_trials = 5000
             print_steps = max(1, num_trials // 100)
-            for i in range(num_trials):
+            epsilon = course / num_courses
+
+            if course > 0:
+                total_test_steps = 0
+                for i in range(100):
+                    observation, info = env.reset()
+                    count_steps = 0
+                    for _ in range(200):
+                        a = model.react(alg.State(observation.data), stable_state)
+                        selected_action = np.asarray(a.data)
+                        next_observation, reward, terminated, truncated, info = env.step(selected_action)
+                        count_steps += 1
+                        if terminated or truncated:
+                            break
+                        else:
+                            observation = next_observation
+                    total_test_steps += count_steps
+
+                threshold_steps = 0.5 * total_test_steps / 100
+            else:
+                threshold_steps = 0
+
+            i = 0
+            while True:
                 if i % print_steps == 0 and i > 0:
                     # print at every 1 % progress
                     logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
+                
+                stable_state = goals[i % len(goals)][0]
                 observation, info = env.reset()
                 states = []
                 actions = []
                 rewards = []
-
-                stable_state = goals[i % len(goals)][0]
                 for _ in range(200):
-                    if random.random() < 0.25 or course == 0:
+                    if random.random() >= epsilon or course == 0:
                         selected_action = env.action_space.sample()
                     else:
                         a = model.react(alg.State(observation.data), stable_state)
@@ -230,11 +253,18 @@ class Context(BaseModel):
                         break
                     else:
                         observation = next_observation
-                total_steps += len(states)
 
+                if len(states) < threshold_steps:
+                    continue
+
+                total_steps += len(states)
                 # now make hierarchical data
                 path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
                 trainers = model.observe(path_layer_tuples)
+
+                i = i + 1
+                if i >= num_trials:
+                    break
 
             logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
             env.close()
@@ -345,6 +375,6 @@ if __name__ == "__main__":
                     a = model.react(alg.State(observation.data), goal)
                     return np.asarray(a.data)
                 
-                generate_visual(render_path, 5, generation_action)
+                generate_visual(render_path, 2, generation_action)
 
         env.close()
