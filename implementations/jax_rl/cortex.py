@@ -67,11 +67,13 @@ class Trainer(trainer.Trainer):
 
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
         masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
+        
+        # t has shape (P, seq_len, goal_dim)
         if use_reward:
-            # t has shape (P, seq_len, 1 + goal_dim)
             expectation_sequence = pivots.get()
-            t = jnp.tile(jnp.expand_dims(expectation_sequence, axis=1), (1, len(path_encoding_sequence), 1))
-            scores = scores * t[:, :, 0]
+            tiled = jnp.tile(jnp.expand_dims(expectation_sequence, axis=1), (1, len(path_encoding_sequence), 1))
+            t = tiled[:, :, 1:]
+            scores = scores * tiled[:, :, 0]
         else:
             goal_sequence = pivots.get_goals()
             t = jnp.tile(jnp.expand_dims(goal_sequence, axis=1), (1, len(path_encoding_sequence), 1))

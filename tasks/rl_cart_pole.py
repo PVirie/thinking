@@ -142,7 +142,7 @@ class Context(BaseModel):
                 skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
                 if layer_i == num_layers - 1:
-                    expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :])
+                    expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], np.ones((len(skip_sequence), 1)))
                 else:
                     expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
 

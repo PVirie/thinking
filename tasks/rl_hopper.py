@@ -129,8 +129,12 @@ class Context(BaseModel):
 
         def states_to_expectation(states, rewards):
             velocities = states[:, 5]
+            x_accerelations = velocities - np.roll(velocities, -1, axis=0)
+            x_accerelations[-1] = 0
             heights = states[:, 0]
-            return np.stack([rewards, velocities, heights], axis=1)
+            z_speeds = np.abs(heights - np.roll(heights, -1, axis=0))
+            z_speeds[-1] = 0
+            return np.stack([rewards, x_accerelations, z_speeds], axis=1)
 
 
         def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
@@ -166,16 +170,17 @@ class Context(BaseModel):
         ############################# SET 1 ################################
 
         name = "Curriculum (Skip steps)"
+        skip_steps = 3
 
         state_dim = 11
         action_dim = 3
-        expectation_dim = 3 # reward, speed, and hop height
+        expectation_dim = 2 # acc_x, speed_z
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, return_action=True, use_reward=True, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 512, [512, 512], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 512, [512, 512], memory_size=16, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -189,16 +194,19 @@ class Context(BaseModel):
 
         logging.info(f"Training experiment {name}")
 
-        env = gym.make('Hopper-v5', healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, render_mode=None)
+        env = gym.make(
+            'Hopper-v5',
+            healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, 
+            healthy_angle_range=(-math.pi / 2, math.pi / 2), healthy_state_range=(-100, 100), 
+            render_mode=None
+        )
         env.action_space.seed(random_seed)
         observation, info = env.reset(seed=random_seed)
         goals = [
-            ([1, 1, 2], "jump forward"),
-            ([1, 0, 1.25], "stand still"),
-            ([1, 0, 2.5], "jump up"),
+            ([0.2, 0.1], "jump forward"),
+            ([0, 0.1], "stand still"),
         ]
 
-        skip_steps = 8
         num_layers = len(cortex_models)
         num_courses = 5
         for course in range(num_courses):
@@ -228,13 +236,13 @@ class Context(BaseModel):
             else:
                 threshold_steps = 0
 
-            i = 0
-            while True:
-                if i % print_steps == 0 and i > 0:
+            count_pass = 0
+            for i in range(num_trials * 10):
+                if count_pass % print_steps == 0 and count_pass > 0:
                     # print at every 1 % progress
-                    logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
+                    logging.info(f"Environment collection: {(count_pass * 100 / num_trials):.2f}% ({(i * 100 / num_trials):.2f}%)")
                 
-                stable_state = alg.Expectation(goals[i % len(goals)][0])
+                stable_state = alg.Expectation(goals[count_pass % len(goals)][0])
                 observation, info = env.reset()
                 states = []
                 actions = []
@@ -259,16 +267,16 @@ class Context(BaseModel):
                 if len(states) < threshold_steps:
                     continue
 
+                count_pass += 1
                 total_steps += len(states)
                 # now make hierarchical data
                 path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
                 trainers = model.observe(path_layer_tuples)
 
-                i = i + 1
-                if i >= num_trials:
+                if count_pass >= num_trials:
                     break
 
-            logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
+            logging.log(logging.INFO, f"Average steps: {total_steps/count_pass}")
             env.close()
 
             for trainer in trainers:
@@ -315,8 +323,9 @@ if __name__ == "__main__":
     with experiment_session(experiment_path) as context:
         
         env = gym.make(
-            'Hopper-v5', 
+            'Hopper-v5',
             healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, 
+            healthy_angle_range=(-math.pi / 2, math.pi / 2), healthy_state_range=(-100, 100), 
             render_mode="rgb_array", width=1280, height=720
         )
         env.action_space.seed(random.randint(0, 1000))
@@ -368,7 +377,7 @@ if __name__ == "__main__":
                 os.makedirs(render_path, exist_ok=True)
 
                 def generation_action(observation):
-                    a = model.react(alg.State(observation.data), goal)
+                    a = model.react(alg.State(observation.data), alg.Expectation(goal))
                     return np.asarray(a.data)
                 
                 generate_visual(render_path, 2, generation_action)
