@@ -128,13 +128,38 @@ class Context(BaseModel):
 
 
         def states_to_expectation(states, rewards):
-            velocities = states[:, 5]
-            x_accerelations = velocities - np.roll(velocities, -1, axis=0)
-            x_accerelations[-1] = 0
-            heights = states[:, 0]
-            z_speeds = np.abs(heights - np.roll(heights, -1, axis=0))
-            z_speeds[-1] = 0
-            return np.stack([rewards, x_accerelations, z_speeds], axis=1)
+            vx = states[:, 5]
+            vz = np.abs(states[:, 6])
+            return np.stack([rewards, vx, vz], axis=1)
+
+
+        def compute_goal_diff(base, operand):
+            # base has shape (n, dim), operand has shape (m, dim)
+            base_ = np.tile(np.expand_dims(base, axis=1), (1, operand.shape[0], 1))
+            operand_ = np.tile(np.expand_dims(operand, axis=0), (base.shape[0], 1, 1))
+            raw_diff = (base_ - operand_) ** 2
+            diff = np.sum(raw_diff, axis=-1, keepdims=False)
+            return diff
+
+        goals = [
+            ([10, 10], "jump forward"),
+            ([0, 10], "jump still"),
+        ]
+
+        def update_best_so_far(last_pivots, best_targets, best_target_diffs):
+
+            last_goals = last_pivots[:, 1:]
+            diffs = compute_goal_diff(np.array([g[0] for g in goals]), last_goals)
+            # diffs has shape (num_goals, num_states)
+            min_indices = np.argmin(diffs, axis=1, keepdims=True)
+            min_scores = np.take_along_axis(diffs, min_indices, axis=1)
+            min_goals = np.take_along_axis(last_goals, min_indices, axis=0)
+            update_flags = min_scores < best_target_diffs
+
+            best_target_diffs = np.where(update_flags, min_scores, best_target_diffs)
+            best_targets = np.where(update_flags, min_goals, best_targets)
+
+            return best_targets, best_target_diffs
 
 
         def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
@@ -152,7 +177,8 @@ class Context(BaseModel):
                 skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
                 if layer_i == num_layers - 1:
-                    expectation_sequence = alg.Expectation_Sequence(expectations[skip_sequence, :])
+                    last_pivots = expectations[skip_sequence, :]
+                    expectation_sequence = alg.Expectation_Sequence(last_pivots)
                 else:
                     expectation_sequence = alg.Expectation_Sequence(expectations[skip_sequence, 0:1], states[skip_sequence, :])
                     
@@ -163,14 +189,14 @@ class Context(BaseModel):
                 # expectation is the average of the expectations in the skip sequence
                 expectations = compute_sum_along_sequence(expectations, skip_sequence) / skip_steps
             
-            return path_layer_tuples
+            return path_layer_tuples, last_pivots
 
 
         parameter_sets = []
         ############################# SET 1 ################################
 
         name = "Curriculum (Skip steps)"
-        skip_steps = 3
+        skip_steps = 4
 
         state_dim = 11
         action_dim = 3
@@ -178,9 +204,9 @@ class Context(BaseModel):
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, return_action=True, use_reward=True, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 512, [512, 512], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 512, [512, 512], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 128, [128, 128, 128], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [128, 128, 128, 128], memory_size=16, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -202,47 +228,28 @@ class Context(BaseModel):
         )
         env.action_space.seed(random_seed)
         observation, info = env.reset(seed=random_seed)
-        goals = [
-            ([0.2, 0.1], "jump forward"),
-            ([0, 0.1], "stand still"),
-        ]
 
         num_layers = len(cortex_models)
-        num_courses = 5
+        num_courses = 20
         for course in range(num_courses):
             logging.info(f"Course {course}")
             total_steps = 0
-            num_trials = 5000
+            num_trials = 2000
             print_steps = max(1, num_trials // 100)
-            epsilon = course / num_courses
+            epsilon = 0.75 * course / num_courses
 
-            if course > 0:
-                total_test_steps = 0
-                for i in range(100):
-                    observation, info = env.reset()
-                    count_steps = 0
-                    for _ in range(200):
-                        a = model.react(alg.State(observation.data), stable_state)
-                        selected_action = np.asarray(a.data)
-                        next_observation, reward, terminated, truncated, info = env.step(selected_action)
-                        count_steps += 1
-                        if terminated or truncated:
-                            break
-                        else:
-                            observation = next_observation
-                    total_test_steps += count_steps
+            next_best_targets = np.zeros((len(goals), len(goals[0][0])), dtype=np.float32)
+            next_best_target_diffs = np.ones((len(goals), 1), dtype=np.float32) * 1e4
 
-                threshold_steps = 0.5 * total_test_steps / 100
-            else:
-                threshold_steps = 0
-
-            count_pass = 0
-            for i in range(num_trials * 10):
-                if count_pass % print_steps == 0 and count_pass > 0:
+            for i in range(num_trials):
+                if i % print_steps == 0 and i > 0:
                     # print at every 1 % progress
-                    logging.info(f"Environment collection: {(count_pass * 100 / num_trials):.2f}% ({(i * 100 / num_trials):.2f}%)")
+                    logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}%")
                 
-                stable_state = alg.Expectation(goals[count_pass % len(goals)][0])
+                if course > 0:
+                    target = best_targets[i % len(goals), :]
+                    stable_state = alg.Expectation(target)
+                
                 observation, info = env.reset()
                 states = []
                 actions = []
@@ -264,28 +271,25 @@ class Context(BaseModel):
                     else:
                         observation = next_observation
 
-                if len(states) < threshold_steps:
-                    continue
-
-                count_pass += 1
                 total_steps += len(states)
                 # now make hierarchical data
-                path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
+                path_layer_tuples, last_pivots = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
                 trainers = model.observe(path_layer_tuples)
 
-                if count_pass >= num_trials:
-                    break
+                next_best_targets, next_best_target_diffs = update_best_so_far(last_pivots, next_best_targets, next_best_target_diffs)
 
-            logging.log(logging.INFO, f"Average steps: {total_steps/count_pass}")
+            logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
             env.close()
 
             for trainer in trainers:
-                trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=16)
+                trainer.prepare_batch(max_mini_batch_size=8, max_learning_sequence=64)
 
-            loop_train(trainers, 50000)
+            loop_train(trainers, 20000)
 
             for trainer in trainers:
                 trainer.clear_batch()
+
+            best_targets = next_best_targets
 
         parameter_sets.append({
             "cortex_models": cortex_models,
