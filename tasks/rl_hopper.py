@@ -142,8 +142,9 @@ class Context(BaseModel):
             return diff
 
         goals = [
-            ([10, 10], "jump forward"),
-            ([0, 10], "jump still"),
+            ([5, 5], "jump forward"),
+            ([0, 5], "jump still"),
+            ([-5, 5], "jump backward"),
         ]
 
         def update_best_so_far(last_pivots, best_targets, best_target_diffs):
@@ -196,7 +197,7 @@ class Context(BaseModel):
         ############################# SET 1 ################################
 
         name = "Curriculum (Skip steps)"
-        skip_steps = 4
+        skip_steps = 8
 
         state_dim = 11
         action_dim = 3
@@ -205,8 +206,8 @@ class Context(BaseModel):
 
         cortex_models = [
             cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 128, [128, 128, 128], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [128, 128, 128, 128], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -236,7 +237,7 @@ class Context(BaseModel):
             total_steps = 0
             num_trials = 2000
             print_steps = max(1, num_trials // 100)
-            epsilon = 0.75 * course / num_courses
+            epsilon = 0.7 * (course + 1) / num_courses + 0.2
 
             next_best_targets = np.zeros((len(goals), len(goals[0][0])), dtype=np.float32)
             next_best_target_diffs = np.ones((len(goals), 1), dtype=np.float32) * 1e4
@@ -254,7 +255,7 @@ class Context(BaseModel):
                 states = []
                 actions = []
                 rewards = []
-                for _ in range(200):
+                for _ in range(500):
                     if random.random() >= epsilon or course == 0:
                         selected_action = env.action_space.sample()
                     else:
