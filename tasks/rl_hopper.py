@@ -197,7 +197,7 @@ class Context(BaseModel):
         ############################# SET 1 ################################
 
         name = "Curriculum (Skip steps)"
-        skip_steps = 8
+        skip_steps = 6
 
         state_dim = 11
         action_dim = 3
@@ -205,9 +205,9 @@ class Context(BaseModel):
         context_length = 1
 
         cortex_models = [
-            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.001, r_seed=random_seed)),
+            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=16, lr=0.0001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
@@ -260,7 +260,7 @@ class Context(BaseModel):
                         selected_action = env.action_space.sample()
                     else:
                         a = model.react(alg.State(observation.data), stable_state)
-                        selected_action = np.asarray(a.data)
+                        selected_action = np.clip(np.asarray(a.data), -1, 1)
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
                 
@@ -283,7 +283,7 @@ class Context(BaseModel):
             env.close()
 
             for trainer in trainers:
-                trainer.prepare_batch(max_mini_batch_size=8, max_learning_sequence=64)
+                trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=32)
 
             loop_train(trainers, 20000)
 
@@ -370,7 +370,8 @@ if __name__ == "__main__":
                     for _ in range(1000):
                         # selected_action = env.action_space.sample()
                         a = model.react(alg.State(observation.data), alg.Expectation(goal))
-                        observation, reward, terminated, truncated, info = env.step(np.asarray(a.data))
+                        selected_action = np.clip(np.asarray(a.data), -1, 1)
+                        observation, reward, terminated, truncated, info = env.step(selected_action)
                         total_steps += 1
                         if terminated or truncated:
                             break
@@ -383,7 +384,7 @@ if __name__ == "__main__":
 
                 def generation_action(observation):
                     a = model.react(alg.State(observation.data), alg.Expectation(goal))
-                    return np.asarray(a.data)
+                    return np.clip(np.asarray(a.data), -1, 1)
                 
                 generate_visual(render_path, 2, generation_action)
 

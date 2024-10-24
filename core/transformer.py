@@ -170,7 +170,8 @@ class Value_Score_Module(nn.Module):
             x = jnp.reshape(x, (-1, self.output_dim))
             Vl = jnp.expand_dims(x, axis=2)
             denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
-            dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
+            # prevent divide by zero
+            dot_scores = jnp.linalg.matmul(Vs, Vl) / (denom + 1e-4)
             # force dot_scores shape [batch, memory_size]
             dot_scores = jnp.reshape(dot_scores, (-1, self.slots))
             max_indices = jnp.argmax(dot_scores, axis=1, keepdims=True)    
@@ -273,8 +274,11 @@ class Train_state(struct.PyTreeNode):
 def loss_fn(params, model_fn, s, x, t, scores, masks, dropout_train_key):
     v_, scores_, Ss = model_fn({'params': params}, s, x, t, scores, rngs={'dropout': dropout_train_key})
     
-    error_S = jnp.sum(masks * (scores - scores_)**2) / jnp.sum(masks)
-    error_V = jnp.sum(masks * jnp.mean((x - v_)**2, axis=-1)) / jnp.sum(masks)
+    # prevent div by zero
+    sum_mask = jnp.sum(masks)
+    sum_mask = jnp.maximum(sum_mask, 1)
+    error_S = jnp.sum(masks * (scores - scores_)**2) / sum_mask
+    error_V = jnp.sum(masks * jnp.mean((x - v_)**2, axis=-1)) / sum_mask
     # suppress other slot score to 0
     error_C = jnp.mean(Ss ** 2)
 
