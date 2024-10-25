@@ -197,7 +197,7 @@ class Context(BaseModel):
         ############################# SET 1 ################################
 
         name = "Curriculum (Skip steps)"
-        skip_steps = 6
+        skip_steps = 4
 
         state_dim = 11
         action_dim = 3
@@ -206,11 +206,13 @@ class Context(BaseModel):
 
         cortex_models = [
             cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=16, lr=0.0001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
+            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
+            cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
+            cortex.Model(3, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
         ]
 
         hippocampus_models = [
+            hippocampus.Model(state_dim),
             hippocampus.Model(state_dim),
             hippocampus.Model(state_dim),
             hippocampus.Model(state_dim)
@@ -237,7 +239,7 @@ class Context(BaseModel):
             total_steps = 0
             num_trials = 2000
             print_steps = max(1, num_trials // 100)
-            epsilon = 0.7 * (course + 1) / num_courses + 0.2
+            epsilon = 0.2 + 0.7 * (course + 1) / num_courses
 
             next_best_targets = np.zeros((len(goals), len(goals[0][0])), dtype=np.float32)
             next_best_target_diffs = np.ones((len(goals), 1), dtype=np.float32) * 1e4
@@ -255,7 +257,7 @@ class Context(BaseModel):
                 states = []
                 actions = []
                 rewards = []
-                for _ in range(500):
+                for _ in range(200):
                     if random.random() >= epsilon or course == 0:
                         selected_action = env.action_space.sample()
                     else:
@@ -263,7 +265,7 @@ class Context(BaseModel):
                         selected_action = np.clip(np.asarray(a.data), -1, 1)
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
-                
+
                     states.append(observation)
                     actions.append(selected_action)
                     rewards.append(reward)

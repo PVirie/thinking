@@ -117,6 +117,10 @@ def write_gif(imgs, path, fps=30):
     imgs[0].save(path, save_all=True, append_images=imgs[1:], loop=0, duration=1000 / fps)
 
 
+def has_nan(x):
+    return np.isnan(np.asarray(x)).any()
+
+
 if __name__ == '__main__':
     graph_shape = 16
     g = random_graph(graph_shape, 0.2)
@@ -126,3 +130,7 @@ if __name__ == '__main__':
         print(path)
 
     print(compute_sum_along_sequence(np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]), [0, 2, 4]))
+
+
+    print(has_nan(np.array([1, 2, 3, np.nan, 4])))
+    print(has_nan(np.array([1, 2, 3, 4])))

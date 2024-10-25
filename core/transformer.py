@@ -171,7 +171,8 @@ class Value_Score_Module(nn.Module):
             Vl = jnp.expand_dims(x, axis=2)
             denom = jnp.linalg.norm(Vs, axis=2, keepdims=True) * jnp.linalg.norm(Vl, axis=1, keepdims=True)
             # prevent divide by zero
-            dot_scores = jnp.linalg.matmul(Vs, Vl) / (denom + 1e-4)
+            denom = jnp.maximum(1e-6, denom)
+            dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
             # force dot_scores shape [batch, memory_size]
             dot_scores = jnp.reshape(dot_scores, (-1, self.slots))
             max_indices = jnp.argmax(dot_scores, axis=1, keepdims=True)    
