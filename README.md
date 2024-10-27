@@ -81,6 +81,7 @@ If you have any issues, please let me know.
         -   [x] Use average state value as the goal
     -   [x] Use curriculum learning
     -   [ ] [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
+        -   [ ] Provide Skeleton dataset for help exploration
         -   [ ] Goals transition
     -   [ ] [BankHeist] (https://ale.farama.org/environments/bank_heist/)
 -   [x] Abstraction
