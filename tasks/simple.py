@@ -208,6 +208,11 @@ class Context(BaseModel):
                 path = list(reversed(path))
                 optimal_path_sequences.append(alg.Pointer_Sequence(path))
 
+        # also add random sequence for noise
+        explore_steps = 1000
+        for i in range(explore_steps):
+            path = random_walk(graph, math.floor(32 * i / explore_steps), graph.shape[0] - 1)
+            optimal_path_sequences.append(alg.Pointer_Sequence(path))
 
         optimal_skip_path = []
         for p_seq in optimal_path_sequences:
