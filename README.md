@@ -32,25 +32,25 @@ If you have any issues, please let me know.
 
 ## Run experiments
 
--   `./run_manual.sh {path to file} {configuration}` The program will execute the python file with the selected configuration.
+-   `./run_manual.sh {configuration} {path to file} {optional flags}` The program will execute the python file with the selected configuration.
 -   For VSCode,
-    -   launch `Jax - Current file clear` configuration to clear weights depending on how it handle in the file you want to run.
+    -   launch `Jax - Current file clear` for jax in cpu with `--clear` flag.
     -   launch `Jax - Current file in gpu docker` for jax in gpu environment.
     -   launch `Jax - Current file in cpu docker` for jax in cpu environment.
     -   launch `Pytorch - Current file in cpu docker` for torch in cpu environment
 -   Running on windows
     -   The relative path in windows that passes to docker has invalid path separators. Using POSIX path separator when passing `{path to file}` parameter when running `run_manual.sh` script. Or simply create a new configuration in `.vscode/launch.json` that fixed the file you want to run with the POSIX path separator.
 
-| Experiment         | Task               | Description                                                                            | File                          | Valid configs        | Required env vars            |
-| ------------------ | ------------------ | -------------------------------------------------------------------------------------- | ----------------------------- | -------------------- | ---------------------------- |
-| **Simple graph**   | Train and test     | Train the model to learn simple graph tasks.                                           | `tasks/simple.py`             | `jax-gpu`, `jax-cpu` | -                            |
-|                    | Clear weight       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` |                               | `jax-gpu`, `jax-cpu` | -                            |
-| **RL: cart pole**  | Train and test     | Train the model to learn to control the cart pole.                                     | `tasks/rl_cart_pole.py`       | `jax-gpu`, `jax-cpu` | -                            |
-|                    | Clear weight       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` |                               | `jax-gpu`, `jax-cpu` | -                            |
-| **Language model** | Prepare            | Prepare data for the the language model hierarchical guide model.                      | `tasks/lm_data_prepare.py`    | `torch-cpu`          | `HF_TOKEN`, `OPENAI_API_KEY` |
-|                    | Train hierarchy    | Train the language model hierarchical guide model.                                     | `tasks/lm_guide_train.py`     | `jax-gpu`, `jax-cpu` | -                            |
-|                    | Generate hierarchy | Generate the language model hierarchical guide model.                                  | `tasks/lm_guide_inference.py` | `jax-gpu`, `jax-cpu` | -                            |
-|                    | Interpret          | Given the hierarchy guide, print out the text generation.                              | `tasks/lm_data_interpret`     | `torch-cpu`          | `HF_TOKEN`                   |
+| Experiment         | Task               | Description                                                                            | Valid configurations (pick one) | File (--flags)                  | Required env vars            |
+| ------------------ | ------------------ | -------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------- | ---------------------------- |
+| **Simple graph**   | Train and test     | Train the model to learn simple graph tasks.                                           | `jax-gpu`, `jax-cpu`            | `tasks/simple.py`               | -                            |
+|                    | Clear weight       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | `jax-gpu`, `jax-cpu`            | `tasks/simple.py --clear`       | -                            |
+| **RL: cart pole**  | Train and test     | Train the model to learn to control the cart pole.                                     | `jax-gpu`, `jax-cpu`            | `tasks/rl_cart_pole.py`         | -                            |
+|                    | Clear weight       | Clear the weight in the model. (Or simply delete the weight direction in `./artifacts` | `jax-gpu`, `jax-cpu`            | `tasks/rl_cart_pole.py --clear` | -                            |
+| **Language model** | Prepare            | Prepare data for the the language model hierarchical guide model.                      | `torch-cpu`                     | `tasks/lm_data_prepare.py`      | `HF_TOKEN`, `OPENAI_API_KEY` |
+|                    | Train hierarchy    | Train the language model hierarchical guide model.                                     | `jax-gpu`, `jax-cpu`            | `tasks/lm_guide_train.py`       | -                            |
+|                    | Generate hierarchy | Generate the language model hierarchical guide model.                                  | `jax-gpu`, `jax-cpu`            | `tasks/lm_guide_inference.py`   | -                            |
+|                    | Interpret          | Given the hierarchy guide, print out the text generation.                              | `torch-cpu`                     | `tasks/lm_data_interpret`       | `HF_TOKEN`                   |
 
 ## To do
 
