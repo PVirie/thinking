@@ -91,7 +91,7 @@ class Model(base.Model):
         argmax_logits = jnp.argmax(logits, axis=1)
 
         # update indices where scores are higher than current scores
-        update_indices = (scores > self.score[argmax_logits]) * masks
+        update_indices = (scores > self.score[argmax_logits]).astype(jnp.float32) * masks
         score_updates = (1 - update_indices) * self.score[argmax_logits] + update_indices * scores
         # update score at argmax_logits with updates
         self.score = self.score.at[argmax_logits].set(score_updates)

@@ -215,6 +215,9 @@ class Context(BaseModel):
             optimal_path_sequences.append(alg.Pointer_Sequence(path))
 
         # shuffle
+        # current implement of one-hot has issued when optimal values come after random values
+        # it may cause zero values in the one-hot representation due to adding raw difference between from and to one-hot vectors
+
         # random.shuffle(optimal_path_sequences)
 
         data_optimal_skip_path = []
@@ -255,7 +258,7 @@ class Context(BaseModel):
 
         logging.info(f"Training experiment {name}")
 
-        for path_tuples in data_optimal_skip_path:
+        for path_tuples in data_skip_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
             trainer.prepare_batch(32)

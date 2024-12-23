@@ -56,6 +56,7 @@ class Trainer(trainer.Trainer):
 
         s = jnp.tile(jnp.expand_dims(sequence_data, axis=0), (len(pivots), 1, 1))
         s_ = jnp.tile(jnp.expand_dims(jnp.roll(sequence_data, -1, axis=0), axis=0), (len(pivots), 1, 1))
+        # raw different, this may cause zero value when added to existing state
         x = s_ - s
         t = jnp.tile(jnp.expand_dims(pivots, axis=1), (1, len(path_encoding_sequence), 1))
 
