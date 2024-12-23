@@ -208,13 +208,16 @@ class Context(BaseModel):
                 path = list(reversed(path))
                 optimal_path_sequences.append(alg.Pointer_Sequence(path))
 
-        # also add random sequence for noise
-        explore_steps = 1000
+        # also add random sequence for noise, five times the number of optimal paths
+        explore_steps = len(optimal_path_sequences) * 4
         for i in range(explore_steps):
             path = random_walk(graph, math.floor(32 * i / explore_steps), graph.shape[0] - 1)
             optimal_path_sequences.append(alg.Pointer_Sequence(path))
 
-        optimal_skip_path = []
+        # shuffle
+        # random.shuffle(optimal_path_sequences)
+
+        data_optimal_skip_path = []
         for p_seq in optimal_path_sequences:
             path = states.generate_subsequence(p_seq)
             distances = alg.Distance_Sequence(jnp.arange(len(path), dtype=jnp.float32))
@@ -228,13 +231,13 @@ class Context(BaseModel):
                     layer_paths.append((path, pivot_indices, distances))
                 path = pivots
                 distances = distances[pivot_indices.data]
-            optimal_skip_path.append(layer_paths)
+            data_optimal_skip_path.append(layer_paths)
 
 
         parameter_sets = []
         ############################# SET 1 ################################
 
-        name = "Skip step 3 layers"
+        name = "Skip steps"
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
@@ -252,7 +255,7 @@ class Context(BaseModel):
 
         logging.info(f"Training experiment {name}")
 
-        for path_tuples in data_skip_path:
+        for path_tuples in data_optimal_skip_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
             trainer.prepare_batch(32)
@@ -268,7 +271,7 @@ class Context(BaseModel):
 
         ############################# SET 2 ################################
 
-        name = "Entropy 3 layers"
+        name = "Entropy"
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
@@ -305,7 +308,7 @@ class Context(BaseModel):
 
         ############################# SET 3 ################################
 
-        name = "Optimal settings"
+        name = "Optimal"
 
         table_cores = []
         for i in range(num_layers):
@@ -327,13 +330,13 @@ class Context(BaseModel):
 
         logging.info(f"Training experiment {name}")
 
-        for path_tuples in optimal_skip_path:
+        for path_tuples in data_optimal_skip_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
             # for table model, sequential update is neccessary
             trainer.prepare_batch(1)
 
-        loop_train(trainers, len(optimal_skip_path))
+        loop_train(trainers, len(data_optimal_skip_path))
 
         parameter_sets.append({
             "cortex_models": cortex_models,

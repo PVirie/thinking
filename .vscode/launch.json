@@ -1,7 +1,7 @@
 {
     "configurations": [
         {
-            "name": "Jax - Current file clear",
+            "name": "jax-cpu clear",
             "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "Current file: clear",
@@ -29,7 +29,7 @@
             }
         },
         {
-            "name": "Jax - Current file in gpu docker",
+            "name": "jax-gpu",
             "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "Current file: gpu",
@@ -57,7 +57,7 @@
             }
         },
         {
-            "name": "Jax - Current file in cpu docker",
+            "name": "jax-cpu",
             "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "Current file: cpu",
@@ -85,7 +85,7 @@
             }
         },
         {
-            "name": "Pytorch - Current file in cpu docker",
+            "name": "torch-cpu",
             "type": "debugpy",
             "request": "attach",
             "preLaunchTask": "Current file: torch-cpu",

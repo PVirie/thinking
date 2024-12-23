@@ -32,14 +32,14 @@ If you have any issues, please let me know.
 
 ## Run experiments
 
--   `./run_manual.sh {configuration} {path to file} {optional flags}` The program will execute the python file with the selected configuration.
--   For VSCode,
-    -   launch `Jax - Current file clear` for jax in cpu with `--clear` flag.
-    -   launch `Jax - Current file in gpu docker` for jax in gpu environment.
-    -   launch `Jax - Current file in cpu docker` for jax in cpu environment.
-    -   launch `Pytorch - Current file in cpu docker` for torch in cpu environment
--   Running on windows
-    -   The relative path in windows that passes to docker has invalid path separators. Using POSIX path separator when passing `{path to file}` parameter when running `run_manual.sh` script. Or simply create a new configuration in `.vscode/launch.json` that fixed the file you want to run with the POSIX path separator.
+-   By default, use program script `./run_manual.sh {configuration} {path to file} {optional flags}` to execute the python file with the selected configuration. (See table below.)
+-   For VSCode, press `F5` to run the selected configuration:
+    -   launch `jax-cpu clear` for jax in cpu with `--clear` flag.
+    -   launch `jax-cpu` for jax in cpu environment.
+    -   launch `jax-gpu` for jax in gpu environment.
+    -   launch `torch-cpu` for torch in cpu environment
+-   Running on Windows
+    -   The relative path in Windows that passes to docker has invalid path separators. _Always use POSIX path separators_ when passing `{path to file}` parameter when running `run_manual.sh` script. Or simply create a new configuration in `.vscode/launch.json` with the hard coded configuration you wish to run with the POSIX path separators.
 
 | Experiment         | Task               | Description                                                                            | Valid configurations (pick one) | File (--flags)                  | Required env vars            |
 | ------------------ | ------------------ | -------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------- | ---------------------------- |
