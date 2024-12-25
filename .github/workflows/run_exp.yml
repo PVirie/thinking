@@ -22,7 +22,14 @@ jobs:
                   ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_MACHINE_CONNECTION_STR }} << 'EOF'
                     cd ~/thinking
                     git pull
-                    source .venv/bin/activate
-                    python3 tasks/rl_hopper.py --clear
-                    python3 tasks/rl_hopper.py
+                    # source .venv/bin/activate
+                    # python3 tasks/rl_hopper.py --clear
+                    # python3 tasks/rl_hopper.py
+                    # use tmux instead
+                    # terminate existing session or restart
+                    tmux kill-session -t runpod-rl_hopper
+                    tmux new-session -d -s runpod-rl_hopper
+                    tmux send-keys -t runpod-rl_hopper "source .venv/bin/activate" C-m
+                    tmux send-keys -t runpod-rl_hopper "python3 tasks/rl_hopper.py --clear" C-m
+                    tmux send-keys -t runpod-rl_hopper "python3 tasks/rl_hopper.py" C-m
                   EOF
