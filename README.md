@@ -30,6 +30,8 @@ If you have any issues, please let me know.
     ...
     ```
 
+If you want to purely install the python code, you can follow the steps in the docker files.
+
 ## Run experiments
 
 -   By default, use program script `./run_manual.sh {configuration} {path to file} {optional flags}` to execute the python file with the selected configuration. (See table below.)
