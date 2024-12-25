@@ -20,13 +20,8 @@ jobs:
             - name: SSH and Run
               run: |
                   ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_MACHINE_CONNECTION_STR }} << 'EOF'
-                    if [ ! -d ~/thinking ]; then
-                        git clone -b runpod-rl_hopper git@github.com:PVirie/thinking.git ~/thinking
-                        cd ~/thinking
-                    else
-                        cd ~/thinking
-                        git pull
-                    fi
+                    cd ~/thinking
+                    git pull
                     ./run_manual.sh jax-gpu tasks/rl_hopper.py --clear
                     ./run_manual.sh jax-gpu tasks/rl_hopper.py
                   EOF
