@@ -22,6 +22,5 @@ jobs:
                   ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_MACHINE_CONNECTION_STR }} << 'EOF'
                     cd ~/thinking
                     git pull
-                    ./run_manual.sh jax-gpu tasks/rl_hopper.py --clear
-                    ./run_manual.sh jax-gpu tasks/rl_hopper.py
+                    ./pod_run.sh
                   EOF
