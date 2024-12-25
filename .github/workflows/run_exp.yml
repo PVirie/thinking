@@ -22,5 +22,7 @@ jobs:
                   ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_MACHINE_CONNECTION_STR }} << 'EOF'
                     cd ~/thinking
                     git pull
-                    ./pod_run.sh
+                    source .venv/bin/activate
+                    python3 tasks/rl_hopper.py --clear
+                    python3 tasks/rl_hopper.py
                   EOF
