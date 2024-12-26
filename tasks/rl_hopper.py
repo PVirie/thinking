@@ -237,7 +237,7 @@ class Context(BaseModel):
         for course in range(num_courses):
             logging.info(f"Course {course}")
             total_steps = 0
-            num_trials = 2000
+            num_trials = 20000
             print_steps = max(1, num_trials // 100)
             epsilon = 1 - 0.5 * (course + 1) / num_courses
 
@@ -287,7 +287,7 @@ class Context(BaseModel):
             for trainer in trainers:
                 trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=32)
 
-            loop_train(trainers, 20000)
+            loop_train(trainers, 100000)
 
             for trainer in trainers:
                 trainer.clear_batch()
