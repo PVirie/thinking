@@ -239,7 +239,7 @@ class Context(BaseModel):
             total_steps = 0
             num_trials = 2000
             print_steps = max(1, num_trials // 100)
-            epsilon = 1 - 0.75 * (course + 1) / num_courses
+            epsilon = 0.8 - 0.7 * (course + 1) / num_courses
 
             next_best_targets = np.zeros((len(goals), len(goals[0][0])), dtype=np.float32)
             next_best_target_diffs = np.ones((len(goals), 1), dtype=np.float32) * 1e4
