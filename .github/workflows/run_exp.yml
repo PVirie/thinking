@@ -30,6 +30,8 @@ jobs:
                     tmux kill-session -t runpod-rl_hopper
                     tmux new-session -d -s runpod-rl_hopper
                     tmux send-keys -t runpod-rl_hopper "source .venv/bin/activate" C-m
-                    tmux send-keys -t runpod-rl_hopper "python3 tasks/rl_hopper.py --clear" C-m
+                    # assign env variables
+                    tmux send-keys -t runpod-rl_hopper "export MUJOCO_GL=osmesa" C-m
+                    # tmux send-keys -t runpod-rl_hopper "python3 tasks/rl_hopper.py --clear" C-m
                     tmux send-keys -t runpod-rl_hopper "python3 tasks/rl_hopper.py" C-m
                   EOF
