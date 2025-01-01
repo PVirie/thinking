@@ -233,7 +233,7 @@ class Context(BaseModel):
         observation, info = env.reset(seed=random_seed)
 
         num_layers = len(cortex_models)
-        num_courses = 60
+        num_courses = 20
         for course in range(num_courses):
             logging.info(f"Course {course}")
             total_steps = 0
@@ -257,7 +257,7 @@ class Context(BaseModel):
                 states = []
                 actions = []
                 rewards = []
-                for _ in range(200):
+                for _ in range(1000):
                     if random.random() <= epsilon or course == 0:
                         selected_action = env.action_space.sample()
                     else:
