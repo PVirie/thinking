@@ -261,10 +261,11 @@ class Context(BaseModel):
                 for j in range(1000):
                     if random.random() <= epsilon or course == 0:
                         selected_action = env.action_space.sample()
+                        # quantize to -1 0 1
+                        selected_action = np.round(selected_action)
                     else:
                         a = model.react(alg.State(observation.data), stable_state)
-                        # selected_action = np.clip(np.asarray(a.data), -1, 1)
-                        selected_action = np.where(np.asarray(a.data) > 0, 1, -1)
+                        selected_action = np.clip(np.asarray(a.data), -1, 1)
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
                     # check for nan
