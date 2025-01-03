@@ -258,7 +258,7 @@ class Context(BaseModel):
                 actions = []
                 rewards = []
 
-                for j in range(1000):
+                for j in range(200):
                     if random.random() <= epsilon or course == 0:
                         selected_action = env.action_space.sample()
                         # quantize to -1 0 1
