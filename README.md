@@ -56,6 +56,8 @@ If you want to purely install the python code, you can follow the steps in the d
 
 ## To do
 
+### Experiments
+
 -   [x] Hierarchical goal pursuing
     -   [x] Table kernel
     -   [x] Linear kernel
@@ -68,7 +70,6 @@ If you want to purely install the python code, you can follow the steps in the d
     -   [x] Use optax
     -   [x] Transformer kernel
     -   [x] Value access vs score access hyperparameter to select which type of hypothesis learning to use.
-    -   [ ] Use flax nnx
 -   [x] Language model experiment (abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel
@@ -97,3 +98,8 @@ If you want to purely install the python code, you can follow the steps in the d
     -   [ ] Rotary positional encoding
     -   [ ] Location encoding
     -   [ ] Tagging
+
+### Code
+
+-   [ ] Interruptible training
+-   [ ] Use flax nnx
