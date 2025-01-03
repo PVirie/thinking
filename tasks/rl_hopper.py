@@ -258,19 +258,13 @@ class Context(BaseModel):
                 actions = []
                 rewards = []
 
-                # make cumulative sample
-                sampled_action = None
-                sample_interval = 4
                 for j in range(1000):
                     if random.random() <= epsilon or course == 0:
-                        if j % sample_interval == 0 or sampled_action is None:
-                            sampled_action = env.action_space.sample()
-                            # round to 0.5 and -0.5 to increase action strength
-                            sampled_action = np.where(sampled_action > 0, 0.5, -0.5)
-                        selected_action = sampled_action
+                        selected_action = env.action_space.sample()
                     else:
                         a = model.react(alg.State(observation.data), stable_state)
-                        selected_action = np.clip(np.asarray(a.data), -1, 1)
+                        # selected_action = np.clip(np.asarray(a.data), -1, 1)
+                        selected_action = np.where(np.asarray(a.data) > 0, 1, -1)
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
                     # check for nan
