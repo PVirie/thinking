@@ -239,7 +239,7 @@ class Context(BaseModel):
             total_steps = 0
             num_trials = 2000
             print_steps = max(1, num_trials // 100)
-            epsilon = 1 - 0.5 * (course + 1) / num_courses
+            epsilon = 0.8 - 0.7 * (course + 1) / num_courses
 
             next_best_targets = np.zeros((len(goals), len(goals[0][0])), dtype=np.float32)
             next_best_target_diffs = np.ones((len(goals), 1), dtype=np.float32) * 1e4
@@ -265,6 +265,11 @@ class Context(BaseModel):
                         selected_action = np.clip(np.asarray(a.data), -1, 1)
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
+
+                    # check for nan
+                    if np.isnan(next_observation.data).any() or np.isnan(reward.data).any():
+                        logging.warning("Nan detected in observation")
+                        break
 
                     states.append(observation)
                     actions.append(selected_action)
