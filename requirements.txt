@@ -5,3 +5,4 @@ debugpy
 gymnasium[classic-control]
 gymnasium[mujoco]
 Pillow
+PyOpenGL-accelerate
