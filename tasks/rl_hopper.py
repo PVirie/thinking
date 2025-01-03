@@ -265,14 +265,18 @@ class Context(BaseModel):
                     if random.random() <= epsilon or course == 0:
                         if j % sample_interval == 0 or sampled_action is None:
                             sampled_action = env.action_space.sample()
-                            # round to 1 and -1 to increase action strength
-                            sampled_action = np.where(sampled_action > 0, 1, -1)
+                            # round to 0.5 and -0.5 to increase action strength
+                            sampled_action = np.where(sampled_action > 0, 0.5, -0.5)
                         selected_action = sampled_action
                     else:
                         a = model.react(alg.State(observation.data), stable_state)
                         selected_action = np.clip(np.asarray(a.data), -1, 1)
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
+                    # check for nan
+                    if np.isnan(next_observation.data).any() or np.isnan(reward.data).any():
+                        logging.warning("Nan detected in observation")
+                        break
 
                     states.append(observation)
                     actions.append(selected_action)
