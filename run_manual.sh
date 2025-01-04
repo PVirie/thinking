@@ -16,3 +16,5 @@ then
 else
     docker compose -f docker_compose.yaml --profile $profile run -d --build --service-ports "$profile-service" python3 $2 $3
 fi
+
+sleep 5
