@@ -312,6 +312,8 @@ def train(context, parameter_path):
             "name": name
         })
         context.training_state = 2
+        random_seed = random.randint(0, 1000000)
+        context.random_seed = random_seed
         Context.save(context, parameter_path)
 
 
@@ -352,6 +354,8 @@ def train(context, parameter_path):
             "name": name
         })
         context.training_state = 3
+        random_seed = random.randint(0, 1000000)
+        context.random_seed = random_seed
         Context.save(context, parameter_path)
 
 
@@ -394,6 +398,8 @@ def train(context, parameter_path):
             "name": "Table layers"
         })
         context.training_state = 4
+        random_seed = random.randint(0, 1000000)
+        context.random_seed = random_seed
         Context.save(context, parameter_path)
 
 

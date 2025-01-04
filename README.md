@@ -101,5 +101,5 @@ If you want to purely install the python code, you can follow the steps in the d
 
 ### Code
 
--   [ ] Interruptible training
+-   [x] Interruptible training
 -   [ ] Use flax nnx

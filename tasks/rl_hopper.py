@@ -116,55 +116,54 @@ class Context(BaseModel):
         return True
 
 
-    @staticmethod
-    def setup():
-        random_seed = random.randint(0, 1000)
-        random.seed(random_seed)
+def setup():
+    random_seed = random.randint(0, 1000)
+    random.seed(random_seed)
 
-        name = "Curriculum (Skip steps)"
-        skip_steps = 4
+    name = "Curriculum (Skip steps)"
+    skip_steps = 4
 
-        state_dim = 11
-        action_dim = 3
-        expectation_dim = 2 # acc_x, speed_z
-        context_length = 1
+    state_dim = 11
+    action_dim = 3
+    expectation_dim = 2 # acc_x, speed_z
+    context_length = 1
 
-        cortex_models = [
-            cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=16, lr=0.0001, r_seed=random_seed)),
-            cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
-            cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
-            cortex.Model(3, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        ]
+    cortex_models = [
+        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(3, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
+    ]
 
-        hippocampus_models = [
-            hippocampus.Model(state_dim),
-            hippocampus.Model(state_dim),
-            hippocampus.Model(state_dim),
-            hippocampus.Model(state_dim)
-        ]
+    hippocampus_models = [
+        hippocampus.Model(state_dim),
+        hippocampus.Model(state_dim),
+        hippocampus.Model(state_dim),
+        hippocampus.Model(state_dim)
+    ]
 
-        abstraction_models = []
+    abstraction_models = []
 
-        return Context(
-            cortex_models=cortex_models,
-            hippocampus_models=hippocampus_models,
-            abstraction_models=abstraction_models,
-            name=name,
-            skip_steps=skip_steps,
-            goals=[
-                ([5, 5], "jump forward"),
-                ([0, 5], "jump still"),
-                ([-5, 5], "jump backward"),
-            ],
-            random_seed=random_seed,
-            course=0,
-            completed=False,
-            best_goals=None
-        )
-
+    return Context(
+        cortex_models=cortex_models,
+        hippocampus_models=hippocampus_models,
+        abstraction_models=abstraction_models,
+        name=name,
+        skip_steps=skip_steps,
+        goals=[
+            ([5, 5], "jump forward"),
+            ([0, 5], "jump still"),
+            ([-5, 5], "jump backward"),
+        ],
+        random_seed=random_seed,
+        course=0,
+        completed=False,
+        best_goals=None
+    )
 
 
-def train(context, path):
+
+def train(context, parameter_path):
     
     if context.completed == True:
         logging.info("Experiment already completed")
@@ -288,9 +287,11 @@ def train(context, path):
                 target = best_targets[i % len(context.goals), :]
                 stable_state = alg.Expectation(target)
             
-            random_seed = random.randint(0, 100000)
+            random.seed(random_seed)
             env.action_space.seed(random_seed)
             observation, info = env.reset(seed=random_seed)
+            random_seed = random.randint(0, 100000)
+            
             states = []
             actions = []
             rewards = []
@@ -346,7 +347,7 @@ def train(context, path):
             context.completed = True
         context.best_goals = best_targets.tolist()
         
-        Context.save(context, path)
+        Context.save(context, parameter_path)
 
 
 @contextlib.contextmanager
@@ -357,7 +358,7 @@ def experiment_session(path, force_clear=None):
         empty_directory(path)
     context = Context.load(path)
     if context is None:
-        context = Context.setup()
+        context = setup()
     train(context, path)
     yield context
 
