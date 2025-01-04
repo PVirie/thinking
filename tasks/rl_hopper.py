@@ -117,7 +117,7 @@ class Context(BaseModel):
 
 
     @staticmethod
-    def setup(setup_path):
+    def setup():
         random_seed = random.randint(0, 1000)
         random.seed(random_seed)
 
@@ -357,7 +357,7 @@ def experiment_session(path, force_clear=None):
         empty_directory(path)
     context = Context.load(path)
     if context is None:
-        context = Context.setup(path)
+        context = Context.setup()
     train(context, path)
     yield context
 
