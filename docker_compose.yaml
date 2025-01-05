@@ -23,7 +23,7 @@ services:
         env_file:
             - ./secrets.env
         ports:
-            - "127.0.0.1:5678:5678"
+            - "127.0.0.1:43690:43690"
         networks:
             - app_network
         deploy:
@@ -57,7 +57,7 @@ services:
         env_file:
             - ./secrets.env
         ports:
-            - "127.0.0.1:5678:5678"
+            - "127.0.0.1:43690:43690"
         networks:
             - app_network
     api-call-service:
@@ -83,7 +83,7 @@ services:
         env_file:
             - ./secrets.env
         ports:
-            - "127.0.0.1:5678:5678"
+            - "127.0.0.1:43690:43690"
         networks:
             - app_network
     torch-cpu-service:
@@ -109,7 +109,7 @@ services:
         env_file:
             - ./secrets.env
         ports:
-            - "127.0.0.1:5678:5678"
+            - "127.0.0.1:43690:43690"
         networks:
             - app_network
 networks:

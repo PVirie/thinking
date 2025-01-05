@@ -158,6 +158,9 @@ def setup():
 
 def train(context, parameter_path):
 
+    if context.training_state >= 4:
+        return
+
     graph_shape = context.graph_shape
     random_seed = context.random_seed
     num_layers = context.num_layers
