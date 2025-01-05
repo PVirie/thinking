@@ -114,6 +114,36 @@
             "command": "sleep 3",
             "dependsOn": ["Current file: torch-cpu (internal)"],
             "isBackground": false
+        },
+        {
+            "label": "docker-compose-stop: torch-gpu",
+            "type": "shell",
+            "command": "docker compose -f docker_compose.yaml down",
+            "isBackground": true
+        },
+        {
+            "label": "Current file: torch-gpu (internal)",
+            "type": "shell",
+            "command": "docker compose -f docker_compose.yaml --profile torch-gpu run --rm -d --build --service-ports torch-gpu-service python3 -m debugpy --listen 0.0.0.0:43690 --wait-for-client ${relativeFile}",
+            "dependsOn": ["docker-compose-stop: torch-gpu"],
+            "isBackground": true,
+            "problemMatcher": [
+                {
+                    "pattern": [{ "regexp": ".", "file": 1, "location": 2, "message": 3 }],
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": "^(Building py-service)$",
+                        "endsPattern": "^(Creating|Recreating|Starting) (py-container) ... (done)$"
+                    }
+                }
+            ]
+        },
+        {
+            "label": "Current file: torch-gpu",
+            "type": "shell",
+            "command": "sleep 3",
+            "dependsOn": ["Current file: torch-gpu (internal)"],
+            "isBackground": false
         }
     ]
 }
