@@ -400,7 +400,7 @@ if __name__ == "__main__":
 
         for goal, goal_text in context.goals:
 
-            result_path = os.path.join(experiment_path, "results", goal_text, f"set_{i}")
+            result_path = os.path.join(experiment_path, "results", goal_text)
 
             model = HUMN(context.cortex_models, context.hippocampus_models, context.abstraction_models)
             observation, info = env.reset()
