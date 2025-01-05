@@ -22,9 +22,9 @@ if test_jax:
     x = random.normal(key, (1_000_000,))
 
     start_time = time.time()
-    for i in range(1000):
+    for i in range(10000):
         selu(x).block_until_ready()
-    print(f"SELUs took {time.time() - start_time:.2f} seconds")
+    print(f"SELUs took {time.time() - start_time:.4f} seconds")
 
     # test jax jit
 
@@ -32,9 +32,26 @@ if test_jax:
     selu_jit(x)  # compiles on first call
 
     start_time = time.time()
-    for i in range(1000):
+    for i in range(10000):
         selu_jit(x).block_until_ready()
-    print(f"JITted SELUs took {time.time() - start_time:.2f} seconds")
+    print(f"JITted SELUs took {time.time() - start_time:.4f} seconds")
+
+    # test jax jit with more complex function
+
+    def loop_selu(x):
+        sum = jnp.zeros((1_000_000,))
+        for i in range(1000):
+            sum = sum + selu(x)
+        return jnp.sum(sum)
+    
+    loop_selu_jit = jit(loop_selu)
+    loop_selu_jit(x)  # compiles on first call
+
+    start_time = time.time()
+    loop_selu_jit(x).block_until_ready()
+    print(f"JITted loop SELUs took {time.time() - start_time:.4f} seconds")
+
+    # jax is comparable to torch.compile, but it jits functions way faster.
 
 
 test_torch = False
@@ -50,35 +67,47 @@ if test_torch:
     device = torch.device("cuda" if is_cuda else "cpu")
     print("Device:", device)
 
-    def selu(x, alpha=1.67, lmbda=1.05):
+    def selu(x, alpha:float=1.67, lmbda:float=1.05):
         return lmbda * torch.where(x > 0, x, alpha * torch.exp(x) - alpha)
 
     x = torch.randn(1_000_000, device=device)
 
     start_time = time.time()
-    for i in range(1000):
+    for i in range(10000):
         selu(x)
-    print(f"SELUs took {time.time() - start_time:.2f} seconds")
+    print(f"SELUs took {time.time() - start_time:.4f} seconds")
 
     # test torch legacy jit.script
 
-    @torch.jit.script
-    def selu_jit(x, alpha:float = 1.67, lmbda:float = 1.05):
-        return lmbda * torch.where(x > 0, x, alpha * torch.exp(x) - alpha)
+    selu_jit = torch.jit.script(selu)
 
     start_time = time.time()
-    for i in range(1000):
+    for i in range(10000):
         selu_jit(x)
-    print(f"JITted SELUs took {time.time() - start_time:.2f} seconds")
+    print(f"JITted SELUs took {time.time() - start_time:.4f} seconds")
+    
+    # test torch jit with more complex function
+
+    def loop_selu(x):
+        sum = torch.zeros(1_000_000, device=x.device)
+        for i in range(1000):
+            sum = sum + selu(x)
+        return torch.sum(sum)
+    
+    loop_selu_jit = torch.jit.script(loop_selu)
+
+    start_time = time.time()
+    loop_selu_jit(x)
+    print(f"JITted loop SELUs took {time.time() - start_time:.4f} seconds")
+
 
     # test torch compile
 
-    selu_compiled = torch.compile(selu)
+    loop_selu_compiled = torch.compile(loop_selu)
+    loop_selu_compiled(x) # compiles on first call
 
     start_time = time.time()
-    for i in range(1000):
-        selu_compiled(x)
-    print(f"Compiled SELUs took {time.time() - start_time:.2f} seconds")
-    
+    loop_selu_compiled(x)
+    print(f"Compiled loop SELUs took {time.time() - start_time:.4f} seconds")
 
 print("Done.")
