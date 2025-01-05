@@ -2,7 +2,7 @@ services:
     jax-gpu-service:
         profiles: ["jax-gpu"]
         build:
-            dockerfile: ./Dockerfile
+            dockerfile: ./Dockerfile.jax-gpu
             context: .
         container_name: thinking-gpu
         restart: no
@@ -36,7 +36,7 @@ services:
     jax-cpu-service:
         profiles: ["jax-cpu"]
         build:
-            dockerfile: ./Dockerfile.nogpu
+            dockerfile: ./Dockerfile.jax-cpu
             context: .
         container_name: thinking-cpu
         restart: no
@@ -63,7 +63,7 @@ services:
     api-call-service:
         profiles: ["api-call"]
         build:
-            dockerfile: ./Dockerfile.pure_python
+            dockerfile: ./Dockerfile.pure-python
             context: .
         container_name: thinking-api-call
         restart: no
@@ -86,10 +86,43 @@ services:
             - "127.0.0.1:43690:43690"
         networks:
             - app_network
+    torch-gpu-service:
+        profiles: ["torch-gpu"]
+        build:
+            dockerfile: ./Dockerfile.torch-gpu
+            context: .
+        container_name: thinking-gpu-torch
+        restart: no
+        volumes:
+            - ./artifacts/log/:/app/log
+            - ./artifacts/cache:/app/cache
+            - ./artifacts/experiments:/app/experiments
+            - ./humn:/app/humn
+            - ./core:/app/core
+            - ./implementations:/app/implementations
+            - ./tasks:/app/tasks
+        environment:
+            - ERROR_LOG=/app/log/error.log
+            - LOG_LEVEL=info
+            - PYTHONUNBUFFERED=TRUE
+            - TF_CPP_MIN_LOG_LEVEL=0
+        env_file:
+            - ./secrets.env
+        ports:
+            - "127.0.0.1:43690:43690"
+        networks:
+            - app_network
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: 1
+                          capabilities: [gpu]
     torch-cpu-service:
         profiles: ["torch-cpu"]
         build:
-            dockerfile: ./Dockerfile.nogpu_torch
+            dockerfile: ./Dockerfile.torch-cpu
             context: .
         container_name: thinking-cpu-torch
         restart: no
