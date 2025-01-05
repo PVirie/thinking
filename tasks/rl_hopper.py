@@ -299,7 +299,7 @@ def train(context, parameter_path):
                 if random.random() <= epsilon or course == 0:
                     selected_action = env.action_space.sample()
                     # quantize
-                    selected_action = np.round(selected_action, 2)
+                    selected_action = np.round(selected_action)
                 else:
                     a = model.react(alg.State(observation.data), stable_state)
                     selected_action = np.clip(np.asarray(a.data), -1, 1)
