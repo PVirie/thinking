@@ -258,7 +258,7 @@ def train(context, parameter_path):
     )
 
     num_layers = len(context.cortex_models)
-    num_courses = 20
+    num_courses = 10
     course = context.course
     random_seed = context.random_seed
     if context.best_goals is not None:
