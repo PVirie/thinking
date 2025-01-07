@@ -51,7 +51,7 @@ if test_jax:
     loop_selu_jit(x).block_until_ready()
     print(f"JITted loop SELUs took {time.time() - start_time:.4f} seconds")
 
-    # jax is comparable to torch.compile, but it jits functions way faster.
+    # jax is comparable to torch.compile, but it jit-compiles functions way faster.
 
 
 test_torch = False

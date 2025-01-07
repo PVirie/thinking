@@ -295,7 +295,7 @@ def train(context, parameter_path):
             states = []
             actions = []
             rewards = []
-            for _ in range(200):
+            for _ in range(500):
                 if random.random() <= epsilon or course == 0:
                     selected_action = env.action_space.sample()
                     # quantize
