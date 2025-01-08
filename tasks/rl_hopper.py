@@ -44,7 +44,6 @@ class Context(BaseModel):
 
     random_seed: int = 0
     course: int = 0
-    completed: bool = False
     best_goals: Union[None, List[List[float]]] = None
 
     @staticmethod
@@ -77,7 +76,6 @@ class Context(BaseModel):
                     goals=set_metadata["goals"],
                     random_seed=set_metadata["random_seed"],
                     course=set_metadata["course"] if "course" in set_metadata else 0,
-                    completed=set_metadata["completed"] if "completed" in set_metadata else False,
                     best_goals=set_metadata["best_goals"] if "best_goals" in set_metadata else None
                 )
             return context
@@ -110,7 +108,6 @@ class Context(BaseModel):
                 "goals": self.goals,
                 "random_seed": self.random_seed,
                 "course": self.course,
-                "completed": self.completed,
                 "best_goals": self.best_goals
             }, f, indent=4)
         return True
@@ -157,7 +154,6 @@ def setup():
         ],
         random_seed=random_seed,
         course=0,
-        completed=False,
         best_goals=None
     )
 
@@ -165,7 +161,10 @@ def setup():
 
 def train(context, parameter_path):
     
-    if context.completed == True:
+    course = context.course
+    num_courses = 10
+
+    if course >= num_courses:
         logging.info("Experiment already completed")
         return
     
@@ -258,8 +257,6 @@ def train(context, parameter_path):
     )
 
     num_layers = len(context.cortex_models)
-    num_courses = 10
-    course = context.course
     random_seed = context.random_seed
     if context.best_goals is not None:
         best_targets = np.array(context.best_goals, dtype=np.float32)
@@ -295,14 +292,17 @@ def train(context, parameter_path):
             states = []
             actions = []
             rewards = []
-            for _ in range(500):
+            for _ in range(400):
                 if random.random() <= epsilon or course == 0:
                     selected_action = env.action_space.sample()
                     # quantize
                     selected_action = np.round(selected_action)
                 else:
                     a = model.react(alg.State(observation.data), stable_state)
-                    selected_action = np.clip(np.asarray(a.data), -1, 1)
+                    selected_action = a.data
+                    # random in range -0.5 to 0.5
+                    selected_action += (np.random.rand(3) - 0.5) * epsilon
+                    selected_action = np.clip(selected_action, -1, 1)
 
                 next_observation, reward, terminated, truncated, info = env.step(selected_action)
 
@@ -332,7 +332,7 @@ def train(context, parameter_path):
         for trainer in trainers:
             trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=32)
 
-        loop_train(trainers, 20000)
+        loop_train(trainers, 50000)
 
         for trainer in trainers:
             trainer.clear_batch()
@@ -343,8 +343,6 @@ def train(context, parameter_path):
 
         context.course = course
         context.random_seed = random_seed
-        if course == num_courses:
-            context.completed = True
         context.best_goals = best_targets.tolist()
         
         Context.save(context, parameter_path)
