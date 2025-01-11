@@ -403,25 +403,26 @@ if __name__ == "__main__":
             model = HUMN(context.cortex_models, context.hippocampus_models, context.abstraction_models)
             observation, info = env.reset()
 
-            total_steps = 0
-            num_trials = 100
-            print_steps = max(1, num_trials // 10)
-            for j in range(num_trials):
-                if j % print_steps == 0 and j > 0:
-                    # print at every 1 % progress
-                    logging.info(f"Environment testing: {(j * 100 / num_trials):.2f}")
-                observation, info = env.reset()
-                for _ in range(1000):
-                    # selected_action = env.action_space.sample()
-                    a = model.react(alg.State(observation.data), alg.Expectation(goal))
-                    selected_action = np.clip(np.asarray(a.data), -1, 1)
-                    observation, reward, terminated, truncated, info = env.step(selected_action)
-                    total_steps += 1
-                    if terminated or truncated:
-                        break
+            # total_steps = 0
+            # num_trials = 100
+            # print_steps = max(1, num_trials // 10)
+            # for j in range(num_trials):
+            #     if j % print_steps == 0 and j > 0:
+            #         # print at every 1 % progress
+            #         logging.info(f"Environment testing: {(j * 100 / num_trials):.2f}")
+            #     observation, info = env.reset()
+            #     for _ in range(1000):
+            #         # selected_action = env.action_space.sample()
+            #         a = model.react(alg.State(observation.data), alg.Expectation(goal))
+            #         selected_action = np.clip(np.asarray(a.data), -1, 1)
+            #         observation, reward, terminated, truncated, info = env.step(selected_action)
+            #         total_steps += 1
+            #         if terminated or truncated:
+            #             break
 
-            logging.info(f"Parameter set {context.name}; average behavior steps: {total_steps/num_trials}")
-
+            # logging.info(f"Parameter set {context.name}; average behavior steps: {total_steps/num_trials}")
+            logging.info(f"Parameter set {context.name}; goal: {goal_text}")
+                         
             render_path = os.path.join(result_path, "render")
             os.makedirs(render_path, exist_ok=True)
 
