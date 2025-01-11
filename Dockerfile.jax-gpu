@@ -1,0 +1,20 @@
+FROM ubuntu:24.04
+
+RUN apt update
+RUN apt install -y python3 python3-pip git python3-venv
+RUN apt install -y libosmesa6-dev
+
+# create virtual environment, the correct way https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
+ENV VIRTUAL_ENV=/app/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+WORKDIR /app
+
+# install jax with cuda support
+RUN pip3 install --upgrade pip
+RUN pip3 install --upgrade jax[cuda12]==0.4.38 flax ott-jax
+COPY ./requirements.txt /app/requirements.txt
+RUN pip3 install --no-cache-dir --upgrade -r requirements.txt
+
+CMD ["python3", "-m", "debugpy", "--listen", "0.0.0.0:43690", "tasks/benchmark.py"]

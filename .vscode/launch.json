@@ -25,7 +25,7 @@
             ],
             "connect": {
                 "host": "127.0.0.1",
-                "port": 5678
+                "port": 43690
             }
         },
         {
@@ -53,7 +53,7 @@
             ],
             "connect": {
                 "host": "127.0.0.1",
-                "port": 5678
+                "port": 43690
             }
         },
         {
@@ -81,7 +81,39 @@
             ],
             "connect": {
                 "host": "127.0.0.1",
-                "port": 5678
+                "port": 43690
+            }
+        },
+        {
+            "name": "torch-gpu",
+            "type": "debugpy",
+            "request": "attach",
+            "preLaunchTask": "Current file: torch-gpu",
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/core",
+                    "remoteRoot": "/app/core"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/jax_onehot",
+                    "remoteRoot": "/app/jax_onehot"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/llm",
+                    "remoteRoot": "/app/llm"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/humn",
+                    "remoteRoot": "/app/humn"
+                },
+                {
+                    "localRoot": "${workspaceFolder}/tasks",
+                    "remoteRoot": "/app/tasks"
+                }
+            ],
+            "connect": {
+                "host": "127.0.0.1",
+                "port": 43690
             }
         },
         {
@@ -113,7 +145,7 @@
             ],
             "connect": {
                 "host": "127.0.0.1",
-                "port": 5678
+                "port": 43690
             }
         }
     ]

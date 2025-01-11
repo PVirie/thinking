@@ -31,10 +31,17 @@ args = parser.parse_args()
 
 class Context(BaseModel):
     parameter_sets: List[Any]
+
+    graph_shape: int
+    random_seed: int
+    num_layers: int
+    skip_step_size: int
+
     states: Any
     goals: Any
     graph: Any
-    random_seed: int = 0
+    
+    training_state: int = 0
 
     @staticmethod
     def load(path):
@@ -69,7 +76,17 @@ class Context(BaseModel):
                 states = alg.State_Sequence.load(os.path.join(path, "states"))
                 goals = np.load(os.path.join(path, "goals.npy"))
                 graph = np.load(os.path.join(path, "graph.npy"))
-                context = Context(parameter_sets=parameter_sets, states=states, goals=goals, graph=graph, random_seed=metadata["random_seed"])
+                context = Context(
+                    parameter_sets=parameter_sets,
+                    graph_shape=metadata["graph_shape"],
+                    random_seed=metadata["random_seed"],
+                    num_layers=metadata["num_layers"],
+                    skip_step_size=metadata["skip_step_size"],
+                    states=states, 
+                    goals=goals, 
+                    graph=graph,
+                    training_state=metadata.get("training_state", 0)
+                )
             return context
         except Exception as e:
             logging.warning(e)
@@ -107,138 +124,164 @@ class Context(BaseModel):
                     }
                     for parameter_set in self.parameter_sets
                 ],
-                "num_states": len(self.states),
-                "random_seed": self.random_seed
+                "graph_shape": self.graph_shape,
+                "random_seed": self.random_seed,
+                "num_layers": self.num_layers,
+                "skip_step_size": self.skip_step_size,
+                "training_state": self.training_state
             }, f, indent=4)
         return True
 
 
-    @staticmethod
-    def setup(setup_path):
-        random_seed = random.randint(0, 1000000)
-        random.seed(random_seed)
+def setup():
+    
+    graph_shape = 32
+    num_layers = 3
+    skip_step_size = int(4)
+    random_seed = random.randint(0, 1000000)
 
-        graph_shape = 32
-        one_hot = generate_onehot_representation(np.arange(graph_shape), graph_shape)
-        states = alg.State_Sequence(one_hot)
+    one_hot = generate_onehot_representation(np.arange(graph_shape), graph_shape)
+    states = alg.State_Sequence(one_hot)
 
-        graph = random_graph(graph_shape, 0.2)
-        explore_steps = 5000
-        path_sequences = []
-        for i in range(explore_steps):
-            path = random_walk(graph, math.floor(32 * i / explore_steps), graph.shape[0] - 1)
-            path_sequences.append(alg.Pointer_Sequence(path))
+    graph = random_graph(graph_shape, 0.2)
 
-        def loop_train(trainers, num_epoch=1000):
-            print_steps = max(1, num_epoch // 100)
-            stamp = time.time()
-            for i in range(num_epoch):
-                for trainer in trainers:
-                    trainer.step_update()
-                if i % print_steps == 0 and i > 0:
-                    # print at every 1 % progress
-                    # compute time to finish in seconds
-                    logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-                    logging.info(f"Layer loss: {'; '.join([f'{i}| {trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
-            logging.info(f"Total learning time {time.time() - stamp}s")
-
-        num_layers = 3
-        skip_step_size = int(4)
-
-        ############################# PREPARE STEP HIERARCHY DATA ################################
-
-        data_skip_path = []
-        for p_seq in path_sequences:
-            path = states.generate_subsequence(p_seq)
-            distances = alg.Distance_Sequence(jnp.arange(len(path), dtype=jnp.float32))
-            layer_paths = []
-            for i in range(num_layers):
-                if i == num_layers - 1:
-                    pivot_indices, pivots = path.sample_skip(math.inf)
-                    layer_paths.append((path, pivot_indices, distances))
-                else:
-                    pivot_indices, pivots = path.sample_skip(skip_step_size)
-                    layer_paths.append((path, pivot_indices, distances))
-                path = pivots
-                distances = distances[pivot_indices.data]
-            data_skip_path.append(layer_paths)
+    return Context(
+        parameter_sets=[],
+        graph_shape=graph_shape,
+        random_seed=random_seed,
+        num_layers=num_layers,
+        skip_step_size=skip_step_size,
+        states=states, 
+        goals=np.arange(graph_shape), 
+        graph=graph)
 
 
-        ############################# PREPARE ENTROPIC HIERARCHY DATA ################################
+def train(context, parameter_path):
 
+    if context.training_state >= 4:
+        return
+
+    graph_shape = context.graph_shape
+    random_seed = context.random_seed
+    num_layers = context.num_layers
+    skip_step_size = context.skip_step_size
+
+    random.seed(random_seed)
+    
+    explore_steps = 5000
+    path_sequences = []
+    for i in range(explore_steps):
+        path = random_walk(context.graph, math.floor(32 * i / explore_steps), context.graph.shape[0] - 1)
+        path_sequences.append(alg.Pointer_Sequence(path))
+
+    def loop_train(trainers, num_epoch=1000):
+        print_steps = max(1, num_epoch // 100)
+        stamp = time.time()
+        for i in range(num_epoch):
+            for trainer in trainers:
+                trainer.step_update()
+            if i % print_steps == 0 and i > 0:
+                # print at every 1 % progress
+                # compute time to finish in seconds
+                logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
+                logging.info(f"Layer loss: {'; '.join([f'{i}| {trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
+        logging.info(f"Total learning time {time.time() - stamp}s")
+
+    ############################# PREPARE STEP HIERARCHY DATA ################################
+
+    data_skip_path = []
+    for p_seq in path_sequences:
+        path = context.states.generate_subsequence(p_seq)
+        distances = alg.Distance_Sequence(jnp.arange(len(path), dtype=jnp.float32))
+        layer_paths = []
+        for i in range(num_layers):
+            if i == num_layers - 1:
+                pivot_indices, pivots = path.sample_skip(math.inf)
+                layer_paths.append((path, pivot_indices, distances))
+            else:
+                pivot_indices, pivots = path.sample_skip(skip_step_size)
+                layer_paths.append((path, pivot_indices, distances))
+            path = pivots
+            distances = distances[pivot_indices.data]
+        data_skip_path.append(layer_paths)
+
+    ############################# PREPARE ENTROPIC HIERARCHY DATA ################################
+
+    if context.training_state <= 2:
         abstractor = abstraction.Model(stat_table.Model(graph_shape))
-
+        
         logging.info(f"Learning abstraction")
-
         for p_seq in path_sequences:
-            trainer = abstractor.incrementally_learn(states.generate_subsequence(p_seq))
+            trainer = abstractor.incrementally_learn(context.states.generate_subsequence(p_seq))
         # for table model, sequential update is neccessary
         trainer.prepare_batch(1)
-
         loop_train([trainer], explore_steps)
+    else:
+        abstractor = context.parameter_sets[1]["abstraction_models"][0]
 
-        data_abstract_path = []
-        for p_seq in path_sequences:
-            path = states.generate_subsequence(p_seq)
-            distances = alg.Distance_Sequence(jnp.arange(len(path), dtype=jnp.float32))
-            layer_paths = []
-            for i in range(num_layers):
-                if i == num_layers - 1:
-                    pivot_indices, pivots = path.sample_skip(math.inf)
-                    layer_paths.append((path, pivot_indices, distances))
-                else:
-                    pivot_indices, pivots = abstractor.abstract_path(path)
-                    layer_paths.append((path, pivot_indices, distances))
-                path = pivots
-                distances = distances[pivot_indices.data]
-            data_abstract_path.append(layer_paths)
+    data_abstract_path = []
+    for p_seq in path_sequences:
+        path = context.states.generate_subsequence(p_seq)
+        distances = alg.Distance_Sequence(jnp.arange(len(path), dtype=jnp.float32))
+        layer_paths = []
+        for i in range(num_layers):
+            if i == num_layers - 1:
+                pivot_indices, pivots = path.sample_skip(math.inf)
+                layer_paths.append((path, pivot_indices, distances))
+            else:
+                pivot_indices, pivots = abstractor.abstract_path(path)
+                layer_paths.append((path, pivot_indices, distances))
+            path = pivots
+            distances = distances[pivot_indices.data]
+        data_abstract_path.append(layer_paths)
 
-        # print entropy
-        logging.info(abstractor.model.infer(states.data))
+    # print entropy
+    logging.info(abstractor.model.infer(context.states.data))
 
+    ############################# PREPARE OPTIMAL DEMONSTRATION ################################
 
-        ############################# PREPARE OPTIMAL DEMONSTRATION ################################
-
-        optimal_path_sequences = []
-        for i in range(graph_shape):
-            for j in range(graph_shape):
-                if i == j:
-                    continue
-                path = shortest_path(graph, i, j)
-                path = list(reversed(path))
-                optimal_path_sequences.append(alg.Pointer_Sequence(path))
-
-        # also add random sequence for noise, five times the number of optimal paths
-        explore_steps = len(optimal_path_sequences) * 4
-        for i in range(explore_steps):
-            path = random_walk(graph, math.floor(32 * i / explore_steps), graph.shape[0] - 1)
+    optimal_path_sequences = []
+    for i in range(graph_shape):
+        for j in range(graph_shape):
+            if i == j:
+                continue
+            path = shortest_path(context.graph, i, j)
+            path = list(reversed(path))
             optimal_path_sequences.append(alg.Pointer_Sequence(path))
 
-        # shuffle
-        # current implement of one-hot has issued when optimal values come after random values
-        # it may cause zero values in the one-hot representation due to adding raw difference between from and to one-hot vectors
+    # also add random sequence for noise, five times the number of optimal paths
+    explore_steps = len(optimal_path_sequences) * 4
+    for i in range(explore_steps):
+        path = random_walk(context.graph, math.floor(32 * i / explore_steps), context.graph.shape[0] - 1)
+        optimal_path_sequences.append(alg.Pointer_Sequence(path))
 
-        # random.shuffle(optimal_path_sequences)
+    # shuffle
+    # current implement of one-hot has issued when optimal values come after random values
+    # it may cause zero values in the one-hot representation due to adding raw difference between from and to one-hot vectors
 
-        data_optimal_skip_path = []
-        for p_seq in optimal_path_sequences:
-            path = states.generate_subsequence(p_seq)
-            distances = alg.Distance_Sequence(jnp.arange(len(path), dtype=jnp.float32))
-            layer_paths = []
-            for i in range(num_layers):
-                if i == num_layers - 1:
-                    pivot_indices, pivots = path.sample_skip(math.inf)
-                    layer_paths.append((path, pivot_indices, distances))
-                else:
-                    pivot_indices, pivots = path.sample_skip(skip_step_size)
-                    layer_paths.append((path, pivot_indices, distances))
-                path = pivots
-                distances = distances[pivot_indices.data]
-            data_optimal_skip_path.append(layer_paths)
+    # random.shuffle(optimal_path_sequences)
+
+    data_optimal_skip_path = []
+    for p_seq in optimal_path_sequences:
+        path = context.states.generate_subsequence(p_seq)
+        distances = alg.Distance_Sequence(jnp.arange(len(path), dtype=jnp.float32))
+        layer_paths = []
+        for i in range(num_layers):
+            if i == num_layers - 1:
+                pivot_indices, pivots = path.sample_skip(math.inf)
+                layer_paths.append((path, pivot_indices, distances))
+            else:
+                pivot_indices, pivots = path.sample_skip(skip_step_size)
+                layer_paths.append((path, pivot_indices, distances))
+            path = pivots
+            distances = distances[pivot_indices.data]
+        data_optimal_skip_path.append(layer_paths)
 
 
-        parameter_sets = []
-        ############################# SET 1 ################################
+    ############################# TRAINING ################################
+
+    ############################# SET 1 ################################
+    if context.training_state <= 1:
 
         name = "Skip steps"
 
@@ -254,25 +297,31 @@ class Context(BaseModel):
         ]
 
         abstraction_models = []
-        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
         logging.info(f"Training experiment {name}")
+        
+        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
         for path_tuples in data_skip_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
             trainer.prepare_batch(32)
-
         loop_train(trainers, 100000)
 
-        parameter_sets.append({
+        context.parameter_sets.append({
             "cortex_models": cortex_models,
             "hippocampus_models": hippocampus_models,
             "abstraction_models": abstraction_models,
             "name": name
         })
+        context.training_state = 2
+        random_seed = random.randint(0, 1000000)
+        context.random_seed = random_seed
+        Context.save(context, parameter_path)
 
-        ############################# SET 2 ################################
+
+    ############################# SET 2 ################################
+    if context.training_state <= 2:
 
         name = "Entropy"
 
@@ -291,25 +340,30 @@ class Context(BaseModel):
         for i in range(len(cortex_models) - 1):
             abstraction_models.append(abstractor)
 
-        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
-
         logging.info(f"Training experiment {name}")
+
+        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
         for path_tuples in data_abstract_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
             trainer.prepare_batch(32)
-
         loop_train(trainers, 100000)
 
-        parameter_sets.append({
+        context.parameter_sets.append({
             "cortex_models": cortex_models,
             "hippocampus_models": hippocampus_models,
             "abstraction_models": abstraction_models,
             "name": name
         })
+        context.training_state = 3
+        random_seed = random.randint(0, 1000000)
+        context.random_seed = random_seed
+        Context.save(context, parameter_path)
 
-        ############################# SET 3 ################################
+
+    ############################# SET 3 ################################
+    if context.training_state <= 3:
 
         name = "Optimal"
 
@@ -329,27 +383,27 @@ class Context(BaseModel):
 
         abstraction_models = []
 
-        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
-
         logging.info(f"Training experiment {name}")
+
+        model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
         for path_tuples in data_optimal_skip_path:
             trainers = model.observe(path_tuples)
         for trainer in trainers:
             # for table model, sequential update is neccessary
             trainer.prepare_batch(1)
-
         loop_train(trainers, len(data_optimal_skip_path))
 
-        parameter_sets.append({
+        context.parameter_sets.append({
             "cortex_models": cortex_models,
             "hippocampus_models": hippocampus_models,
             "abstraction_models": abstraction_models,
             "name": "Table layers"
         })
-
-        return Context(parameter_sets=parameter_sets, states=states, goals=np.arange(graph_shape), graph=graph, random_seed=random_seed)
-
+        context.training_state = 4
+        random_seed = random.randint(0, 1000000)
+        context.random_seed = random_seed
+        Context.save(context, parameter_path)
 
 
 @contextlib.contextmanager
@@ -360,8 +414,8 @@ def experiment_session(path, force_clear=None):
         empty_directory(path)
     context = Context.load(path)
     if context is None:
-        context = Context.setup(path)
-        Context.save(context, path)
+        context = setup()
+    train(context, path)
     yield context
 
 

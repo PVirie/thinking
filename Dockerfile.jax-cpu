@@ -1,7 +1,8 @@
-FROM python:3.10
+FROM ubuntu:24.04
 
-RUN apt update && apt install python3-pip git python3-venv -y
-RUN apt install -y libgl1-mesa-glx libosmesa6
+RUN apt update
+RUN apt install -y python3 python3-pip git python3-venv
+RUN apt install -y libosmesa6-dev
 
 # create virtual environment, the correct way https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
 ENV VIRTUAL_ENV=/app/venv
@@ -16,4 +17,4 @@ RUN pip3 install --upgrade jax[cpu]==0.4.31 flax clu ott-jax
 COPY ./requirements.txt /app/requirements.txt
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-CMD ["python3", "-m", "debugpy", "--listen", "0.0.0.0:5678", "tasks/benchmark.py"]
+CMD ["python3", "-m", "debugpy", "--listen", "0.0.0.0:43690", "tasks/benchmark.py"]

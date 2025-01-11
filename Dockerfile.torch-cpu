@@ -1,6 +1,7 @@
-FROM python:3.10
+FROM ubuntu:24.04
 
-RUN apt update && apt install python3-pip git python3-venv -y
+RUN apt update
+RUN apt install -y python3 python3-pip git python3-venv
 
 # create virtual environment, the correct way https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
 ENV VIRTUAL_ENV=/app/venv
@@ -11,7 +12,9 @@ WORKDIR /app
 
 # install
 RUN pip3 install --upgrade pip
+RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip3 install openai sentencepiece transformers==4.44.2
 COPY ./requirements.txt /app/requirements.txt
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-CMD ["python3", "-m", "debugpy", "--listen", "0.0.0.0:5678", "tasks/benchmark.py"]
+CMD ["python3", "-m", "debugpy", "--listen", "0.0.0.0:43690", "tasks/benchmark.py"]
