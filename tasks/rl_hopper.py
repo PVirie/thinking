@@ -192,29 +192,24 @@ def train(context, parameter_path):
         return np.stack([rewards, vx, vz], axis=1)
 
 
-    def compute_goal_diff(base, operand):
-        # base has shape (n, dim), operand has shape (m, dim)
-        base_ = np.tile(np.expand_dims(base, axis=1), (1, operand.shape[0], 1))
-        operand_ = np.tile(np.expand_dims(operand, axis=0), (base.shape[0], 1, 1))
-        raw_diff = (base_ - operand_) ** 2
-        diff = np.sum(raw_diff, axis=-1, keepdims=False)
-        return diff
-
-
-    def update_best_so_far(last_pivots, best_targets, best_target_diffs):
+    def update_best_so_far(last_pivots, best_targets):
 
         last_goals = last_pivots[:, 1:]
-        diffs = compute_goal_diff(np.array([g[0] for g in context.goals]), last_goals)
-        # diffs has shape (num_goals, num_states)
-        min_indices = np.argmin(diffs, axis=1, keepdims=True)
-        min_scores = np.take_along_axis(diffs, min_indices, axis=1)
-        min_goals = np.take_along_axis(last_goals, min_indices, axis=0)
-        update_flags = min_scores < best_target_diffs
+        # compute extreme of each axis
 
-        best_target_diffs = np.where(update_flags, min_scores, best_target_diffs)
-        best_targets = np.where(update_flags, min_goals, best_targets)
+        axis_min = np.min(last_goals, axis=0, keepdims=True)
+        axis_max = np.max(last_goals, axis=0, keepdims=True)
 
-        return best_targets, best_target_diffs
+        target_goals = np.array([g[0] for g in context.goals])
+        is_zeros = np.abs(target_goals) < 1e-4
+        is_max = target_goals > 1e-4
+        is_min = target_goals < -1e-4
+
+        best_targets = np.where(is_zeros, 0, best_targets)
+        best_targets = np.where(is_max, axis_max, best_targets)
+        best_targets = np.where(is_min, axis_min, best_targets)
+
+        return best_targets
 
 
     def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
@@ -273,7 +268,6 @@ def train(context, parameter_path):
         epsilon = 0.8 - 0.7 * (course + 1) / num_courses
 
         next_best_targets = np.zeros((len(context.goals), len(context.goals[0][0])), dtype=np.float32)
-        next_best_target_diffs = np.ones((len(context.goals), 1), dtype=np.float32) * 1e4
 
         for i in range(num_trials):
             if i % print_steps == 0 and i > 0:
@@ -293,16 +287,11 @@ def train(context, parameter_path):
             actions = []
             rewards = []
             for _ in range(400):
-                if random.random() <= epsilon or course == 0:
-                    selected_action = env.action_space.sample()
-                    # quantize
-                    selected_action = np.round(selected_action)
-                else:
-                    a = model.react(alg.State(observation.data), stable_state)
-                    selected_action = a.data
-                    # random in range -0.5 to 0.5
-                    selected_action += (np.random.rand(3) - 0.5) * epsilon
-                    selected_action = np.clip(selected_action, -1, 1)
+                a = model.react(alg.State(observation.data), stable_state)
+                selected_action = a.data
+                # random in range -0.5 to 0.5
+                selected_action += (np.random.rand(3) - 0.5) * epsilon
+                selected_action = np.clip(selected_action, -1, 1)
 
                 next_observation, reward, terminated, truncated, info = env.step(selected_action)
 
@@ -324,7 +313,7 @@ def train(context, parameter_path):
             path_layer_tuples, last_pivots = prepare_data_tuples(states, actions, rewards, num_layers, context.skip_steps)
             trainers = model.observe(path_layer_tuples)
 
-            next_best_targets, next_best_target_diffs = update_best_so_far(last_pivots, next_best_targets, next_best_target_diffs)
+            next_best_targets = update_best_so_far(last_pivots, next_best_targets)
 
         logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
         env.close()
