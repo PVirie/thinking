@@ -289,9 +289,10 @@ def train(context, parameter_path):
             for _ in range(400):
                 a = model.react(alg.State(observation.data), stable_state)
                 selected_action = a.data
-                # random in range -0.5 to 0.5
-                selected_action += (np.random.rand(3) - 0.5) * epsilon
+                # random in range -0.1 to 0.1
+                selected_action += (np.random.rand(3) - 0.5) * 0.2
                 selected_action = np.clip(selected_action, -1, 1)
+                selected_action = np.round(selected_action)
 
                 next_observation, reward, terminated, truncated, info = env.step(selected_action)
 
