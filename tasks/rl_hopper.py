@@ -396,8 +396,8 @@ if __name__ == "__main__":
                         break
                 write_gif(imgs, output_gif, fps=30)
 
-        for goal, goal_text in context.goals:
-
+        for i, (goal, goal_text) in enumerate(context.goals):
+            goal = context.best_goals[i]
             result_path = os.path.join(experiment_path, "results", goal_text)
 
             model = HUMN(context.cortex_models, context.hippocampus_models, context.abstraction_models)
