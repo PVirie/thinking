@@ -129,7 +129,7 @@ def setup():
         cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=16, lr=0.0001, r_seed=random_seed)),
         cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
         cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(3, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(3, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -162,7 +162,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 10
+    num_courses = 2
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -192,13 +192,34 @@ def train(context, parameter_path):
         return np.stack([rewards, vx, vz], axis=1)
 
 
-    def update_best_so_far(last_pivots, best_targets):
+    def filter(last_pivots, stats):
+        # accept or reject
+
+        if bool(stats) is False:
+            stats["axis_min"] = np.zeros((1, last_pivots.shape[1] - 1), dtype=np.float32)
+            stats["axis_max"] = np.zeros((1, last_pivots.shape[1] - 1), dtype=np.float32)
 
         last_goals = last_pivots[:, 1:]
-        # compute extreme of each axis
 
+        # compute extreme of each axis
         axis_min = np.min(last_goals, axis=0, keepdims=True)
         axis_max = np.max(last_goals, axis=0, keepdims=True)
+
+        stats["axis_min"] = np.minimum(stats["axis_min"], axis_min)
+        stats["axis_max"] = np.maximum(stats["axis_max"], axis_max)
+
+        # now check whether the last pivot has at least one axis greater than 50% of the extreme
+        is_max = last_goals > 0.5 * stats["axis_max"]
+        is_min = last_goals < 0.5 * stats["axis_min"]
+
+        if np.any(is_max) or np.any(is_min):
+            return True, stats
+        
+        return False, stats
+
+
+    def extract_best_targets(stats):
+        best_targets = np.zeros((len(context.goals), len(context.goals[0][0])), dtype=np.float32)
 
         target_goals = np.array([g[0] for g in context.goals])
         is_zeros = np.abs(target_goals) < 1e-4
@@ -206,9 +227,8 @@ def train(context, parameter_path):
         is_min = target_goals < -1e-4
 
         best_targets = np.where(is_zeros, 0, best_targets)
-        best_targets = np.where(is_max, axis_max, best_targets)
-        best_targets = np.where(is_min, axis_min, best_targets)
-
+        best_targets = np.where(is_max, stats["axis_max"], best_targets)
+        best_targets = np.where(is_min, stats["axis_min"], best_targets)
         return best_targets
 
 
@@ -267,12 +287,10 @@ def train(context, parameter_path):
         print_steps = max(1, num_trials // 100)
         epsilon = 0.8 - 0.7 * (course + 1) / num_courses
 
-        next_best_targets = np.zeros((len(context.goals), len(context.goals[0][0])), dtype=np.float32)
+        course_statistics = {}
 
-        for i in range(num_trials):
-            if i % print_steps == 0 and i > 0:
-                # print at every 1 % progress
-                logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}%")
+        i = 0
+        while i < num_trials:
             
             if course > 0:
                 target = best_targets[i % len(context.goals), :]
@@ -287,12 +305,14 @@ def train(context, parameter_path):
             actions = []
             rewards = []
             for _ in range(400):
-                a = model.react(alg.State(observation.data), stable_state)
-                selected_action = a.data
-                # random in range -0.1 to 0.1
-                selected_action += (np.random.rand(3) - 0.5) * 0.2
-                selected_action = np.clip(selected_action, -1, 1)
-                selected_action = np.round(selected_action)
+                if random.random() <= epsilon or course == 0:
+                    selected_action = env.action_space.sample()
+                    # quantize
+                    selected_action = np.round(selected_action)
+                else:
+                    a = model.react(alg.State(observation.data), stable_state)
+                    selected_action = a.data
+                    selected_action = np.clip(selected_action, -1, 1)
 
                 next_observation, reward, terminated, truncated, info = env.step(selected_action)
 
@@ -312,9 +332,15 @@ def train(context, parameter_path):
             total_steps += len(states)
             # now make hierarchical data
             path_layer_tuples, last_pivots = prepare_data_tuples(states, actions, rewards, num_layers, context.skip_steps)
-            trainers = model.observe(path_layer_tuples)
-
-            next_best_targets = update_best_so_far(last_pivots, next_best_targets)
+            accept_this, course_statistics = filter(last_pivots, course_statistics)
+            
+            if accept_this:
+                trainers = model.observe(path_layer_tuples)
+                i += 1
+                if i % print_steps == 0:
+                    # print at every 1 % progress
+                    logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}%")
+                    
 
         logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
         env.close()
@@ -327,7 +353,7 @@ def train(context, parameter_path):
         for trainer in trainers:
             trainer.clear_batch()
 
-        best_targets = next_best_targets
+        best_targets = extract_best_targets(course_statistics)
 
         course += 1
 
