@@ -122,7 +122,7 @@ def setup():
 
     state_dim = 11
     action_dim = 3
-    expectation_dim = 2 # acc_x, speed_z
+    expectation_dim = 2 # velo_x, speed_z
     context_length = 1
 
     cortex_models = [
@@ -266,7 +266,7 @@ def train(context, parameter_path):
 
     env = gym.make(
         'Hopper-v5',
-        healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, 
+        healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=0, 
         healthy_angle_range=(-math.pi / 2, math.pi / 2), healthy_state_range=(-100, 100), 
         render_mode=None
     )
@@ -285,7 +285,7 @@ def train(context, parameter_path):
         total_steps = 0
         num_trials = 2000
         print_steps = max(1, num_trials // 100)
-        epsilon = 0.8 - 0.3 * (course + 1) / num_courses
+        epsilon = 0.8 - 0.5 * (course + 1) / num_courses
 
         course_statistics = {}
 
@@ -312,6 +312,8 @@ def train(context, parameter_path):
                 else:
                     a = model.react(alg.State(observation.data), stable_state)
                     selected_action = a.data
+                    # add random noise
+                    selected_action += np.random.normal(0, epsilon, size=selected_action.shape)
                     selected_action = np.clip(selected_action, -1, 1)
 
                 next_observation, reward, terminated, truncated, info = env.step(selected_action)
@@ -390,7 +392,7 @@ if __name__ == "__main__":
         
         env = gym.make(
             'Hopper-v5',
-            healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, 
+            healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=0, 
             healthy_angle_range=(-math.pi / 2, math.pi / 2), healthy_state_range=(-100, 100), 
             render_mode="rgb_array", width=1280, height=720
         )
