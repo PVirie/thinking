@@ -208,9 +208,9 @@ def train(context, parameter_path):
         stats["axis_min"] = np.minimum(stats["axis_min"], axis_min)
         stats["axis_max"] = np.maximum(stats["axis_max"], axis_max)
 
-        # now check whether the last pivot has at least one axis greater than 50% of the extreme
-        is_max = last_goals > 0.5 * stats["axis_max"]
-        is_min = last_goals < 0.5 * stats["axis_min"]
+        # now check whether the last pivot has value of axis-1 (speed x) greater than 0.5 * axis_max or less than 0.5 * axis_min
+        is_max = last_goals[:, 1] > 0.5 * stats["axis_max"][0, 0]
+        is_min = last_goals[:, 1] < 0.5 * stats["axis_min"][0, 0]
 
         if np.any(is_max) or np.any(is_min):
             return True, stats
@@ -285,7 +285,7 @@ def train(context, parameter_path):
         total_steps = 0
         num_trials = 2000
         print_steps = max(1, num_trials // 100)
-        epsilon = 0.8 - 0.6 * (course + 1) / num_courses
+        epsilon = 0.8 - 0.3 * (course + 1) / num_courses
 
         course_statistics = {}
 
@@ -348,7 +348,7 @@ def train(context, parameter_path):
         for trainer in trainers:
             trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=32)
 
-        loop_train(trainers, 50000)
+        loop_train(trainers, 100000)
 
         for trainer in trainers:
             trainer.clear_batch()
