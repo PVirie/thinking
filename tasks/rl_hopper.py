@@ -162,7 +162,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 2
+    num_courses = 10
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -304,7 +304,7 @@ def train(context, parameter_path):
             states = []
             actions = []
             rewards = []
-            for _ in range(250):
+            for _ in range(400):
                 if random.random() <= epsilon or course == 0:
                     selected_action = env.action_space.sample()
                     # quantize
