@@ -126,10 +126,10 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(3, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 128, 128], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(3, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256], memory_size=64, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -162,7 +162,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 3
+    num_courses = 2
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -283,7 +283,7 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        num_trials = 2000
+        num_trials = 4000
         print_steps = max(1, num_trials // 100)
         epsilon = 0.8 - 0.5 * (course + 1) / num_courses
 
@@ -312,7 +312,6 @@ def train(context, parameter_path):
                 else:
                     a = model.react(alg.State(observation.data), stable_state)
                     selected_action = a.data
-                    # add random noise
                     selected_action += np.random.normal(0, epsilon, size=selected_action.shape)
                     selected_action = np.clip(selected_action, -1, 1)
 
@@ -350,7 +349,7 @@ def train(context, parameter_path):
         for trainer in trainers:
             trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=32)
 
-        loop_train(trainers, 100000)
+        loop_train(trainers, 200000)
 
         for trainer in trainers:
             trainer.clear_batch()
