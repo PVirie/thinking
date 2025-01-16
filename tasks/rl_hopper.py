@@ -162,7 +162,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 2
+    num_courses = 4
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -283,7 +283,7 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        num_trials = 4000
+        num_trials = 2000
         print_steps = max(1, num_trials // 100)
         epsilon = 0.8 - 0.5 * (course + 1) / num_courses
 
