@@ -118,18 +118,18 @@ def setup():
     random.seed(random_seed)
 
     name = "Curriculum (Skip steps)"
-    skip_steps = 4
+    skip_steps = 6
 
     state_dim = 11
     action_dim = 3
-    expectation_dim = 2 # acc_x, speed_z
+    expectation_dim = 2 # velo_x, speed_z
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(3, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256], memory_size=64, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.00001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.00001, r_seed=random_seed)),
+        cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.00001, r_seed=random_seed)),
+        cortex.Model(3, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256], memory_size=64, lr=0.00001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -162,7 +162,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 10
+    num_courses = 4
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -196,23 +196,28 @@ def train(context, parameter_path):
         # accept or reject
 
         if bool(stats) is False:
+            stats["health_max"] = 0
             stats["axis_min"] = np.zeros((1, last_pivots.shape[1] - 1), dtype=np.float32)
             stats["axis_max"] = np.zeros((1, last_pivots.shape[1] - 1), dtype=np.float32)
 
         last_goals = last_pivots[:, 1:]
+        health = last_pivots[:, 0]
 
         # compute extreme of each axis
+        health_max = np.max(health)
         axis_min = np.min(last_goals, axis=0, keepdims=True)
         axis_max = np.max(last_goals, axis=0, keepdims=True)
 
+        stats["health_max"] = np.maximum(stats["health_max"], health_max)
         stats["axis_min"] = np.minimum(stats["axis_min"], axis_min)
         stats["axis_max"] = np.maximum(stats["axis_max"], axis_max)
 
+        survive = health_max >= 0.5 * stats["health_max"]
         # now check whether the last pivot has value of axis-1 (speed x) greater than 0.5 * axis_max or less than 0.5 * axis_min
         is_max = last_goals[:, 1] > 0.5 * stats["axis_max"][0, 0]
         is_min = last_goals[:, 1] < 0.5 * stats["axis_min"][0, 0]
 
-        if np.any(is_max) or np.any(is_min):
+        if (np.any(is_max) or np.any(is_min)) and np.any(survive):
             return True, stats
         
         return False, stats
@@ -232,6 +237,10 @@ def train(context, parameter_path):
         return best_targets
 
 
+    def near_round(x, base=0.5):
+        return np.round(x / base) * base
+
+
     def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
         states = np.stack(states, axis=0)
         actions = np.stack(actions, axis=0)
@@ -248,7 +257,9 @@ def train(context, parameter_path):
 
             if layer_i == num_layers - 1:
                 last_pivots = expectations[skip_sequence, :]
-                expectation_sequence = alg.Expectation_Sequence(last_pivots)
+                # round to the nearest 0.5 steps
+                rounded_pivots = near_round(last_pivots, 0.5)
+                expectation_sequence = alg.Expectation_Sequence(last_pivots[:, 0:1], rounded_pivots[:, 1:])
             else:
                 expectation_sequence = alg.Expectation_Sequence(expectations[skip_sequence, 0:1], states[skip_sequence, :])
                 
@@ -259,7 +270,7 @@ def train(context, parameter_path):
             # expectation is the average of the expectations in the skip sequence
             expectations = compute_sum_along_sequence(expectations, skip_sequence) / skip_steps
         
-        return path_layer_tuples, last_pivots
+        return path_layer_tuples, rounded_pivots
 
 
     logging.info(f"Training experiment {context.name}")
@@ -283,17 +294,17 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        num_trials = 2000
-        print_steps = max(1, num_trials // 100)
-        epsilon = 0.8 - 0.3 * (course + 1) / num_courses
-
+        max_total_steps = 1000000
         course_statistics = {}
 
-        i = 0
-        while i < num_trials:
+        epsilon = 0.8 - 0.3 * (course + 1) / num_courses
+
+        num_trials = 0
+        stamp = time.time()
+        while total_steps < max_total_steps:
             
             if course > 0:
-                target = best_targets[i % len(context.goals), :]
+                target = best_targets[num_trials % len(context.goals), :]
                 stable_state = alg.Expectation(target)
             
             random.seed(random_seed)
@@ -312,6 +323,7 @@ def train(context, parameter_path):
                 else:
                     a = model.react(alg.State(observation.data), stable_state)
                     selected_action = a.data
+                    selected_action += np.random.normal(0, epsilon, size=selected_action.shape)
                     selected_action = np.clip(selected_action, -1, 1)
 
                 next_observation, reward, terminated, truncated, info = env.step(selected_action)
@@ -329,17 +341,20 @@ def train(context, parameter_path):
                 else:
                     observation = next_observation
 
-            total_steps += len(states)
             # now make hierarchical data
             path_layer_tuples, last_pivots = prepare_data_tuples(states, actions, rewards, num_layers, context.skip_steps)
             accept_this, course_statistics = filter(last_pivots, course_statistics)
             
             if accept_this:
                 trainers = model.observe(path_layer_tuples)
-                i += 1
-                if i % print_steps == 0:
+                num_trials += 1
+
+                before_percent = round(total_steps * 100 / max_total_steps)
+                total_steps += len(states)
+                after_percent = round(total_steps * 100 / max_total_steps)
+                if before_percent != after_percent:
                     # print at every 1 % progress
-                    logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}%")
+                    logging.info(f"Env collected: {after_percent:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
                     
 
         logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
@@ -348,7 +363,7 @@ def train(context, parameter_path):
         for trainer in trainers:
             trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=32)
 
-        loop_train(trainers, 100000)
+        loop_train(trainers, 150000)
 
         for trainer in trainers:
             trainer.clear_batch()
@@ -446,6 +461,6 @@ if __name__ == "__main__":
                 a = model.react(alg.State(observation.data), alg.Expectation(goal))
                 return np.clip(np.asarray(a.data), -1, 1)
             
-            generate_visual(render_path, 2, generation_action)
+            generate_visual(render_path, 4, generation_action)
 
         env.close()
