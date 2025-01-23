@@ -85,10 +85,11 @@ If you want to purely install the python code, you can follow the steps in the d
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
         -   [x] Use average state value as the goal
     -   [x] Use curriculum learning
-    -   [ ] [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
+    -   [ ] Testing goal pursuing with [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
         -   [ ] Provide Skeleton dataset for help exploration
         -   [ ] Goals transition
-    -   [ ] [BankHeist] (https://ale.farama.org/environments/bank_heist/)
+    -   [ ] Testing pixel state abstraction with [Adventure] (https://ale.farama.org/environments/adventure/)
+        -   [ ] Train diffusion model to abstract the pixel state
 -   [x] Abstraction
     -   [x] Abstraction interface
     -   [x] Implement ideal entropy abstraction

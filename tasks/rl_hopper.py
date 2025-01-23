@@ -126,10 +126,10 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.00001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.00001, r_seed=random_seed)),
-        cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.00001, r_seed=random_seed)),
-        cortex.Model(3, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256], memory_size=64, lr=0.00001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [512, 512], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [512, 512], memory_size=16, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(3, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [512, 512], memory_size=64, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -294,7 +294,7 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 1000000
+        max_total_steps = 400000
         course_statistics = {}
 
         epsilon = 0.8 - 0.3 * (course + 1) / num_courses
@@ -406,7 +406,7 @@ if __name__ == "__main__":
         env = gym.make(
             'Hopper-v5',
             healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, 
-            healthy_angle_range=(-math.pi / 2, math.pi / 2), healthy_state_range=(-100, 100), 
+            healthy_angle_range=(-math.pi, math.pi), healthy_state_range=(-100, 100), 
             render_mode="rgb_array", width=1280, height=720
         )
         env.action_space.seed(random.randint(0, 1000))
