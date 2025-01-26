@@ -72,7 +72,17 @@ If you want to purely install the python code, you can follow the steps in the d
     -   [x] Use optax
     -   [x] Transformer kernel
     -   [x] Value access vs score access hyperparameter to select which type of hypothesis learning to use.
--   [x] Language model experiment (abstraction with embedding)
+-   [x] Reinforcement learning experiment
+    -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
+        -   [x] Use average state value as the goal
+    -   [x] Use curriculum learning
+    -   [ ] Testing goal pursuing RL with [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
+        -   [ ] Provide Skeleton dataset for help exploration
+        -   [ ] Goals transition
+-   [ ] State encoding experiment
+    -   [ ] Testing pixel state encoding with [Adventure] (https://ale.farama.org/environments/adventure/)
+        -   [ ] Train diffusion model to encode the pixel states
+-   [x] Language model experiment (cluster abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel
     -   [x] Make core models accept context of shape (batch, context length, feature length)
@@ -81,15 +91,6 @@ If you want to purely install the python code, you can follow the steps in the d
     -   [x] Train the LM hierarchical guide model
     -   [ ] Interpretability
     -   [ ] Unix command optimize data
--   [x] Reinforcement learning
-    -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
-        -   [x] Use average state value as the goal
-    -   [x] Use curriculum learning
-    -   [ ] Testing goal pursuing with [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
-        -   [ ] Provide Skeleton dataset for help exploration
-        -   [ ] Goals transition
-    -   [ ] Testing pixel state abstraction with [Adventure] (https://ale.farama.org/environments/adventure/)
-        -   [ ] Train diffusion model to abstract the pixel state
 -   [x] Abstraction
     -   [x] Abstraction interface
     -   [x] Implement ideal entropy abstraction

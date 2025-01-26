@@ -118,7 +118,7 @@ def setup():
     random.seed(random_seed)
 
     name = "Curriculum (Skip steps)"
-    skip_steps = 6
+    skip_steps = 64
 
     state_dim = 11
     action_dim = 3
@@ -126,10 +126,7 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 256, [256, 256], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [512, 512], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(2, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 256, [512, 512], memory_size=16, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(3, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [512, 512], memory_size=64, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=True, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 256, [512], memory_size=64, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -162,7 +159,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 4
+    num_courses = 2
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -255,20 +252,20 @@ def train(context, parameter_path):
                 skip_sequence.append(len(states) - 1)
             skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
+            # expectation is the average of the expectations in the skip sequence
+            expectations = compute_sum_along_sequence(expectations, skip_sequence) / skip_steps
+
             if layer_i == num_layers - 1:
-                last_pivots = expectations[skip_sequence, :]
                 # round to the nearest 0.5 steps
-                rounded_pivots = near_round(last_pivots, 0.5)
-                expectation_sequence = alg.Expectation_Sequence(last_pivots[:, 0:1], rounded_pivots[:, 1:])
+                rounded_pivots = near_round(expectations, 0.5)
+                expectation_sequence = alg.Expectation_Sequence(expectations[:, 0:1], rounded_pivots[:, 1:])
             else:
-                expectation_sequence = alg.Expectation_Sequence(expectations[skip_sequence, 0:1], states[skip_sequence, :])
+                expectation_sequence = alg.Expectation_Sequence(expectations[:, 0:1], states[skip_sequence, :])
                 
             path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
             states = states[skip_sequence]
             actions = actions[skip_sequence]
-            # expectation is the average of the expectations in the skip sequence
-            expectations = compute_sum_along_sequence(expectations, skip_sequence) / skip_steps
         
         return path_layer_tuples, rounded_pivots
 
