@@ -118,7 +118,7 @@ def setup():
     random.seed(random_seed)
 
     name = "Curriculum (Skip steps)"
-    skip_steps = 64
+    skip_steps = 128
 
     state_dim = 11
     action_dim = 3
@@ -126,7 +126,7 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=True, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 256, [512], memory_size=64, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=True, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 16, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -145,9 +145,9 @@ def setup():
         name=name,
         skip_steps=skip_steps,
         goals=[
-            ([5, 5], "jump forward"),
-            ([0, 5], "jump still"),
-            ([-5, 5], "jump backward"),
+            ([3, 1], "jump forward"),
+            ([0, 2], "jump still"),
+            ([-3, 1], "jump backward"),
         ],
         random_seed=random_seed,
         course=0,
@@ -159,7 +159,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 2
+    num_courses = 1
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -183,67 +183,64 @@ def train(context, parameter_path):
         logging.info(f"Total learning time {time.time() - stamp}s")
 
 
-    def states_to_expectation(states, rewards):
+    def near_round(x, base=0.5):
+        return np.round(x / base) * base
+
+
+    def states_to_goal(states, keepdims=True):
         vx = states[:, 5]
         vz = np.abs(states[:, 6])
-        return np.stack([rewards, vx, vz], axis=1)
+        sub_states = np.stack([vx, vz], axis=1)
+        raw_goals = np.mean(sub_states, axis=0, keepdims=keepdims)
+        return near_round(raw_goals)
 
 
-    def filter(last_pivots, stats):
+    def filter(last_pivots, last_scores, stats):
         # accept or reject
 
         if bool(stats) is False:
             stats["health_max"] = 0
-            stats["axis_min"] = np.zeros((1, last_pivots.shape[1] - 1), dtype=np.float32)
-            stats["axis_max"] = np.zeros((1, last_pivots.shape[1] - 1), dtype=np.float32)
+            stats["best_match_distance"] = np.ones([len(context.goals), 1]) * 1e6
+            stats["best_match"] = np.zeros([len(context.goals), 2])
 
-        last_goals = last_pivots[:, 1:]
-        health = last_pivots[:, 0]
+        last_goals = last_pivots
+        health = last_scores
 
-        # compute extreme of each axis
-        health_max = np.max(health)
-        axis_min = np.min(last_goals, axis=0, keepdims=True)
-        axis_max = np.max(last_goals, axis=0, keepdims=True)
+        # compute l2 distance to goals
+        # goal_array has shape [m, 2]
+        # last_goals has shape[n, 2]
+        # distance should have shape [m, n]
+        distance = np.linalg.norm(np.expand_dims(goal_array, axis=1) - np.expand_dims(last_goals, axis=0), axis=2)
+        
+        # pick the best for each goal
+        best_match_index = np.argmin(distance, axis=1)
+        best_match_distance = np.min(distance, axis=1, keepdims=True)
+        best_match = last_goals[best_match_index, :]
 
-        stats["health_max"] = np.maximum(stats["health_max"], health_max)
-        stats["axis_min"] = np.minimum(stats["axis_min"], axis_min)
-        stats["axis_max"] = np.maximum(stats["axis_max"], axis_max)
+        survive = health >= 0.5 * stats["health_max"]
+        improve_ratio = best_match_distance / stats["best_match_distance"]
 
-        survive = health_max >= 0.5 * stats["health_max"]
-        # now check whether the last pivot has value of axis-1 (speed x) greater than 0.5 * axis_max or less than 0.5 * axis_min
-        is_max = last_goals[:, 1] > 0.5 * stats["axis_max"][0, 0]
-        is_min = last_goals[:, 1] < 0.5 * stats["axis_min"][0, 0]
+        stats["health_max"] = np.maximum(stats["health_max"], health)
+        stats["best_match_distance"] = np.minimum(stats["best_match_distance"], best_match_distance)
+        stats["best_match"] = np.where(improve_ratio < 1.0, best_match, stats["best_match"])
 
-        if (np.any(is_max) or np.any(is_min)) and np.any(survive):
+        if np.any(improve_ratio < 2.0) and np.any(survive):
             return True, stats
         
         return False, stats
 
 
-    def extract_best_targets(stats):
-        best_targets = np.zeros((len(context.goals), len(context.goals[0][0])), dtype=np.float32)
-
-        target_goals = np.array([g[0] for g in context.goals])
-        is_zeros = np.abs(target_goals) < 1e-4
-        is_max = target_goals > 1e-4
-        is_min = target_goals < -1e-4
-
-        best_targets = np.where(is_zeros, 0, best_targets)
-        best_targets = np.where(is_max, stats["axis_max"], best_targets)
-        best_targets = np.where(is_min, stats["axis_min"], best_targets)
-        return best_targets
-
-
-    def near_round(x, base=0.5):
-        return np.round(x / base) * base
-
 
     def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
         states = np.stack(states, axis=0)
         actions = np.stack(actions, axis=0)
-        expectations = states_to_expectation(states, rewards)
+        rewards = np.stack(rewards, axis=0)
+
+        max_episode_length = pow(skip_steps, num_layers)
+        episode_score = min(states.shape[0] / max_episode_length, 1.0)
+
         path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
-        for layer_i in range(num_layers):
+        for layer_i in range(num_layers - 1):
             path = alg.State_Action_Sequence(states, actions)
 
             skip_sequence = [i for i in range(0, len(states), skip_steps)]
@@ -252,22 +249,27 @@ def train(context, parameter_path):
                 skip_sequence.append(len(states) - 1)
             skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
-            # expectation is the average of the expectations in the skip sequence
-            expectations = compute_sum_along_sequence(expectations, skip_sequence) / skip_steps
-
-            if layer_i == num_layers - 1:
-                # round to the nearest 0.5 steps
-                rounded_pivots = near_round(expectations, 0.5)
-                expectation_sequence = alg.Expectation_Sequence(expectations[:, 0:1], rounded_pivots[:, 1:])
-            else:
-                expectation_sequence = alg.Expectation_Sequence(expectations[:, 0:1], states[skip_sequence, :])
+            expectation_sequence = alg.Expectation_Sequence(np.ones([len(skip_sequence), 1]) * episode_score, states[skip_sequence, :])
                 
             path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
             states = states[skip_sequence]
             actions = actions[skip_sequence]
         
-        return path_layer_tuples, rounded_pivots
+        # final layer
+        path = alg.State_Action_Sequence(states, actions)
+        
+        # final pivot = last index
+        skip_pointer_sequence = alg.Pointer_Sequence([len(states) - 1])
+
+        # round to the nearest 0.5 steps
+        goal = states_to_goal(states, keepdims=True)
+        average_rewards = np.reshape(np.minimum(np.sum(rewards, keepdims=True) / max_episode_length, 1.0), [-1, 1])
+        expectation_sequence = alg.Expectation_Sequence(average_rewards, goal)
+
+        path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
+
+        return path_layer_tuples, goal, average_rewards
 
 
     logging.info(f"Training experiment {context.name}")
@@ -281,10 +283,11 @@ def train(context, parameter_path):
 
     num_layers = len(context.cortex_models)
     random_seed = context.random_seed
+    goal_array = np.asarray([goal[0] for goal in context.goals], dtype=np.float32)
     if context.best_goals is not None:
         best_targets = np.array(context.best_goals, dtype=np.float32)
     else:
-        best_targets = np.zeros((len(context.goals), len(context.goals[0][0]),), dtype=np.float32)
+        best_targets = goal_array
 
     while course < num_courses:
         logging.info(f"Course {course}")
@@ -320,6 +323,9 @@ def train(context, parameter_path):
                 else:
                     a = model.react(alg.State(observation.data), stable_state)
                     selected_action = a.data
+                    if selected_action.size < 3:
+                        logging.warning(f"Invalid action: {selected_action}")
+                        break
                     selected_action += np.random.normal(0, epsilon, size=selected_action.shape)
                     selected_action = np.clip(selected_action, -1, 1)
 
@@ -339,8 +345,8 @@ def train(context, parameter_path):
                     observation = next_observation
 
             # now make hierarchical data
-            path_layer_tuples, last_pivots = prepare_data_tuples(states, actions, rewards, num_layers, context.skip_steps)
-            accept_this, course_statistics = filter(last_pivots, course_statistics)
+            path_layer_tuples, last_pivots, last_scores = prepare_data_tuples(states, actions, rewards, num_layers, context.skip_steps)
+            accept_this, course_statistics = filter(last_pivots, last_scores, course_statistics)
             
             if accept_this:
                 trainers = model.observe(path_layer_tuples)
@@ -360,18 +366,16 @@ def train(context, parameter_path):
         for trainer in trainers:
             trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=32)
 
-        loop_train(trainers, 150000)
+        loop_train(trainers, 200000)
 
         for trainer in trainers:
             trainer.clear_batch()
-
-        best_targets = extract_best_targets(course_statistics)
 
         course += 1
 
         context.course = course
         context.random_seed = random_seed
-        context.best_goals = best_targets.tolist()
+        context.best_goals = course_statistics["best_match"].tolist()
         
         Context.save(context, parameter_path)
 
@@ -417,6 +421,9 @@ if __name__ == "__main__":
                 imgs = []
                 for _ in range(500):
                     selected_action = action_method(observation)
+                    if selected_action.size < 3:
+                        logging.warning(f"Invalid action: {selected_action}")
+                        break
                     observation, reward, terminated, truncated, info = env.step(selected_action)
                     img = env.render()
                     imgs.append(img)

@@ -73,7 +73,8 @@ class Trainer(trainer.Trainer):
             expectation_sequence = pivots.get()
             tiled = jnp.tile(jnp.expand_dims(expectation_sequence, axis=1), (1, len(path_encoding_sequence), 1))
             t = tiled[:, :, 1:]
-            scores = tiled[:, :, 0]
+            # discounted reward
+            scores = scores * tiled[:, :, 0]
         else:
             goal_sequence = pivots.get_goals()
             t = jnp.tile(jnp.expand_dims(goal_sequence, axis=1), (1, len(path_encoding_sequence), 1))

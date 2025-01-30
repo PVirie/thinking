@@ -76,12 +76,8 @@ If you want to purely install the python code, you can follow the steps in the d
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
         -   [x] Use average state value as the goal
     -   [x] Use curriculum learning
+    -   [ ] Final layer continuous goals
     -   [ ] Testing goal pursuing RL with [Hopper] (https://gymnasium.farama.org/environments/mujoco/hopper/)
-        -   [ ] Provide Skeleton dataset for help exploration
-        -   [ ] Goals transition
--   [ ] State encoding experiment
-    -   [ ] Testing pixel state encoding with [Adventure] (https://ale.farama.org/environments/adventure/)
-        -   [ ] Train diffusion model to encode the pixel states
 -   [x] Language model experiment (cluster abstraction with embedding)
     -   [x] Implement torch docker for lowest language model layer and use Think mode for higher layers
     -   [x] Linear embedding transformation kernel
@@ -91,6 +87,9 @@ If you want to purely install the python code, you can follow the steps in the d
     -   [x] Train the LM hierarchical guide model
     -   [ ] Interpretability
     -   [ ] Unix command optimize data
+-   [ ] State encoding experiment
+    -   [ ] Testing pixel state encoding with [Adventure] (https://ale.farama.org/environments/adventure/)
+        -   [ ] Train diffusion model to encode the pixel states
 -   [x] Abstraction
     -   [x] Abstraction interface
     -   [x] Implement ideal entropy abstraction
