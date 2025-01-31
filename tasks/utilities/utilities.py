@@ -106,10 +106,44 @@ def max_match(x, H):
 def compute_sum_along_sequence(x, sequence):
     # input x has shape [sequence, ...]
     # sequence is a list of lengths
-    # output has shape [len(sequence), ...], each element is the mean of the corresponding mean(x[(sequence[i-1]+1):sequence[i] + 1])
-    end_sequence = np.asarray(sequence) + 1
-    start_sequence = np.pad(end_sequence[:-1], (1, 0), 'constant', constant_values=0)
-    return np.array([np.sum(x[start_sequence[i]:end_sequence[i]], axis=0) for i in range(0, len(sequence))])
+    # output has shape [len(sequence), ...], use the delta of cumulative sum to compute the sum from the index to before the next index
+    sequence = np.array(sequence)
+    sequence = np.pad(sequence, (0, 1), 'constant', constant_values=x.shape[0])
+    zero_element = np.zeros([1, *x.shape[1:]])
+    x = np.concatenate([zero_element, x, zero_element], axis=0)
+    x = np.cumsum(x, axis=0)
+    x = x[sequence[1:]] - x[sequence[:-1]]
+    return x
+
+
+def compute_average_along_sequence(x, sequence):
+    # input x has shape [sequence, ...]
+    # sequence is a list of lengths
+    # output has shape [len(sequence), ...], use the delta of cumulative sum to compute the sum from the index to before the next index
+    sequence = np.array(sequence)
+    sequence = np.pad(sequence, (0, 1), 'constant', constant_values=x.shape[0])
+    zero_element = np.zeros([1, *x.shape[1:]])
+    x = np.concatenate([zero_element, x, zero_element], axis=0)
+    x = np.cumsum(x, axis=0)
+    x = x[sequence[1:]] - x[sequence[:-1]]
+    sequence = sequence[1:] - sequence[:-1]
+    x = x / sequence[:, None]
+    return x
+
+
+def generate_mean_geometric_matrix(length, diminishing_factor=0.9, upper_triangle=True):
+    grid_x = np.arange(length)
+    grid_y = np.arange(length)
+    grid_x, grid_y = np.meshgrid(grid_x, grid_y)
+    grid = np.abs(grid_x - grid_y)
+    grid = np.power(diminishing_factor, grid)
+    # remove triangle, keep diagonal
+    if upper_triangle:
+        grid = np.triu(grid, 0)
+    else:
+        grid = np.triu(grid, 1)
+    # divide by 1/(1-r)
+    return grid * (1 - diminishing_factor)
 
 
 def write_gif(imgs, path, fps=30):
@@ -122,15 +156,19 @@ def has_nan(x):
 
 
 if __name__ == '__main__':
+    import logging
+    logging.basicConfig(level=logging.INFO)
+
     graph_shape = 16
     g = random_graph(graph_shape, 0.2)
-    print(g)
+    logging.info(g)
     for i in range(10):
         path = random_walk(g, 0, 10)
-        print(path)
+        logging.info(path)
 
-    print(compute_sum_along_sequence(np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]), [0, 2, 4]))
+    logging.info(compute_sum_along_sequence(np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]), [0, 2, 4]))
+    logging.info(compute_average_along_sequence(np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]), [0, 2, 4]))
+    logging.info(generate_geometric_matrix(5))
 
-
-    print(has_nan(np.array([1, 2, 3, np.nan, 4])))
-    print(has_nan(np.array([1, 2, 3, 4])))
+    logging.info(has_nan(np.array([1, 2, 3, np.nan, 4])))
+    logging.info(has_nan(np.array([1, 2, 3, 4])))
