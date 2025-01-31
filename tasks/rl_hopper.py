@@ -126,8 +126,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, continuous_reward=False, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 16, [256, 256], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(0, return_action=False, continuous_reward=True, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 16, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, continuous_reward=False, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, continuous_reward=True, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -160,7 +160,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 2
+    num_courses = 5000
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -218,7 +218,7 @@ def train(context, parameter_path):
         best_match = last_goals[best_match_index, :]
 
         survive = health >= 0.5 * stats["health_max"]
-        improve_ratio = best_match_distance / stats["best_match_distance"]
+        improve_ratio = best_match_distance / (stats["best_match_distance"] + 1e-6)
 
         stats["health_max"] = np.maximum(stats["health_max"], np.max(health))
         stats["best_match_distance"] = np.minimum(stats["best_match_distance"], best_match_distance)
@@ -227,7 +227,7 @@ def train(context, parameter_path):
         if np.any(improve_ratio < 2.0) and np.any(survive):
             return True, stats
         
-        return False, stats
+        return True, stats
 
 
     def prepare_data_tuples(premature_termination, states, actions, rewards, num_layers, skip_steps):
@@ -260,9 +260,11 @@ def train(context, parameter_path):
         path = alg.State_Action_Sequence(states, actions)
         skip_pointer_sequence = alg.Pointer_Sequence([i for i in range(0, len(states))])
 
-        discount_kernel = generate_mean_geometric_matrix(states.shape[0], diminishing_factor=0.9, upper_triangle=True)
+        discount_kernel = generate_mean_geometric_matrix(states.shape[0], diminishing_factor=0.98, upper_triangle=True)
         discounted_rewards = np.matmul(discount_kernel, rewards)
-        expectation_sequence = alg.Expectation_Sequence(discounted_rewards, near_round(goals))
+        discounted_goals = np.matmul(discount_kernel, goals)
+        goals = near_round(discounted_goals)
+        expectation_sequence = alg.Expectation_Sequence(discounted_rewards, goals)
 
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
@@ -286,22 +288,23 @@ def train(context, parameter_path):
     else:
         best_targets = goal_array
 
+    total_trials = 0
     while course < num_courses:
         logging.info(f"Course {course}")
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 400000
+        max_total_steps = 1200
         course_statistics = {}
 
-        epsilon = 0.8 - 0.3 * (course + 1) / num_courses
+        epsilon = 0.1
 
         num_trials = 0
         stamp = time.time()
         while total_steps < max_total_steps:
             
             if course > 0:
-                target = best_targets[num_trials % len(context.goals), :]
+                target = best_targets[total_trials % len(context.goals), :]
                 stable_state = alg.Expectation(target)
             
             random.seed(random_seed)
@@ -350,22 +353,21 @@ def train(context, parameter_path):
             if accept_this:
                 trainers = model.observe(path_layer_tuples)
                 num_trials += 1
+                total_trials += 1
 
-                before_percent = round(total_steps * 100 / max_total_steps)
+                # before_percent = round(total_steps * 100 / max_total_steps)
                 total_steps += len(states)
-                after_percent = round(total_steps * 100 / max_total_steps)
-                if before_percent != after_percent:
-                    # print at every 1 % progress
-                    logging.info(f"Env collected: {after_percent:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
+                # after_percent = round(total_steps * 100 / max_total_steps)
+                # if before_percent != after_percent:
+                #     # print at every 1 % progress
+                #     logging.info(f"Env collected: {after_percent:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
                     
-
-        logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
-        env.close()
+        logging.info(f"Average steps: {total_steps/num_trials}")
 
         for trainer in trainers:
-            trainer.prepare_batch(max_mini_batch_size=16, max_learning_sequence=32)
+            trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=64)
 
-        loop_train(trainers, 200000)
+        loop_train(trainers, 100)
 
         for trainer in trainers:
             trainer.clear_batch()
@@ -376,8 +378,10 @@ def train(context, parameter_path):
         context.random_seed = random_seed
         context.best_goals = course_statistics["best_match"].tolist()
         
-        Context.save(context, parameter_path)
+        if course % 100 == 0 or course == num_courses:
+            Context.save(context, parameter_path)
 
+    env.close()
 
 @contextlib.contextmanager
 def experiment_session(path, force_clear=None):
@@ -428,6 +432,7 @@ if __name__ == "__main__":
                     imgs.append(img)
                     if terminated or truncated:
                         break
+                logging.info(f"Trial {j} completed with length {len(imgs)}")
                 write_gif(imgs, output_gif, fps=30)
 
         for i, (goal, goal_text) in enumerate(context.goals):

@@ -168,7 +168,7 @@ if __name__ == '__main__':
 
     logging.info(compute_sum_along_sequence(np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]), [0, 2, 4]))
     logging.info(compute_average_along_sequence(np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]), [0, 2, 4]))
-    logging.info(generate_geometric_matrix(5))
+    logging.info(generate_mean_geometric_matrix(5))
 
     logging.info(has_nan(np.array([1, 2, 3, np.nan, 4])))
     logging.info(has_nan(np.array([1, 2, 3, 4])))
