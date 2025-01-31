@@ -118,7 +118,7 @@ def setup():
     random.seed(random_seed)
 
     name = "Curriculum (Skip steps)"
-    skip_steps = 128
+    skip_steps = 16
 
     state_dim = 11
     action_dim = 3
@@ -126,7 +126,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=True, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 16, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, continuous_reward=False, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 16, [256, 256], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=False, continuous_reward=True, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 16, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -159,7 +160,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 1
+    num_courses = 2
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -187,12 +188,11 @@ def train(context, parameter_path):
         return np.round(x / base) * base
 
 
-    def states_to_goal(states, keepdims=True):
+    def states_to_goals(states, keepdims=True):
         vx = states[:, 5]
         vz = np.abs(states[:, 6])
         sub_states = np.stack([vx, vz], axis=1)
-        raw_goals = np.mean(sub_states, axis=0, keepdims=keepdims)
-        return near_round(raw_goals)
+        return sub_states
 
 
     def filter(last_pivots, last_scores, stats):
@@ -204,7 +204,7 @@ def train(context, parameter_path):
             stats["best_match"] = np.zeros([len(context.goals), 2])
 
         last_goals = last_pivots
-        health = last_scores
+        health = np.max(last_scores, axis=0)
 
         # compute l2 distance to goals
         # goal_array has shape [m, 2]
@@ -220,7 +220,7 @@ def train(context, parameter_path):
         survive = health >= 0.5 * stats["health_max"]
         improve_ratio = best_match_distance / stats["best_match_distance"]
 
-        stats["health_max"] = np.maximum(stats["health_max"], health)
+        stats["health_max"] = np.maximum(stats["health_max"], np.max(health))
         stats["best_match_distance"] = np.minimum(stats["best_match_distance"], best_match_distance)
         stats["best_match"] = np.where(improve_ratio < 1.0, best_match, stats["best_match"])
 
@@ -230,14 +230,11 @@ def train(context, parameter_path):
         return False, stats
 
 
-
-    def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
+    def prepare_data_tuples(premature_termination, states, actions, rewards, num_layers, skip_steps):
         states = np.stack(states, axis=0)
         actions = np.stack(actions, axis=0)
-        rewards = np.stack(rewards, axis=0)
-
-        max_episode_length = pow(skip_steps, num_layers)
-        episode_score = min(states.shape[0] / max_episode_length, 1.0)
+        rewards = np.reshape(np.stack(rewards, axis=0), [-1, 1])
+        goals = states_to_goals(states, keepdims=True)
 
         path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
         for layer_i in range(num_layers - 1):
@@ -249,27 +246,27 @@ def train(context, parameter_path):
                 skip_sequence.append(len(states) - 1)
             skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
-            expectation_sequence = alg.Expectation_Sequence(np.ones([len(skip_sequence), 1]) * episode_score, states[skip_sequence, :])
-                
+            expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
+
             path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
             states = states[skip_sequence]
             actions = actions[skip_sequence]
-        
+            # reward is the average of the rewards in the skip sequence
+            rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
+            goals = compute_average_along_sequence(goals, skip_sequence)
+
         # final layer
         path = alg.State_Action_Sequence(states, actions)
-        
-        # final pivot = last index
-        skip_pointer_sequence = alg.Pointer_Sequence([len(states) - 1])
+        skip_pointer_sequence = alg.Pointer_Sequence([i for i in range(0, len(states))])
 
-        # round to the nearest 0.5 steps
-        goal = states_to_goal(states, keepdims=True)
-        average_rewards = np.reshape(np.minimum(np.sum(rewards, keepdims=True) / max_episode_length, 1.0), [-1, 1])
-        expectation_sequence = alg.Expectation_Sequence(average_rewards, goal)
+        discount_kernel = generate_mean_geometric_matrix(states.shape[0], diminishing_factor=0.9, upper_triangle=True)
+        discounted_rewards = np.matmul(discount_kernel, rewards)
+        expectation_sequence = alg.Expectation_Sequence(discounted_rewards, near_round(goals))
 
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
-        return path_layer_tuples, goal, average_rewards
+        return path_layer_tuples, goals, rewards
 
 
     logging.info(f"Training experiment {context.name}")
@@ -315,6 +312,7 @@ def train(context, parameter_path):
             states = []
             actions = []
             rewards = []
+            premature_termination = False
             for _ in range(400):
                 if random.random() <= epsilon or course == 0:
                     selected_action = env.action_space.sample()
@@ -340,12 +338,13 @@ def train(context, parameter_path):
                 actions.append(selected_action)
                 rewards.append(reward)
                 if terminated or truncated:
+                    premature_termination = True
                     break
                 else:
                     observation = next_observation
 
             # now make hierarchical data
-            path_layer_tuples, last_pivots, last_scores = prepare_data_tuples(states, actions, rewards, num_layers, context.skip_steps)
+            path_layer_tuples, last_pivots, last_scores = prepare_data_tuples(premature_termination, states, actions, rewards, num_layers, context.skip_steps)
             accept_this, course_statistics = filter(last_pivots, last_scores, course_statistics)
             
             if accept_this:

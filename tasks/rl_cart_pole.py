@@ -132,9 +132,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-        cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, continuous_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, continuous_reward=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -163,9 +162,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=False, model=transformer.Model([state_dim, state_dim, state_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
-        cortex.Model(2, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 128, [128, 64], memory_size=4, lr=0.001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, continuous_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, continuous_reward=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -207,7 +205,7 @@ def train(context, parameter_path):
         actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
         rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
         path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
-        for layer_i in range(num_layers):
+        for layer_i in range(num_layers - 1):
             path = alg.State_Action_Sequence(states, actions)
 
             skip_sequence = [i for i in range(0, len(states), skip_steps)]
@@ -216,10 +214,7 @@ def train(context, parameter_path):
                 skip_sequence.append(len(states) - 1)
             skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
-            if layer_i == num_layers - 1:
-                expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], np.ones((len(skip_sequence), 1)))
-            else:
-                expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
+            expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
 
             path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
@@ -227,6 +222,16 @@ def train(context, parameter_path):
             actions = actions[skip_sequence]
             # reward is the average of the rewards in the skip sequence
             rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
+        
+        # final layer
+        path = alg.State_Action_Sequence(states, actions)
+        skip_pointer_sequence = alg.Pointer_Sequence([i for i in range(0, len(states))])
+
+        discount_kernel = generate_mean_geometric_matrix(states.shape[0], diminishing_factor=0.9, upper_triangle=True)
+        discounted_rewards = np.matmul(discount_kernel, rewards)
+        expectation_sequence = alg.Expectation_Sequence(discounted_rewards, np.ones((len(states), 1)))
+
+        path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
         
         return path_layer_tuples
 
@@ -252,7 +257,7 @@ def train(context, parameter_path):
         num_layers = len(cortex_models)
         
         total_steps = 0
-        num_trials = 10000
+        num_trials = 2000
         print_steps = max(1, num_trials // 100)
         for i in range(num_trials):
             if i % print_steps == 0 and i > 0:
@@ -341,7 +346,7 @@ def train(context, parameter_path):
                 states = []
                 actions = []
                 rewards = []
-                for _ in range(100):
+                for _ in range(200):
                     if random.random() < 0.25:
                         selected_action = env.action_space.sample()
                     else:
