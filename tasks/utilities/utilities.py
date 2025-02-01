@@ -108,11 +108,11 @@ def compute_sum_along_sequence(x, sequence):
     # sequence is a list of lengths
     # output has shape [len(sequence), ...], use the delta of cumulative sum to compute the sum from the index to before the next index
     sequence = np.array(sequence)
-    sequence = np.pad(sequence, (0, 1), 'constant', constant_values=x.shape[0])
+    sequence = np.pad(sequence, (1, 0), 'constant', constant_values=0) + 1
     zero_element = np.zeros([1, *x.shape[1:]])
     x = np.concatenate([zero_element, x, zero_element], axis=0)
     x = np.cumsum(x, axis=0)
-    x = x[sequence[1:]] - x[sequence[:-1]]
+    x = x[sequence[1:] - 1] - x[sequence[:-1] - 1]
     return x
 
 
@@ -121,13 +121,13 @@ def compute_average_along_sequence(x, sequence):
     # sequence is a list of lengths
     # output has shape [len(sequence), ...], use the delta of cumulative sum to compute the sum from the index to before the next index
     sequence = np.array(sequence)
-    sequence = np.pad(sequence, (0, 1), 'constant', constant_values=x.shape[0])
+    sequence = np.pad(sequence, (1, 0), 'constant', constant_values=0) + 1
     zero_element = np.zeros([1, *x.shape[1:]])
     x = np.concatenate([zero_element, x, zero_element], axis=0)
     x = np.cumsum(x, axis=0)
-    x = x[sequence[1:]] - x[sequence[:-1]]
-    sequence = sequence[1:] - sequence[:-1]
-    x = x / sequence[:, None]
+    x = x[sequence[1:] - 1] - x[sequence[:-1] - 1]
+    sizes = np.expand_dims(sequence[1:] - sequence[:-1], axis=-1)
+    x = np.divide(x, sizes, out=np.zeros_like(x), where=sizes != 0)
     return x
 
 

@@ -132,8 +132,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, continuous_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, continuous_reward=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -162,8 +162,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -208,7 +208,7 @@ def train(context, parameter_path):
         for layer_i in range(num_layers - 1):
             path = alg.State_Action_Sequence(states, actions, rewards)
 
-            skip_sequence = [i for i in range(0, len(states), skip_steps)]
+            skip_sequence = [i for i in range(skip_steps, len(states), skip_steps)]
             # always add the last index
             if skip_sequence[-1] != len(states) - 1:
                 skip_sequence.append(len(states) - 1)

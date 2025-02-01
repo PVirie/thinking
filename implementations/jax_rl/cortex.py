@@ -1,6 +1,7 @@
 from humn import cortex_model, trainer
 from typing import Tuple
 import random
+from enum import Enum
 
 from functools import partial
 import jax.numpy as jnp
@@ -21,18 +22,27 @@ except:
     import core
 
 
-def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1):
+
+def generate_score_matrix(pivots, length, diminishing_factor=0.9):
+    order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
+    scores = jnp.power(diminishing_factor, order)
+    return jnp.transpose(scores)
+
+
+def generate_mask(pivots, length, pre_steps=1):
     # from states to pivots
     # pivots = jnp.array(pivots, dtype=jnp.int32)
     pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
     pre_pivots = jnp.concatenate([jnp.full([pre_steps], -1, dtype=jnp.int32), pivots[:-pre_steps]], axis=0)
     masks = jnp.logical_and(jnp.expand_dims(pre_pivots, axis=0) <= pos, pos < jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
+    return jnp.transpose(masks)
 
-    # score is one at position before pivot
-    scores = pos + 1 == jnp.expand_dims(pivots, axis=0)
+
+def generate_pivot_dirac_mask(pivots, length):
+    pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
+    scores = pos == jnp.expand_dims(pivots, axis=0)
     scores = scores.astype(jnp.float32)
-
-    return jnp.transpose(masks), jnp.transpose(scores)
+    return jnp.transpose(scores)
 
 
 def generate_geometric_matrix(length, diminishing_factor=0.9, upper_triangle=True):
@@ -66,7 +76,7 @@ class Trainer(trainer.Trainer):
         self.avg_loss = 0.0
 
 
-    def accumulate_batch(self, step_discount_factor, use_action, use_reward, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
+    def accumulate_batch(self, step_discount_factor, use_action, use_reward, use_monte_carlo, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
 
         if len(path_encoding_sequence) == 0:
             return self
@@ -88,25 +98,32 @@ class Trainer(trainer.Trainer):
             x = jnp.tile(jnp.expand_dims(jnp.roll(cart_state_sequence, -1, axis=0), axis=0), (len(pivots), 1, 1))
 
         # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
-        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
+        masks = generate_mask(pivot_indices.data, len(path_encoding_sequence), min(2, pivot_indices.data.shape[0]))
         
-        # inferred_scores has shape (P, seq_len)
-        _, raw_inferred_scores = self.model.infer(
-            jnp.reshape(s, (-1, 1, s.shape[2])),
-            jnp.reshape(t, (-1, t.shape[2]))
-        )
-        inferred_scores = jnp.reshape(raw_inferred_scores, (len(pivots), len(path_encoding_sequence)))
-        # roll the scores
-        inferred_scores = jnp.roll(inferred_scores, -1, axis=1)
+        if not use_monte_carlo or use_reward:
+            # inferred_scores has shape (P, seq_len)
+            _, raw_inferred_scores = self.model.infer(
+                jnp.reshape(s, (-1, 1, s.shape[2])),
+                jnp.reshape(t, (-1, t.shape[2]))
+            )
+            inferred_scores = jnp.reshape(raw_inferred_scores, (len(pivots), len(path_encoding_sequence)))
+            # replace score at pivot with 1.0
+            dirac = generate_pivot_dirac_mask(pivot_indices.data, len(path_encoding_sequence))
+            inferred_scores = inferred_scores * (1 - dirac) + dirac
+            # roll the scores
+            inferred_scores = jnp.roll(inferred_scores, -1, axis=1)
+            # now discount the scores
+            scores = inferred_scores * step_discount_factor
 
-        if use_reward:
-            reward_sequence = path_encoding_sequence.get_rewards()
-            reward_sequence = jnp.reshape(reward_sequence, (-1))
-            tiled_rewards = jnp.tile(jnp.expand_dims(reward_sequence, axis=0), (len(pivots), 1))
-            scores = tiled_rewards + inferred_scores * step_discount_factor
+            if use_reward:
+                # td learning with reward
+                reward_sequence = path_encoding_sequence.get_rewards()
+                reward_sequence = jnp.reshape(reward_sequence, (-1))
+                tiled_rewards = jnp.tile(jnp.expand_dims(reward_sequence, axis=0), (len(pivots), 1))
+                scores = tiled_rewards + scores
         else:
-            # now take the max of the inferred scores and the observed scores
-            scores = scores + inferred_scores * step_discount_factor
+            # monte carlo update, scores are the discount table
+            scores = generate_score_matrix(pivot_indices.data, len(path_encoding_sequence), step_discount_factor)
 
 
         self.s.append(s)
@@ -218,11 +235,12 @@ class Trainer(trainer.Trainer):
 
 class Model(cortex_model.Model):
     
-    def __init__(self, layer: int, return_action: bool, use_reward: bool, model: core.base.Model, step_discount_factor=0.9):
+    def __init__(self, layer: int, return_action: bool, model: core.base.Model, step_discount_factor=0.9, use_reward=False, use_monte_carlo=True):
         # if you wish to share the model, pass the index into learning and inference functions to differentiate between layers
         self.layer = layer
         self.return_action = return_action
         self.use_reward = use_reward
+        self.use_monte_carlo = use_monte_carlo
         self.step_discount_factor = step_discount_factor
         self.model = model
         self.printer = None
@@ -234,12 +252,22 @@ class Model(cortex_model.Model):
         self.printer = printer
 
 
+    def set_update_mode(self, use_monter_carlo):
+        self.use_monte_carlo = use_monter_carlo
+
+
     @staticmethod
     def load(path):
         with open(os.path.join(path, "metadata.json"), "r") as f:
             metadata = json.load(f)
         model = core.load(metadata["model"])
-        return Model(layer=metadata["layer"], return_action=metadata["return_action"], use_reward=metadata["use_reward"], model=model, step_discount_factor=metadata["step_discount_factor"])
+        return Model(
+            layer=metadata["layer"], 
+            return_action=metadata["return_action"], 
+            model=model, 
+            step_discount_factor=metadata["step_discount_factor"], 
+            use_reward=metadata["use_reward"], 
+            use_monte_carlo=metadata["use_monte_carlo"])
                                                               
 
     @staticmethod
@@ -250,6 +278,7 @@ class Model(cortex_model.Model):
                 "layer": self.layer,
                 "return_action": self.return_action,
                 "use_reward": self.use_reward,
+                "use_monte_carlo": self.use_monte_carlo,
                 "step_discount_factor": self.step_discount_factor,
                 "model": core.save(self.model)
             }, f)
@@ -257,7 +286,7 @@ class Model(cortex_model.Model):
 
     def incrementally_learn(self, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence) -> Trainer:
         # learn to predict the next state and its probability from the current state given goal
-        return self.trainer.accumulate_batch(self.step_discount_factor, self.return_action, self.use_reward, path_encoding_sequence, pivot_indices, pivots)
+        return self.trainer.accumulate_batch(self.step_discount_factor, self.return_action, self.use_reward, self.use_monte_carlo, path_encoding_sequence, pivot_indices, pivots)
 
 
     def infer_sub_action(self, from_encoding_sequence: State, expect_action: Action) -> Action:
@@ -277,13 +306,14 @@ class Model(cortex_model.Model):
 if __name__ == "__main__":
     import jax
 
-    masks, scores = generate_mask_and_score(jnp.array([0, 4, 7]), 8, 0.9, 2)
+    masks = generate_mask(jnp.array([0, 4, 7]), 8, 2)
     print(masks)
-    print(scores)
 
-    masks, scores = generate_mask_and_score(jnp.array([8]), 8, 0.9, 1)
-    print(masks)
+    scores = generate_score_matrix(jnp.array([0, 4, 7]), 8, 0.9)
     print(scores)
     
+    dirac = generate_pivot_dirac_mask(jnp.array([0, 4, 7]), 8)
+    print(dirac)
+
     grid = generate_geometric_matrix(8, 0.9, upper_triangle=True)
     print(grid)

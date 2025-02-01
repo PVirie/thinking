@@ -126,8 +126,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=16, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=16, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -240,7 +240,7 @@ def train(context, parameter_path):
         for layer_i in range(num_layers - 1):
             path = alg.State_Action_Sequence(states, actions, rewards)
 
-            skip_sequence = [i for i in range(0, len(states), skip_steps)]
+            skip_sequence = [i for i in range(skip_steps, len(states), skip_steps)]
             # always add the last index
             if skip_sequence[-1] != len(states) - 1:
                 skip_sequence.append(len(states) - 1)
@@ -371,13 +371,18 @@ def train(context, parameter_path):
 
         for trainer in trainers:
             trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=32)
-
-        loop_train(trainers, 10)
+            
+        loop_train(trainers, 100)
 
         for trainer in trainers:
             trainer.clear_batch()
 
         course += 1
+
+        # disable monte carlo after half of the courses
+        if course == num_courses // 2:
+            for cortex in context.cortex_models:
+                cortex.set_update_mode(use_monte_carlo=False)
 
         context.course = course
         context.random_seed = random_seed
