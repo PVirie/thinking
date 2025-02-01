@@ -158,12 +158,12 @@ def setup():
 
     state_dim = 4
     action_dim = 1
-    reward_dim = 1
+    expectation_dim = 1
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, continuous_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, continuous_reward=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -206,7 +206,7 @@ def train(context, parameter_path):
         rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
         path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
         for layer_i in range(num_layers - 1):
-            path = alg.State_Action_Sequence(states, actions)
+            path = alg.State_Action_Sequence(states, actions, rewards)
 
             skip_sequence = [i for i in range(0, len(states), skip_steps)]
             # always add the last index
@@ -214,7 +214,7 @@ def train(context, parameter_path):
                 skip_sequence.append(len(states) - 1)
             skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
-            expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
+            expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
 
             path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
@@ -224,12 +224,9 @@ def train(context, parameter_path):
             rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
         
         # final layer
-        path = alg.State_Action_Sequence(states, actions)
-        skip_pointer_sequence = alg.Pointer_Sequence([i for i in range(0, len(states))])
-
-        discount_kernel = generate_mean_geometric_matrix(states.shape[0], diminishing_factor=0.9, upper_triangle=True)
-        discounted_rewards = np.matmul(discount_kernel, rewards)
-        expectation_sequence = alg.Expectation_Sequence(discounted_rewards, np.ones((len(states), 1)))
+        path = alg.State_Action_Sequence(states, actions, rewards)
+        skip_pointer_sequence = alg.Pointer_Sequence([len(states) - 1])
+        expectation_sequence = alg.Expectation_Sequence(np.ones((1, 1)))
 
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
         

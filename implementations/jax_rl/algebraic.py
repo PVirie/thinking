@@ -60,50 +60,42 @@ class Pointer_Sequence(humn.algebraic.Pointer_Sequence):
 
 
 class State_Action_Sequence(humn.algebraic.State_Sequence):
-    def __init__(self, state_data, action_data):
+    def __init__(self, state_data, action_data, reward_data):
         if not isinstance(state_data, jnp.ndarray):
             state_data = device_put(jnp.array(state_data, jnp.float32))
 
         if not isinstance(action_data, jnp.ndarray):
             action_data = device_put(jnp.array(action_data, jnp.float32))
 
+        if not isinstance(reward_data, jnp.ndarray):
+            reward_data = device_put(jnp.array(reward_data, jnp.float32))
+
         self.state_dim = state_data.shape[1]
-        self.data = jnp.concatenate([state_data, action_data], axis=1)
+        self.action_dim = action_data.shape[1]
+        self.data = jnp.concatenate([state_data, action_data, reward_data], axis=1)
 
     def get_states(self):
         return self.data[:, :self.state_dim]
     
     def get_actions(self):
-        return self.data[:, self.state_dim:]
+        return self.data[:, self.state_dim:self.state_dim+self.action_dim]
+    
+    def get_rewards(self):
+        return self.data[:, -1:]
 
     def __len__(self):
         return self.data.shape[0]
 
 
 class Expectation_Sequence(humn.algebraic.State_Sequence):
-    def __init__(self, reward_data, goal_data = None):
-        if not isinstance(reward_data, jnp.ndarray):
-            reward_data = device_put(jnp.array(reward_data, jnp.float32))
-
-        if goal_data is not None:
-            if not isinstance(goal_data, jnp.ndarray):
-                goal_data = device_put(jnp.array(goal_data, jnp.float32))
-            self.data = jnp.concatenate([reward_data, goal_data], axis=1)
-        else:
-            self.data = reward_data
-
-
-    def get_rewards(self):
-        return self.data[:, 0:1]
-    
-
-    def get_goals(self):
-        return self.data[:, 1:]
-    
+    def __init__(self, goal_data):
+        if not isinstance(goal_data, jnp.ndarray):
+            goal_data = device_put(jnp.array(goal_data, jnp.float32))
+        
+        self.data = goal_data
 
     def get(self):
         return self.data
     
-
     def __len__(self):
         return self.data.shape[0]

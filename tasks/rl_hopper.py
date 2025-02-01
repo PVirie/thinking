@@ -126,8 +126,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, continuous_reward=False, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, continuous_reward=True, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=16, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -146,9 +146,9 @@ def setup():
         name=name,
         skip_steps=skip_steps,
         goals=[
-            ([3, 1], "jump forward"),
-            ([0, 2], "jump still"),
-            ([-3, 1], "jump backward"),
+            ([5, 5], "jump forward"),
+            ([0, 5], "jump still"),
+            ([-5, 5], "jump backward"),
         ],
         random_seed=random_seed,
         course=0,
@@ -160,7 +160,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 5000
+    num_courses = 1000
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -171,7 +171,7 @@ def train(context, parameter_path):
     model = HUMN(context.cortex_models, context.hippocampus_models, context.abstraction_models)
     
     def loop_train(trainers, num_epoch=1000):
-        print_steps = max(1, num_epoch // 100)
+        print_steps = max(10, num_epoch // 100)
         stamp = time.time()
         for i in range(num_epoch):
             for trainer in trainers:
@@ -181,7 +181,7 @@ def train(context, parameter_path):
                 # compute time to finish in seconds
                 logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
                 logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
-        logging.info(f"Total learning time {time.time() - stamp}s")
+        logging.info(f"Learning time {time.time() - stamp}s")
 
 
     def near_round(x, base=0.5):
@@ -238,7 +238,7 @@ def train(context, parameter_path):
 
         path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
         for layer_i in range(num_layers - 1):
-            path = alg.State_Action_Sequence(states, actions)
+            path = alg.State_Action_Sequence(states, actions, rewards)
 
             skip_sequence = [i for i in range(0, len(states), skip_steps)]
             # always add the last index
@@ -246,7 +246,7 @@ def train(context, parameter_path):
                 skip_sequence.append(len(states) - 1)
             skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
-            expectation_sequence = alg.Expectation_Sequence(rewards[skip_sequence, :], states[skip_sequence, :])
+            expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
 
             path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
@@ -257,14 +257,15 @@ def train(context, parameter_path):
             goals = compute_average_along_sequence(goals, skip_sequence)
 
         # final layer
-        path = alg.State_Action_Sequence(states, actions)
-        skip_pointer_sequence = alg.Pointer_Sequence([i for i in range(0, len(states))])
+        path = alg.State_Action_Sequence(states, actions, rewards)
+        skip_pointer_sequence = alg.Pointer_Sequence([len(states) - 1])
 
-        discount_kernel = generate_mean_geometric_matrix(states.shape[0], diminishing_factor=0.98, upper_triangle=True)
-        discounted_rewards = np.matmul(discount_kernel, rewards)
-        discounted_goals = np.matmul(discount_kernel, goals)
-        goals = near_round(discounted_goals)
-        expectation_sequence = alg.Expectation_Sequence(discounted_rewards, goals)
+        # discount_kernel = generate_mean_geometric_matrix(states.shape[0], diminishing_factor=0.9, upper_triangle=True)
+        # discounted_goals = np.matmul(discount_kernel, goals)
+        # goals = near_round(discounted_goals)
+        goals = np.mean(goals, axis=0, keepdims=True)
+        goals = near_round(goals)
+        expectation_sequence = alg.Expectation_Sequence(goals)
 
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
@@ -275,8 +276,12 @@ def train(context, parameter_path):
 
     env = gym.make(
         'Hopper-v5',
-        healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, 
-        healthy_angle_range=(-math.pi / 2, math.pi / 2), healthy_state_range=(-100, 100), 
+        healthy_reward=1, 
+        forward_reward_weight=0,
+        ctrl_cost_weight=1e-3,
+        healthy_angle_range=(-math.pi / 2, math.pi / 2),
+        healthy_state_range=(-100, 100),
+        healthy_z_range = (0.7, 100.0),
         render_mode=None
     )
 
@@ -294,10 +299,10 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 1200
+        max_total_steps = 4800
         course_statistics = {}
 
-        epsilon = 0.1
+        epsilon = 0.5 - 0.45 * (course + 1) / num_courses
 
         num_trials = 0
         stamp = time.time()
@@ -365,9 +370,9 @@ def train(context, parameter_path):
         logging.info(f"Average steps: {total_steps/num_trials}")
 
         for trainer in trainers:
-            trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=64)
+            trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=32)
 
-        loop_train(trainers, 100)
+        loop_train(trainers, 10)
 
         for trainer in trainers:
             trainer.clear_batch()
@@ -410,7 +415,9 @@ if __name__ == "__main__":
         env = gym.make(
             'Hopper-v5',
             healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, 
-            healthy_angle_range=(-math.pi, math.pi), healthy_state_range=(-100, 100), 
+            healthy_angle_range=(-math.pi, math.pi),
+            healthy_state_range=(-100, 100),
+            healthy_z_range = (0.7, 100.0),
             render_mode="rgb_array", width=1280, height=720
         )
         env.action_space.seed(random.randint(0, 1000))

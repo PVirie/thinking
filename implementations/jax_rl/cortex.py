@@ -26,12 +26,27 @@ def generate_mask_and_score(pivots, length, diminishing_factor=0.9, pre_steps=1)
     # pivots = jnp.array(pivots, dtype=jnp.int32)
     pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
     pre_pivots = jnp.concatenate([jnp.full([pre_steps], -1, dtype=jnp.int32), pivots[:-pre_steps]], axis=0)
-    # unlike other tasks, RL task is the action to get to those states, so we need to count the self
-    masks = jnp.logical_and(jnp.expand_dims(pre_pivots, axis=0) < pos, pos <= jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
-    order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
+    masks = jnp.logical_and(jnp.expand_dims(pre_pivots, axis=0) <= pos, pos < jnp.expand_dims(pivots, axis=0)).astype(jnp.float32)
 
-    scores = jnp.power(diminishing_factor, order)
+    # score is one at position before pivot
+    scores = pos + 1 == jnp.expand_dims(pivots, axis=0)
+    scores = scores.astype(jnp.float32)
+
     return jnp.transpose(masks), jnp.transpose(scores)
+
+
+def generate_geometric_matrix(length, diminishing_factor=0.9, upper_triangle=True):
+    grid_x = jnp.arange(length)
+    grid_y = jnp.arange(length)
+    grid_x, grid_y = jnp.meshgrid(grid_x, grid_y)
+    grid = jnp.abs(grid_x - grid_y)
+    grid = jnp.power(diminishing_factor, grid)
+    # remove triangle, keep diagonal
+    if upper_triangle:
+        grid = jnp.triu(grid, 0)
+    else:
+        grid = jnp.triu(grid, 1)
+    return grid
 
 
 class Trainer(trainer.Trainer):
@@ -51,42 +66,47 @@ class Trainer(trainer.Trainer):
         self.avg_loss = 0.0
 
 
-    def accumulate_batch(self, step_discount_factor, use_action, continuous_reward, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
+    def accumulate_batch(self, step_discount_factor, use_action, use_reward, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
 
         if len(path_encoding_sequence) == 0:
             return self
 
         cart_state_sequence = path_encoding_sequence.get_states()
-        if continuous_reward:
-            # pivots has the same shape as path_encoding_sequence
-            s = jnp.expand_dims(cart_state_sequence, axis=0)
 
-            if use_action:
-                action_sequence = path_encoding_sequence.get_actions()
-                x = jnp.expand_dims(action_sequence, axis=0)
-            else:
-                x = jnp.expand_dims(jnp.roll(cart_state_sequence, -1, axis=0), axis=0)
+        # s has shape (P, seq_len, state_dim)
+        s = jnp.tile(jnp.expand_dims(cart_state_sequence, axis=0), (len(pivots), 1, 1))
 
-            expectation_sequence = pivots.get()
-            t_scores = jnp.expand_dims(expectation_sequence, axis=0)
-            t = t_scores[:, :, 1:]
-            scores = t_scores[:, :, 0]
-            masks = jnp.ones_like(scores)
+        goal_sequence = pivots.get()
+        # t has shape (P, seq_len, goal_dim)
+        t = jnp.tile(jnp.expand_dims(goal_sequence, axis=1), (1, len(path_encoding_sequence), 1))
+
+        if use_action:
+            action_sequence = path_encoding_sequence.get_actions()
+            x = jnp.tile(jnp.expand_dims(action_sequence, axis=0), (len(pivots), 1, 1))
         else:
-            s = jnp.tile(jnp.expand_dims(cart_state_sequence, axis=0), (len(pivots), 1, 1))
+            # roll cause weirdness at edge, must mask out the last one by make sure that the last item in the pivot_indices is len(path_encoding_sequence) - 1
+            x = jnp.tile(jnp.expand_dims(jnp.roll(cart_state_sequence, -1, axis=0), axis=0), (len(pivots), 1, 1))
 
-            if use_action:
-                action_sequence = path_encoding_sequence.get_actions()
-                x = jnp.tile(jnp.expand_dims(action_sequence, axis=0), (len(pivots), 1, 1))
-            else:
-                x = jnp.tile(jnp.expand_dims(jnp.roll(cart_state_sequence, -1, axis=0), axis=0), (len(pivots), 1, 1))
+        # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
+        masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
+        
+        # inferred_scores has shape (P, seq_len)
+        _, raw_inferred_scores = self.model.infer(
+            jnp.reshape(s, (-1, 1, s.shape[2])),
+            jnp.reshape(t, (-1, t.shape[2]))
+        )
+        inferred_scores = jnp.reshape(raw_inferred_scores, (len(pivots), len(path_encoding_sequence)))
+        # roll the scores
+        inferred_scores = jnp.roll(inferred_scores, -1, axis=1)
 
-            # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
-            masks, scores = generate_mask_and_score(pivot_indices.data, len(path_encoding_sequence), step_discount_factor, min(2, pivot_indices.data.shape[0]))
-            
-            goal_sequence = pivots.get_goals()
-            # t has shape (P, seq_len, goal_dim)
-            t = jnp.tile(jnp.expand_dims(goal_sequence, axis=1), (1, len(path_encoding_sequence), 1))
+        if use_reward:
+            reward_sequence = path_encoding_sequence.get_rewards()
+            reward_sequence = jnp.reshape(reward_sequence, (-1))
+            tiled_rewards = jnp.tile(jnp.expand_dims(reward_sequence, axis=0), (len(pivots), 1))
+            scores = tiled_rewards + inferred_scores * step_discount_factor
+        else:
+            # now take the max of the inferred scores and the observed scores
+            scores = scores + inferred_scores * step_discount_factor
 
 
         self.s.append(s)
@@ -198,11 +218,11 @@ class Trainer(trainer.Trainer):
 
 class Model(cortex_model.Model):
     
-    def __init__(self, layer: int, return_action: bool, continuous_reward: bool, model: core.base.Model, step_discount_factor=0.9):
+    def __init__(self, layer: int, return_action: bool, use_reward: bool, model: core.base.Model, step_discount_factor=0.9):
         # if you wish to share the model, pass the index into learning and inference functions to differentiate between layers
         self.layer = layer
         self.return_action = return_action
-        self.continuous_reward = continuous_reward
+        self.use_reward = use_reward
         self.step_discount_factor = step_discount_factor
         self.model = model
         self.printer = None
@@ -219,7 +239,7 @@ class Model(cortex_model.Model):
         with open(os.path.join(path, "metadata.json"), "r") as f:
             metadata = json.load(f)
         model = core.load(metadata["model"])
-        return Model(layer=metadata["layer"], return_action=metadata["return_action"], continuous_reward=metadata["continuous_reward"], model=model, step_discount_factor=metadata["step_discount_factor"])
+        return Model(layer=metadata["layer"], return_action=metadata["return_action"], use_reward=metadata["use_reward"], model=model, step_discount_factor=metadata["step_discount_factor"])
                                                               
 
     @staticmethod
@@ -229,7 +249,7 @@ class Model(cortex_model.Model):
             json.dump({
                 "layer": self.layer,
                 "return_action": self.return_action,
-                "continuous_reward": self.continuous_reward,
+                "use_reward": self.use_reward,
                 "step_discount_factor": self.step_discount_factor,
                 "model": core.save(self.model)
             }, f)
@@ -237,7 +257,7 @@ class Model(cortex_model.Model):
 
     def incrementally_learn(self, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence) -> Trainer:
         # learn to predict the next state and its probability from the current state given goal
-        return self.trainer.accumulate_batch(self.step_discount_factor, self.return_action, self.continuous_reward, path_encoding_sequence, pivot_indices, pivots)
+        return self.trainer.accumulate_batch(self.step_discount_factor, self.return_action, self.use_reward, path_encoding_sequence, pivot_indices, pivots)
 
 
     def infer_sub_action(self, from_encoding_sequence: State, expect_action: Action) -> Action:
@@ -260,3 +280,10 @@ if __name__ == "__main__":
     masks, scores = generate_mask_and_score(jnp.array([0, 4, 7]), 8, 0.9, 2)
     print(masks)
     print(scores)
+
+    masks, scores = generate_mask_and_score(jnp.array([8]), 8, 0.9, 1)
+    print(masks)
+    print(scores)
+    
+    grid = generate_geometric_matrix(8, 0.9, upper_triangle=True)
+    print(grid)

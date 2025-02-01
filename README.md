@@ -72,6 +72,7 @@ If you want to purely install the python code, you can follow the steps in the d
     -   [x] Use optax
     -   [x] Transformer kernel
     -   [x] Value access vs score access hyperparameter to select which type of hypothesis learning to use.
+    -   [ ] RL temporal difference max propagate
 -   [x] Reinforcement learning experiment
     -   [x] [Cart pole] (https://gymnasium.farama.org/environments/classic_control/cart_pole/)
         -   [x] Use average state value as the goal
