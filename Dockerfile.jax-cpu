@@ -13,7 +13,7 @@ WORKDIR /app
 
 # install
 RUN pip3 install --upgrade pip
-RUN pip3 install --upgrade jax[cpu]==0.4.31 flax clu ott-jax
+RUN pip3 install --upgrade jax[cpu]==0.5.0 flax clu ott-jax
 COPY ./requirements.txt /app/requirements.txt
 RUN pip3 install --no-cache-dir -r requirements.txt
 

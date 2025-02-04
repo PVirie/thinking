@@ -283,7 +283,7 @@ def loss_fn(params, model_fn, s, x, t, scores, masks, dropout_train_key):
     # suppress other slot score to 0
     error_C = jnp.mean(Ss ** 2)
 
-    return error_V + error_S + error_C * 0.1
+    return error_V + error_S + error_C * 0.01
 
 
 jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)), static_argnames=['model_fn'])

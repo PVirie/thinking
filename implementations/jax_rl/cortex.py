@@ -22,13 +22,14 @@ except:
     import core
 
 
-
+@partial(jax.jit, static_argnames=['length', 'diminishing_factor'])
 def generate_score_matrix(pivots, length, diminishing_factor=0.9):
     order = jnp.reshape(jnp.arange(0, -length, -1), [-1, 1]) + jnp.expand_dims(pivots, axis=0)
     scores = jnp.power(diminishing_factor, order)
     return jnp.transpose(scores)
 
 
+@partial(jax.jit, static_argnames=['length', 'pre_steps'])
 def generate_mask(pivots, length, pre_steps=1):
     # from states to pivots
     # pivots = jnp.array(pivots, dtype=jnp.int32)
@@ -38,6 +39,7 @@ def generate_mask(pivots, length, pre_steps=1):
     return jnp.transpose(masks)
 
 
+@partial(jax.jit, static_argnames=['length'])
 def generate_pivot_dirac_mask(pivots, length):
     pos = jnp.expand_dims(jnp.arange(0, length, dtype=jnp.int32), axis=1)
     scores = pos == jnp.expand_dims(pivots, axis=0)
@@ -45,6 +47,7 @@ def generate_pivot_dirac_mask(pivots, length):
     return jnp.transpose(scores)
 
 
+@partial(jax.jit, static_argnames=['diminishing_factor', 'upper_triangle'])
 def generate_geometric_matrix(length, diminishing_factor=0.9, upper_triangle=True):
     grid_x = jnp.arange(length)
     grid_y = jnp.arange(length)
@@ -239,9 +242,10 @@ class Model(cortex_model.Model):
         # if you wish to share the model, pass the index into learning and inference functions to differentiate between layers
         self.layer = layer
         self.return_action = return_action
+        self.step_discount_factor = step_discount_factor
         self.use_reward = use_reward
         self.use_monte_carlo = use_monte_carlo
-        self.step_discount_factor = step_discount_factor
+
         self.model = model
         self.printer = None
 
@@ -267,7 +271,8 @@ class Model(cortex_model.Model):
             model=model, 
             step_discount_factor=metadata["step_discount_factor"], 
             use_reward=metadata["use_reward"], 
-            use_monte_carlo=metadata["use_monte_carlo"])
+            use_monte_carlo=metadata["use_monte_carlo"]
+        )
                                                               
 
     @staticmethod
@@ -277,9 +282,9 @@ class Model(cortex_model.Model):
             json.dump({
                 "layer": self.layer,
                 "return_action": self.return_action,
+                "step_discount_factor": self.step_discount_factor,
                 "use_reward": self.use_reward,
                 "use_monte_carlo": self.use_monte_carlo,
-                "step_discount_factor": self.step_discount_factor,
                 "model": core.save(self.model)
             }, f)
 

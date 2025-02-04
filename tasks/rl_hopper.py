@@ -118,7 +118,7 @@ def setup():
     random.seed(random_seed)
 
     name = "Curriculum (Skip steps)"
-    skip_steps = 32
+    skip_steps = 16
 
     state_dim = 11
     action_dim = 3
@@ -126,8 +126,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.995, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.995, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -146,9 +146,9 @@ def setup():
         name=name,
         skip_steps=skip_steps,
         goals=[
-            ([3, 1.5], "jump forward"),
-            ([0, 3], "jump still"),
-            ([-3, 1.5], "jump backward"),
+            ([4, 2], "jump forward"),
+            ([0, 2], "jump still"),
+            ([-4, 2], "jump backward"),
         ],
         random_seed=random_seed,
         course=0,
@@ -160,7 +160,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 1000
+    num_courses = 100
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -218,19 +218,21 @@ def train(context, parameter_path):
         best_match = last_goals[best_match_index, :]
 
         survive = health >= 0.5 * stats["health_max"]
-        improve_ratio = best_match_distance / (stats["best_match_distance"] + 1e-6)
+        improve_ratio =  stats["best_match_distance"] / (best_match_distance + 1e-6)
 
         stats["health_max"] = np.maximum(stats["health_max"], np.max(health))
         stats["best_match_distance"] = np.minimum(stats["best_match_distance"], best_match_distance)
-        stats["best_match"] = np.where(improve_ratio < 1.0, best_match, stats["best_match"])
+        stats["best_match"] = np.where(improve_ratio > 1.0, best_match, stats["best_match"])
 
-        if np.any(improve_ratio < 2.0) and np.any(survive):
+        if np.any(survive):
             return True, stats
         
         return True, stats
 
 
     def prepare_data_tuples(premature_termination, states, actions, rewards, num_layers, skip_steps):
+        scores = np.ones([1, 1]) * len(states)
+
         states = np.stack(states, axis=0)
         actions = np.stack(actions, axis=0)
         rewards = np.reshape(np.stack(rewards, axis=0), [-1, 1])
@@ -269,7 +271,7 @@ def train(context, parameter_path):
 
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
-        return path_layer_tuples, goals, rewards
+        return path_layer_tuples, goals, scores
 
 
     logging.info(f"Training experiment {context.name}")
@@ -301,9 +303,9 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 1600
+        max_total_steps = 10000
 
-        epsilon = 0.1 - 0.09 * (course + 1) / num_courses
+        epsilon = 0.5 - 0.4 * (course + 1) / num_courses
 
         num_trials = 0
         stamp = time.time()
@@ -374,17 +376,17 @@ def train(context, parameter_path):
         for trainer in trainers:
             trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=32)
             
-        loop_train(trainers, 100)
+        loop_train(trainers, 1000)
 
         for trainer in trainers:
             trainer.clear_batch()
 
         course += 1
 
-        # disable monte carlo after half of the courses
-        if course == num_courses // 2:
-            for cortex in context.cortex_models:
-                cortex.set_update_mode(use_monte_carlo=False)
+        # # disable monte carlo after half of the courses
+        # if course == num_courses // 2:
+        #     for cortex in context.cortex_models:
+        #         cortex.set_update_mode(use_monte_carlo=False)
 
         context.course = course
         context.random_seed = random_seed
