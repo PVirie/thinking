@@ -118,7 +118,7 @@ def setup():
     random.seed(random_seed)
 
     name = "Curriculum (Skip steps)"
-    skip_steps = 16
+    skip_steps = 32
 
     state_dim = 11
     action_dim = 3
@@ -126,8 +126,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=16, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.98, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.98, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -146,9 +146,9 @@ def setup():
         name=name,
         skip_steps=skip_steps,
         goals=[
-            ([5, 5], "jump forward"),
-            ([0, 5], "jump still"),
-            ([-5, 5], "jump backward"),
+            ([3, 1.5], "jump forward"),
+            ([0, 3], "jump still"),
+            ([-3, 1.5], "jump backward"),
         ],
         random_seed=random_seed,
         course=0,
@@ -209,8 +209,8 @@ def train(context, parameter_path):
         # compute l2 distance to goals
         # goal_array has shape [m, 2]
         # last_goals has shape[n, 2]
-        # distance should have shape [m, n]
-        distance = np.linalg.norm(np.expand_dims(goal_array, axis=1) - np.expand_dims(last_goals, axis=0), axis=2)
+        # distance should have shape [m, a
+        distance = np.linalg.norm(np.expand_dims(goal_array, axis=1) - np.expand_dims(last_goals, axis=0), axis=2, ord=1)
         
         # pick the best for each goal
         best_match_index = np.argmin(distance, axis=1)
@@ -242,7 +242,7 @@ def train(context, parameter_path):
 
             skip_sequence = [i for i in range(skip_steps, len(states), skip_steps)]
             # always add the last index
-            if skip_sequence[-1] != len(states) - 1:
+            if len(skip_sequence) == 0 or skip_sequence[-1] != len(states) - 1:
                 skip_sequence.append(len(states) - 1)
             skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
@@ -293,19 +293,21 @@ def train(context, parameter_path):
     else:
         best_targets = goal_array
 
+    statistics = {}
+
     total_trials = 0
     while course < num_courses:
         logging.info(f"Course {course}")
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 4800
-        course_statistics = {}
+        max_total_steps = 1600
 
-        epsilon = 0.5 - 0.45 * (course + 1) / num_courses
+        epsilon = 0.1 - 0.09 * (course + 1) / num_courses
 
         num_trials = 0
         stamp = time.time()
+        last_percent_collection = 0
         while total_steps < max_total_steps:
             
             if course > 0:
@@ -332,7 +334,7 @@ def train(context, parameter_path):
                     if selected_action.size < 3:
                         logging.warning(f"Invalid action: {selected_action}")
                         break
-                    selected_action += np.random.normal(0, epsilon, size=selected_action.shape)
+                    # selected_action += np.random.normal(0, epsilon, size=selected_action.shape)
                     selected_action = np.clip(selected_action, -1, 1)
 
                 next_observation, reward, terminated, truncated, info = env.step(selected_action)
@@ -353,20 +355,20 @@ def train(context, parameter_path):
 
             # now make hierarchical data
             path_layer_tuples, last_pivots, last_scores = prepare_data_tuples(premature_termination, states, actions, rewards, num_layers, context.skip_steps)
-            accept_this, course_statistics = filter(last_pivots, last_scores, course_statistics)
+            accept_this, statistics = filter(last_pivots, last_scores, statistics)
             
             if accept_this:
                 trainers = model.observe(path_layer_tuples)
                 num_trials += 1
                 total_trials += 1
-
-                # before_percent = round(total_steps * 100 / max_total_steps)
                 total_steps += len(states)
-                # after_percent = round(total_steps * 100 / max_total_steps)
-                # if before_percent != after_percent:
-                #     # print at every 1 % progress
-                #     logging.info(f"Env collected: {after_percent:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
-                    
+                
+                current_percent_collection = round(total_steps * 100 / max_total_steps)
+                if current_percent_collection - last_percent_collection >= 10 :
+                    # print at every 10% progress
+                    logging.info(f"Env collected: {current_percent_collection:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
+                    last_percent_collection = current_percent_collection
+
         logging.info(f"Average steps: {total_steps/num_trials}")
 
         for trainer in trainers:
@@ -386,9 +388,9 @@ def train(context, parameter_path):
 
         context.course = course
         context.random_seed = random_seed
-        context.best_goals = course_statistics["best_match"].tolist()
+        context.best_goals = statistics["best_match"].tolist()
         
-        if course % 100 == 0 or course == num_courses:
+        if course % 50 == 0 or course == num_courses:
             Context.save(context, parameter_path)
 
     env.close()

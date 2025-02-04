@@ -252,8 +252,8 @@ class Model(cortex_model.Model):
         self.printer = printer
 
 
-    def set_update_mode(self, use_monter_carlo):
-        self.use_monte_carlo = use_monter_carlo
+    def set_update_mode(self, use_monte_carlo):
+        self.use_monte_carlo = use_monte_carlo
 
 
     @staticmethod
