@@ -160,7 +160,7 @@ def setup():
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 100
+    num_courses = 1000
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -188,7 +188,7 @@ def train(context, parameter_path):
         return np.round(x / base) * base
 
 
-    def states_to_goals(states, keepdims=True):
+    def states_to_goal_statistics(states, keepdims=True):
         vx = states[:, 5]
         vz = np.abs(states[:, 6])
         sub_states = np.stack([vx, vz], axis=1)
@@ -230,13 +230,19 @@ def train(context, parameter_path):
         return True, stats
 
 
-    def prepare_data_tuples(premature_termination, states, actions, rewards, num_layers, skip_steps):
+    def prepare_data_tuples(premature_termination, target, states, actions, rewards, num_layers, skip_steps):
         scores = np.ones([1, 1]) * len(states)
 
         states = np.stack(states, axis=0)
         actions = np.stack(actions, axis=0)
         rewards = np.reshape(np.stack(rewards, axis=0), [-1, 1])
-        goals = states_to_goals(states, keepdims=True)
+        goal_stat = states_to_goal_statistics(states, keepdims=True)
+        
+        distances = np.linalg.norm(goal_stat - np.expand_dims(target.data, axis=0), axis=1, ord=1, keepdims=True)
+        goal_rewards = np.exp(-distances)
+
+        # override reward
+        rewards = goal_rewards + rewards
 
         path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
         for layer_i in range(num_layers - 1):
@@ -256,32 +262,25 @@ def train(context, parameter_path):
             actions = actions[skip_sequence]
             # reward is the average of the rewards in the skip sequence
             rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
-            goals = compute_average_along_sequence(goals, skip_sequence)
 
         # final layer
         path = alg.State_Action_Sequence(states, actions, rewards)
         skip_pointer_sequence = alg.Pointer_Sequence([len(states) - 1])
-
-        # discount_kernel = generate_mean_geometric_matrix(states.shape[0], diminishing_factor=0.9, upper_triangle=True)
-        # discounted_goals = np.matmul(discount_kernel, goals)
-        # goals = near_round(discounted_goals)
-        goals = np.mean(goals, axis=0, keepdims=True)
-        goals = near_round(goals)
-        expectation_sequence = alg.Expectation_Sequence(goals)
-
+        expectation_sequence = alg.Expectation_Sequence(np.reshape(target.data, [1, 2]))
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
-        return path_layer_tuples, goals, scores
+        goal_stat = np.mean(goal_stat, axis=0, keepdims=True)
+        return path_layer_tuples, goal_stat, scores
 
 
     logging.info(f"Training experiment {context.name}")
 
     env = gym.make(
         'Hopper-v5',
-        healthy_reward=1, 
+        healthy_reward=0, 
         forward_reward_weight=0,
         ctrl_cost_weight=1e-3,
-        healthy_angle_range=(-math.pi / 2, math.pi / 2),
+        healthy_angle_range=(-math.pi, math.pi),
         healthy_state_range=(-100, 100),
         healthy_z_range = (0.7, 100.0),
         render_mode=None
@@ -290,10 +289,6 @@ def train(context, parameter_path):
     num_layers = len(context.cortex_models)
     random_seed = context.random_seed
     goal_array = np.asarray([goal[0] for goal in context.goals], dtype=np.float32)
-    if context.best_goals is not None:
-        best_targets = np.array(context.best_goals, dtype=np.float32)
-    else:
-        best_targets = goal_array
 
     statistics = {}
 
@@ -303,7 +298,7 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 10000
+        max_total_steps = 1200
 
         epsilon = 0.5 - 0.4 * (course + 1) / num_courses
 
@@ -312,9 +307,7 @@ def train(context, parameter_path):
         last_percent_collection = 0
         while total_steps < max_total_steps:
             
-            if course > 0:
-                target = best_targets[total_trials % len(context.goals), :]
-                stable_state = alg.Expectation(target)
+            selected_target = alg.Expectation(goal_array[total_trials % len(context.goals), :])
             
             random.seed(random_seed)
             env.action_space.seed(random_seed)
@@ -331,7 +324,7 @@ def train(context, parameter_path):
                     # quantize
                     selected_action = np.round(selected_action)
                 else:
-                    a = model.react(alg.State(observation.data), stable_state)
+                    a = model.react(alg.State(observation.data), selected_target)
                     selected_action = a.data
                     if selected_action.size < 3:
                         logging.warning(f"Invalid action: {selected_action}")
@@ -356,7 +349,7 @@ def train(context, parameter_path):
                     observation = next_observation
 
             # now make hierarchical data
-            path_layer_tuples, last_pivots, last_scores = prepare_data_tuples(premature_termination, states, actions, rewards, num_layers, context.skip_steps)
+            path_layer_tuples, last_pivots, last_scores = prepare_data_tuples(premature_termination, selected_target, states, actions, rewards, num_layers, context.skip_steps)
             accept_this, statistics = filter(last_pivots, last_scores, statistics)
             
             if accept_this:
@@ -376,7 +369,7 @@ def train(context, parameter_path):
         for trainer in trainers:
             trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=32)
             
-        loop_train(trainers, 1000)
+        loop_train(trainers, 100)
 
         for trainer in trainers:
             trainer.clear_batch()
@@ -423,7 +416,9 @@ if __name__ == "__main__":
         
         env = gym.make(
             'Hopper-v5',
-            healthy_reward=1, forward_reward_weight=0, ctrl_cost_weight=1e-3, 
+            healthy_reward=0, 
+            forward_reward_weight=0, 
+            ctrl_cost_weight=0, 
             healthy_angle_range=(-math.pi, math.pi),
             healthy_state_range=(-100, 100),
             healthy_z_range = (0.7, 100.0),
@@ -452,28 +447,11 @@ if __name__ == "__main__":
                 write_gif(imgs, output_gif, fps=30)
 
         for i, (goal, goal_text) in enumerate(context.goals):
-            goal = context.best_goals[i]
+            # goal = context.best_goals[i]
             result_path = os.path.join(experiment_path, "results", goal_text)
 
             model = HUMN(context.cortex_models, context.hippocampus_models, context.abstraction_models)
             observation, info = env.reset()
-
-            # total_steps = 0
-            # num_trials = 100
-            # print_steps = max(1, num_trials // 10)
-            # for j in range(num_trials):
-            #     if j % print_steps == 0 and j > 0:
-            #         # print at every 1 % progress
-            #         logging.info(f"Environment testing: {(j * 100 / num_trials):.2f}")
-            #     observation, info = env.reset()
-            #     for _ in range(1000):
-            #         # selected_action = env.action_space.sample()
-            #         a = model.react(alg.State(observation.data), alg.Expectation(goal))
-            #         selected_action = np.clip(np.asarray(a.data), -1, 1)
-            #         observation, reward, terminated, truncated, info = env.step(selected_action)
-            #         total_steps += 1
-            #         if terminated or truncated:
-            #             break
 
             # logging.info(f"Parameter set {context.name}; average behavior steps: {total_steps/num_trials}")
             logging.info(f"Parameter set {context.name}; goal: {goal_text}")
