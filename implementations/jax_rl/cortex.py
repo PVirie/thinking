@@ -62,6 +62,51 @@ def generate_geometric_matrix(length, diminishing_factor=0.9, upper_triangle=Tru
     return grid
 
 
+@partial(jax.jit, static_argnames=['num_pivots', 'num_steps', 'step_discount_factor', 'model_infer', 'use_action', 'use_reward', 'use_monte_carlo'])
+def prepare_data(cart_state_sequence, action_sequence, reward_sequence, goal_sequence, pivot_indices, num_pivots, num_steps, step_discount_factor, model_infer, use_action, use_reward, use_monte_carlo):
+
+    # s has shape (P, seq_len, state_dim)
+    s = jnp.tile(jnp.expand_dims(cart_state_sequence, axis=0), (num_pivots, 1, 1))
+
+    # t has shape (P, seq_len, goal_dim)
+    t = jnp.tile(jnp.expand_dims(goal_sequence, axis=1), (1, num_steps, 1))
+
+    if use_action:
+        x = jnp.tile(jnp.expand_dims(action_sequence, axis=0), (num_pivots, 1, 1))
+    else:
+        # roll cause weirdness at edge, must mask out the last one by make sure that the last item in the pivot_indices is len(path_encoding_sequence) - 1
+        x = jnp.tile(jnp.expand_dims(jnp.roll(cart_state_sequence, -1, axis=0), axis=0), (num_pivots, 1, 1))
+
+    # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
+    masks = generate_mask(pivot_indices, num_steps, min(2, num_pivots))
+    
+    if not use_monte_carlo or use_reward:
+        # inferred_scores has shape (P, seq_len)
+        _, raw_inferred_scores = model_infer(
+            jnp.reshape(s, (-1, 1, s.shape[2])),
+            jnp.reshape(t, (-1, t.shape[2]))
+        )
+        inferred_scores = jnp.reshape(raw_inferred_scores, (num_pivots, num_steps))
+        # replace score at pivot with 1.0
+        dirac = generate_pivot_dirac_mask(pivot_indices, num_steps)
+        inferred_scores = inferred_scores * (1 - dirac) + dirac
+        # roll the scores
+        inferred_scores = jnp.roll(inferred_scores, -1, axis=1)
+        # now discount the scores
+        scores = inferred_scores * step_discount_factor
+
+        if use_reward:
+            # td learning with reward
+            reward_sequence = jnp.reshape(reward_sequence, (-1))
+            tiled_rewards = jnp.tile(jnp.expand_dims(reward_sequence, axis=0), (num_pivots, 1))
+            scores = tiled_rewards + scores
+    else:
+        # monte carlo update, scores are the discount table
+        scores = generate_score_matrix(pivot_indices, num_steps, step_discount_factor)
+
+    return s, x, t, scores, masks
+
+
 class Trainer(trainer.Trainer):
     def __init__(self, model, loss_alpha=0.05):
         self.model = model
@@ -85,49 +130,24 @@ class Trainer(trainer.Trainer):
             return self
 
         cart_state_sequence = path_encoding_sequence.get_states()
-
-        # s has shape (P, seq_len, state_dim)
-        s = jnp.tile(jnp.expand_dims(cart_state_sequence, axis=0), (len(pivots), 1, 1))
-
+        action_sequence = path_encoding_sequence.get_actions()
+        reward_sequence = path_encoding_sequence.get_rewards()
         goal_sequence = pivots.get()
-        # t has shape (P, seq_len, goal_dim)
-        t = jnp.tile(jnp.expand_dims(goal_sequence, axis=1), (1, len(path_encoding_sequence), 1))
 
-        if use_action:
-            action_sequence = path_encoding_sequence.get_actions()
-            x = jnp.tile(jnp.expand_dims(action_sequence, axis=0), (len(pivots), 1, 1))
-        else:
-            # roll cause weirdness at edge, must mask out the last one by make sure that the last item in the pivot_indices is len(path_encoding_sequence) - 1
-            x = jnp.tile(jnp.expand_dims(jnp.roll(cart_state_sequence, -1, axis=0), axis=0), (len(pivots), 1, 1))
-
-        # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
-        masks = generate_mask(pivot_indices.data, len(path_encoding_sequence), min(2, pivot_indices.data.shape[0]))
-        
-        if not use_monte_carlo or use_reward:
-            # inferred_scores has shape (P, seq_len)
-            _, raw_inferred_scores = self.model.infer(
-                jnp.reshape(s, (-1, 1, s.shape[2])),
-                jnp.reshape(t, (-1, t.shape[2]))
-            )
-            inferred_scores = jnp.reshape(raw_inferred_scores, (len(pivots), len(path_encoding_sequence)))
-            # replace score at pivot with 1.0
-            dirac = generate_pivot_dirac_mask(pivot_indices.data, len(path_encoding_sequence))
-            inferred_scores = inferred_scores * (1 - dirac) + dirac
-            # roll the scores
-            inferred_scores = jnp.roll(inferred_scores, -1, axis=1)
-            # now discount the scores
-            scores = inferred_scores * step_discount_factor
-
-            if use_reward:
-                # td learning with reward
-                reward_sequence = path_encoding_sequence.get_rewards()
-                reward_sequence = jnp.reshape(reward_sequence, (-1))
-                tiled_rewards = jnp.tile(jnp.expand_dims(reward_sequence, axis=0), (len(pivots), 1))
-                scores = tiled_rewards + scores
-        else:
-            # monte carlo update, scores are the discount table
-            scores = generate_score_matrix(pivot_indices.data, len(path_encoding_sequence), step_discount_factor)
-
+        s, x, t, scores, masks = prepare_data(
+            cart_state_sequence,
+            action_sequence,
+            reward_sequence,
+            goal_sequence,
+            pivot_indices.data,
+            len(pivots),
+            len(path_encoding_sequence),
+            step_discount_factor,
+            self.model.infer,
+            use_action,
+            use_reward,
+            use_monte_carlo
+        )
 
         self.s.append(s)
         self.x.append(x)

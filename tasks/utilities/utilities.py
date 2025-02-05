@@ -2,7 +2,7 @@ import time
 import os
 import shutil
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 def empty_directory(output_dir):
@@ -149,6 +149,16 @@ def generate_mean_geometric_matrix(length, diminishing_factor=0.9, upper_triangl
 def write_gif(imgs, path, fps=30):
     imgs = [Image.fromarray(img) for img in imgs]
     imgs[0].save(path, save_all=True, append_images=imgs[1:], loop=0, duration=1000 / fps)
+
+
+def write_gif_with_text(imgs, texts, path, fps=30):
+    pil_imgs = []
+    for i in range(len(imgs)):
+        img = Image.fromarray(imgs[i])
+        I1 = ImageDraw.Draw(img)
+        I1.text((10, 10), texts[i], fill=(250, 250, 250))
+        pil_imgs.append(img)
+    pil_imgs[0].save(path, save_all=True, append_images=pil_imgs[1:], loop=0, duration=1000 / fps)
 
 
 def has_nan(x):

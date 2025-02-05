@@ -156,11 +156,17 @@ def setup():
     )
 
 
+def states_to_goal_statistics(states, keepdims=True):
+    vx = states[:, 5]
+    vz = np.abs(states[:, 6])
+    sub_states = np.stack([vx, vz], axis=1)
+    return sub_states
+
 
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 1000
+    num_courses = 2000
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -184,18 +190,7 @@ def train(context, parameter_path):
         logging.info(f"Learning time {time.time() - stamp}s")
 
 
-    def near_round(x, base=0.5):
-        return np.round(x / base) * base
-
-
-    def states_to_goal_statistics(states, keepdims=True):
-        vx = states[:, 5]
-        vz = np.abs(states[:, 6])
-        sub_states = np.stack([vx, vz], axis=1)
-        return sub_states
-
-
-    def filter(last_pivots, last_scores, stats):
+    def filter(last_pivots, score, stats):
         # accept or reject
 
         if bool(stats) is False:
@@ -204,7 +199,7 @@ def train(context, parameter_path):
             stats["best_match"] = np.zeros([len(context.goals), 2])
 
         last_goals = last_pivots
-        health = np.max(last_scores, axis=0)
+        health = score
 
         # compute l2 distance to goals
         # goal_array has shape [m, 2]
@@ -220,7 +215,7 @@ def train(context, parameter_path):
         survive = health >= 0.5 * stats["health_max"]
         improve_ratio =  stats["best_match_distance"] / (best_match_distance + 1e-6)
 
-        stats["health_max"] = np.maximum(stats["health_max"], np.max(health))
+        stats["health_max"] = max(stats["health_max"], health)
         stats["best_match_distance"] = np.minimum(stats["best_match_distance"], best_match_distance)
         stats["best_match"] = np.where(improve_ratio > 1.0, best_match, stats["best_match"])
 
@@ -231,7 +226,7 @@ def train(context, parameter_path):
 
 
     def prepare_data_tuples(premature_termination, target, states, actions, rewards, num_layers, skip_steps):
-        scores = np.ones([1, 1]) * len(states)
+        score = len(states)
 
         states = np.stack(states, axis=0)
         actions = np.stack(actions, axis=0)
@@ -270,7 +265,7 @@ def train(context, parameter_path):
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
         goal_stat = np.mean(goal_stat, axis=0, keepdims=True)
-        return path_layer_tuples, goal_stat, scores
+        return path_layer_tuples, goal_stat, score
 
 
     logging.info(f"Training experiment {context.name}")
@@ -298,7 +293,7 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 1200
+        max_total_steps = 2000
 
         epsilon = 0.5 - 0.4 * (course + 1) / num_courses
 
@@ -349,8 +344,8 @@ def train(context, parameter_path):
                     observation = next_observation
 
             # now make hierarchical data
-            path_layer_tuples, last_pivots, last_scores = prepare_data_tuples(premature_termination, selected_target, states, actions, rewards, num_layers, context.skip_steps)
-            accept_this, statistics = filter(last_pivots, last_scores, statistics)
+            path_layer_tuples, last_pivots, score = prepare_data_tuples(premature_termination, selected_target, states, actions, rewards, num_layers, context.skip_steps)
+            accept_this, statistics = filter(last_pivots, score, statistics)
             
             if accept_this:
                 trainers = model.observe(path_layer_tuples)
@@ -433,6 +428,7 @@ if __name__ == "__main__":
                 observation, info = env.reset()
                 output_gif = os.path.join(render_path, f"trial_{j}.gif")
                 imgs = []
+                states = []
                 for _ in range(500):
                     selected_action = action_method(observation)
                     if selected_action.size < 3:
@@ -441,10 +437,14 @@ if __name__ == "__main__":
                     observation, reward, terminated, truncated, info = env.step(selected_action)
                     img = env.render()
                     imgs.append(img)
+                    states.append(observation)
                     if terminated or truncated:
                         break
                 logging.info(f"Trial {j} completed with length {len(imgs)}")
-                write_gif(imgs, output_gif, fps=30)
+                states = np.stack(states, axis=0)
+                goal_stat = states_to_goal_statistics(states, keepdims=True)
+                texts = [f"VX: {goal_stat[i, 0]:.2f}\nVY: {goal_stat[i, 1]:.2f}" for i in range(goal_stat.shape[0])]
+                write_gif_with_text(imgs, texts, output_gif, fps=30)
 
         for i, (goal, goal_text) in enumerate(context.goals):
             # goal = context.best_goals[i]
