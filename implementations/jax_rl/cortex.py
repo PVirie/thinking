@@ -47,7 +47,7 @@ def generate_pivot_dirac_mask(pivots, length):
     return jnp.transpose(scores)
 
 
-@partial(jax.jit, static_argnames=['diminishing_factor', 'upper_triangle'])
+@partial(jax.jit, static_argnames=['length', 'diminishing_factor', 'upper_triangle'])
 def generate_geometric_matrix(length, diminishing_factor=0.9, upper_triangle=True):
     grid_x = jnp.arange(length)
     grid_y = jnp.arange(length)
@@ -107,9 +107,28 @@ def prepare_data(cart_state_sequence, action_sequence, reward_sequence, goal_seq
     return s, x, t, scores, masks
 
 
+# arr is array of floating point
+# arr is sorted in descending order
+def binary_search(arr, target):
+    low = 0
+    high = len(arr) - 1
+    while low <= high:
+        mid = (low + high) // 2
+        if abs(arr[mid] - target) < 1e-6:
+            return -1  # Target already exists, you might choose to handle this differently
+        elif arr[mid] > target:
+            low = mid + 1  # Target should be inserted to the right
+        else:  # arr[mid] < target
+            high = mid - 1  # Target should be inserted to the left
+    return low  # Return 'low' as the insertion index
+
+
 class Trainer(trainer.Trainer):
-    def __init__(self, model, loss_alpha=0.05):
+    def __init__(self, model, total_keeping=1000, loss_alpha=0.05):
         self.model = model
+
+        self.total_keeping = total_keeping
+        self.total_rewards = []
 
         self.s = []
         self.x = []
@@ -124,6 +143,27 @@ class Trainer(trainer.Trainer):
         self.avg_loss = 0.0
 
 
+    def __find_insert_index(self, total_reward):
+        # find the index to insert, assume that the total_rewards is sorted in descending order
+        # total_reward is a float
+        # also remove the least total reward if the total_rewards exceed the limit
+        # return None if the total_reward is not in the top total_keeping
+        index = binary_search(self.total_rewards, total_reward)
+        if index < 0:
+            return None
+        if self.total_keeping is not None and index >= self.total_keeping:
+            return None
+        if self.total_keeping is not None and len(self.total_rewards) >= self.total_keeping:
+            self.total_rewards.pop()
+            self.s.pop()
+            self.x.pop()
+            self.t.pop()
+            self.scores.pop()
+            self.masks.pop()
+        self.total_rewards.insert(index, total_reward)
+        return index
+
+
     def accumulate_batch(self, step_discount_factor, use_action, use_reward, use_monte_carlo, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
 
         if len(path_encoding_sequence) == 0:
@@ -133,6 +173,11 @@ class Trainer(trainer.Trainer):
         action_sequence = path_encoding_sequence.get_actions()
         reward_sequence = path_encoding_sequence.get_rewards()
         goal_sequence = pivots.get()
+
+        total_reward = jnp.sum(reward_sequence).item()
+        insert_index = self.__find_insert_index(total_reward)
+        if insert_index is None:
+            return self
 
         s, x, t, scores, masks = prepare_data(
             cart_state_sequence,
@@ -149,16 +194,24 @@ class Trainer(trainer.Trainer):
             use_monte_carlo
         )
 
-        self.s.append(s)
-        self.x.append(x)
-        self.t.append(t)
-        self.scores.append(scores)
-        self.masks.append(masks)
+        if insert_index >= len(self.total_rewards):
+            self.s.append(s)
+            self.x.append(x)
+            self.t.append(t)
+            self.scores.append(scores)
+            self.masks.append(masks)
+        else:
+            self.s.insert(insert_index, s)
+            self.x.insert(insert_index, x)
+            self.t.insert(insert_index, t)
+            self.scores.insert(insert_index, scores)
+            self.masks.insert(insert_index, masks)
 
         return self
 
 
     def clear_batch(self):
+        self.total_rewards = []
         self.s = []
         self.x = []
         self.t = []
@@ -258,7 +311,7 @@ class Trainer(trainer.Trainer):
 
 class Model(cortex_model.Model):
     
-    def __init__(self, layer: int, return_action: bool, model: core.base.Model, step_discount_factor=0.9, use_reward=False, use_monte_carlo=True):
+    def __init__(self, layer: int, return_action: bool, model: core.base.Model, step_discount_factor=0.9, use_reward=False, use_monte_carlo=True, num_items_to_keep=None):
         # if you wish to share the model, pass the index into learning and inference functions to differentiate between layers
         self.layer = layer
         self.return_action = return_action
@@ -269,7 +322,7 @@ class Model(cortex_model.Model):
         self.model = model
         self.printer = None
 
-        self.trainer = Trainer(self.model)
+        self.trainer = Trainer(self.model, total_keeping=num_items_to_keep)
 
 
     def set_printer(self, printer):

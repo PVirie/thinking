@@ -126,8 +126,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.995, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.995, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.995, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.995, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -146,9 +146,9 @@ def setup():
         name=name,
         skip_steps=skip_steps,
         goals=[
-            ([4, 2], "jump forward"),
-            ([0, 2], "jump still"),
-            ([-4, 2], "jump backward"),
+            ([6, 4], "jump forward"),
+            ([0, 4], "jump still"),
+            ([-6, 4], "jump backward"),
         ],
         random_seed=random_seed,
         course=0,
@@ -190,16 +190,13 @@ def train(context, parameter_path):
         logging.info(f"Learning time {time.time() - stamp}s")
 
 
-    def filter(last_pivots, score, stats):
+    def filter(last_goals, health, stats):
         # accept or reject
 
         if bool(stats) is False:
             stats["health_max"] = 0
             stats["best_match_distance"] = np.ones([len(context.goals), 1]) * 1e6
             stats["best_match"] = np.zeros([len(context.goals), 2])
-
-        last_goals = last_pivots
-        health = score
 
         # compute l2 distance to goals
         # goal_array has shape [m, 2]
@@ -226,8 +223,6 @@ def train(context, parameter_path):
 
 
     def prepare_data_tuples(premature_termination, target, states, actions, rewards, num_layers, skip_steps):
-        score = len(states)
-
         states = np.stack(states, axis=0)
         actions = np.stack(actions, axis=0)
         rewards = np.reshape(np.stack(rewards, axis=0), [-1, 1])
@@ -265,7 +260,7 @@ def train(context, parameter_path):
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
         goal_stat = np.mean(goal_stat, axis=0, keepdims=True)
-        return path_layer_tuples, goal_stat, score
+        return path_layer_tuples, goal_stat
 
 
     logging.info(f"Training experiment {context.name}")
@@ -293,7 +288,7 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 2000
+        max_total_steps = 1000
 
         epsilon = 0.5 - 0.4 * (course + 1) / num_courses
 
@@ -344,8 +339,8 @@ def train(context, parameter_path):
                     observation = next_observation
 
             # now make hierarchical data
-            path_layer_tuples, last_pivots, score = prepare_data_tuples(premature_termination, selected_target, states, actions, rewards, num_layers, context.skip_steps)
-            accept_this, statistics = filter(last_pivots, score, statistics)
+            path_layer_tuples, last_pivots = prepare_data_tuples(premature_termination, selected_target, states, actions, rewards, num_layers, context.skip_steps)
+            accept_this, statistics = filter(last_pivots, len(states), statistics)
             
             if accept_this:
                 trainers = model.observe(path_layer_tuples)
@@ -366,8 +361,8 @@ def train(context, parameter_path):
             
         loop_train(trainers, 100)
 
-        for trainer in trainers:
-            trainer.clear_batch()
+        # for trainer in trainers:
+        #     trainer.clear_batch()
 
         course += 1
 
