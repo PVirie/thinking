@@ -87,9 +87,12 @@ def prepare_data(cart_state_sequence, action_sequence, reward_sequence, goal_seq
             jnp.reshape(t, (-1, t.shape[2]))
         )
         inferred_scores = jnp.reshape(raw_inferred_scores, (num_pivots, num_steps))
-        # replace score at pivot with 1.0
-        dirac = generate_pivot_dirac_mask(pivot_indices, num_steps)
-        inferred_scores = inferred_scores * (1 - dirac) + dirac
+        
+        if not use_reward:
+            # replace score at pivot with 1.0
+            dirac = generate_pivot_dirac_mask(pivot_indices, num_steps)
+            inferred_scores = inferred_scores * (1 - dirac) + dirac
+
         # roll the scores
         inferred_scores = jnp.roll(inferred_scores, -1, axis=1)
         # now discount the scores

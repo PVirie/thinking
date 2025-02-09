@@ -118,7 +118,7 @@ def setup():
     random.seed(random_seed)
 
     name = "Curriculum (Skip steps)"
-    skip_steps = 16
+    skip_steps = 8
 
     state_dim = 11
     action_dim = 3
@@ -126,8 +126,8 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.995, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.995, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -166,7 +166,7 @@ def states_to_goal_statistics(states, keepdims=True):
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 2000
+    num_courses = 100
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -190,7 +190,7 @@ def train(context, parameter_path):
         logging.info(f"Learning time {time.time() - stamp}s")
 
 
-    def filter(last_goals, health, stats):
+    def update_statistics(last_goals, health, stats):
         # accept or reject
 
         if bool(stats) is False:
@@ -209,18 +209,14 @@ def train(context, parameter_path):
         best_match_distance = np.min(distance, axis=1, keepdims=True)
         best_match = last_goals[best_match_index, :]
 
-        survive = health >= 0.5 * stats["health_max"]
         improve_ratio =  stats["best_match_distance"] / (best_match_distance + 1e-6)
 
         stats["health_max"] = max(stats["health_max"], health)
         stats["best_match_distance"] = np.minimum(stats["best_match_distance"], best_match_distance)
         stats["best_match"] = np.where(improve_ratio > 1.0, best_match, stats["best_match"])
 
-        if np.any(survive):
-            return True, stats
-        
-        return True, stats
-
+        return stats
+    
 
     def prepare_data_tuples(premature_termination, target, states, actions, rewards, num_layers, skip_steps):
         states = np.stack(states, axis=0)
@@ -288,7 +284,7 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 1000
+        max_total_steps = 20000
 
         epsilon = 0.5 - 0.4 * (course + 1) / num_courses
 
@@ -319,7 +315,7 @@ def train(context, parameter_path):
                     if selected_action.size < 3:
                         logging.warning(f"Invalid action: {selected_action}")
                         break
-                    # selected_action += np.random.normal(0, epsilon, size=selected_action.shape)
+                    selected_action += np.random.normal(0, epsilon, size=selected_action.shape)
                     selected_action = np.clip(selected_action, -1, 1)
 
                 next_observation, reward, terminated, truncated, info = env.step(selected_action)
@@ -340,26 +336,28 @@ def train(context, parameter_path):
 
             # now make hierarchical data
             path_layer_tuples, last_pivots = prepare_data_tuples(premature_termination, selected_target, states, actions, rewards, num_layers, context.skip_steps)
-            accept_this, statistics = filter(last_pivots, len(states), statistics)
+            statistics = update_statistics(last_pivots, len(states), statistics)
             
-            if accept_this:
-                trainers = model.observe(path_layer_tuples)
-                num_trials += 1
-                total_trials += 1
-                total_steps += len(states)
-                
-                current_percent_collection = round(total_steps * 100 / max_total_steps)
-                if current_percent_collection - last_percent_collection >= 10 :
-                    # print at every 10% progress
-                    logging.info(f"Env collected: {current_percent_collection:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
-                    last_percent_collection = current_percent_collection
+            trainers = model.observe(path_layer_tuples)
+            num_trials += 1
+            total_trials += 1
+            total_steps += len(states)
+            
+            current_percent_collection = round(total_steps * 100 / max_total_steps)
+            if current_percent_collection - last_percent_collection >= 10 :
+                # print at every 10% progress
+                logging.info(f"Env collected: {current_percent_collection:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
+                last_percent_collection = current_percent_collection
 
         logging.info(f"Average steps: {total_steps/num_trials}")
 
         for trainer in trainers:
             trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=32)
             
-        loop_train(trainers, 100)
+        if course == num_courses - 1:
+            loop_train(trainers, 10000)
+        else:
+            loop_train(trainers, 1000)
 
         # for trainer in trainers:
         #     trainer.clear_batch()
