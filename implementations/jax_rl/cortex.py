@@ -80,7 +80,7 @@ def prepare_data(cart_state_sequence, action_sequence, reward_sequence, goal_seq
     # s has shape (P, seq_len, dim), a has shape (P, seq_len, dim), t has shape (P, seq_len, dim), scores has shape (P, seq_len), masks has shape (P, seq_len)
     masks = generate_mask(pivot_indices, num_steps, min(2, num_pivots))
     
-    if not use_monte_carlo or use_reward:
+    if not use_monte_carlo:
         # inferred_scores has shape (P, seq_len)
         _, raw_inferred_scores = model_infer(
             jnp.reshape(s, (-1, 1, s.shape[2])),
@@ -104,8 +104,13 @@ def prepare_data(cart_state_sequence, action_sequence, reward_sequence, goal_seq
             tiled_rewards = jnp.tile(jnp.expand_dims(reward_sequence, axis=0), (num_pivots, 1))
             scores = tiled_rewards + scores
     else:
-        # monte carlo update, scores are the discount table
-        scores = generate_score_matrix(pivot_indices, num_steps, step_discount_factor)
+
+        if use_reward:
+            sum_reward = jnp.sum(reward_sequence)
+            scores = masks * sum_reward
+        else:
+            # monte carlo update, scores are the discount table
+            scores = generate_score_matrix(pivot_indices, num_steps, step_discount_factor)
 
     return s, x, t, scores, masks
 
