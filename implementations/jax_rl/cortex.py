@@ -123,7 +123,8 @@ def binary_search(arr, target):
     while low <= high:
         mid = (low + high) // 2
         if abs(arr[mid] - target) < 1e-6:
-            return -1  # Target already exists, you might choose to handle this differently
+            # Target already exists, insert before it
+            return mid
         elif arr[mid] > target:
             low = mid + 1  # Target should be inserted to the right
         else:  # arr[mid] < target
@@ -352,7 +353,8 @@ class Model(cortex_model.Model):
             model=model, 
             step_discount_factor=metadata["step_discount_factor"], 
             use_reward=metadata["use_reward"], 
-            use_monte_carlo=metadata["use_monte_carlo"]
+            use_monte_carlo=metadata["use_monte_carlo"],
+            num_items_to_keep=metadata.get("num_items_to_keep", None)
         )
                                                               
 
@@ -366,6 +368,7 @@ class Model(cortex_model.Model):
                 "step_discount_factor": self.step_discount_factor,
                 "use_reward": self.use_reward,
                 "use_monte_carlo": self.use_monte_carlo,
+                "num_items_to_keep": self.trainer.total_keeping,
                 "model": core.save(self.model)
             }, f)
 

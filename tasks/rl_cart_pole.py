@@ -133,7 +133,7 @@ def setup():
 
     cortex_models = [
         cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -163,7 +163,7 @@ def setup():
 
     cortex_models = [
         cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -260,7 +260,7 @@ def train(context, parameter_path):
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
-            observation, info = env.reset()
+            observation, info = env.reset(options={"low": -0.075, "high": 0.075})
             states = []
             actions = []
             rewards = []
@@ -328,7 +328,7 @@ def train(context, parameter_path):
     num_layers = len(cortex_models)
     course = context.training_state - 1
 
-    while course < 10:
+    while course < 20:
         logging.info(f"Course {course}")
 
         total_steps = 0
@@ -338,7 +338,7 @@ def train(context, parameter_path):
             if i % print_steps == 0 and i > 0:
                 # print at every 1 % progress
                 logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
-            observation, info = env.reset()
+            observation, info = env.reset(options={"low": -0.075, "high": 0.075})
             states = []
             actions = []
             rewards = []
@@ -369,7 +369,7 @@ def train(context, parameter_path):
         for trainer in trainers:
             trainer.prepare_batch(16)
 
-        loop_train(trainers, 100)
+        loop_train(trainers, 1000)
 
         # for trainer in trainers:
         #     trainer.clear_batch()

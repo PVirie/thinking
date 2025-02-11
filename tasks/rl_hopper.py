@@ -113,6 +113,31 @@ class Context(BaseModel):
         return True
 
 
+def generate_visual(render_path, num_trials, action_method):
+    observation, info = env.reset()
+    for j in range(num_trials):
+        observation, info = env.reset()
+        output_gif = os.path.join(render_path, f"trial_{j}.gif")
+        imgs = []
+        states = []
+        for _ in range(500):
+            selected_action = action_method(observation)
+            if selected_action.size < 3:
+                logging.warning(f"Invalid action: {selected_action}")
+                break
+            observation, reward, terminated, truncated, info = env.step(selected_action)
+            img = env.render()
+            imgs.append(img)
+            states.append(observation)
+            if terminated or truncated:
+                break
+        logging.info(f"Trial {j} completed with length {len(imgs)}")
+        states = np.stack(states, axis=0)
+        goal_stat = states_to_goal_statistics(states, keepdims=True)
+        texts = [f"VX: {goal_stat[i, 0]:.2f}\nVY: {goal_stat[i, 1]:.2f}" for i in range(goal_stat.shape[0])]
+        write_gif_with_text(imgs, texts, output_gif, fps=30)
+
+
 def setup():
     random_seed = random.randint(0, 1000)
     random.seed(random_seed)
@@ -127,7 +152,7 @@ def setup():
 
     cortex_models = [
         cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 256], memory_size=64, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 256], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -146,9 +171,9 @@ def setup():
         name=name,
         skip_steps=skip_steps,
         goals=[
-            ([6, 4], "jump forward"),
+            ([2, 4], "jump forward"),
             ([0, 4], "jump still"),
-            ([-6, 4], "jump backward"),
+            ([-2, 4], "jump backward"),
         ],
         random_seed=random_seed,
         course=0,
@@ -166,7 +191,7 @@ def states_to_goal_statistics(states, keepdims=True):
 def train(context, parameter_path):
     
     course = context.course
-    num_courses = 100
+    num_courses = 500
 
     if course >= num_courses:
         logging.info("Experiment already completed")
@@ -224,10 +249,14 @@ def train(context, parameter_path):
         rewards = np.reshape(np.stack(rewards, axis=0), [-1, 1])
         goal_stat = states_to_goal_statistics(states, keepdims=True)
         
-        distances = np.linalg.norm(goal_stat - np.expand_dims(target.data, axis=0), axis=1, ord=1, keepdims=True)
-        goal_rewards = np.exp(-distances)
+        denom = np.linalg.norm(goal_stat, axis=1, keepdims=True) * np.linalg.norm(target.data)
+        goal_rewards = np.matmul(goal_stat, np.expand_dims(target.data, axis=1)) / denom
 
-        # override reward
+        if not premature_termination:
+            # add a reward for exceeding provided time span
+            rewards[-1, 0] += 20
+
+        # override reward to add control cost
         rewards = goal_rewards + rewards
 
         path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
@@ -266,7 +295,7 @@ def train(context, parameter_path):
         healthy_reward=0, 
         forward_reward_weight=0,
         ctrl_cost_weight=1e-3,
-        healthy_angle_range=(-math.pi, math.pi),
+        healthy_angle_range=(-math.pi/2, math.pi/2),
         healthy_state_range=(-100, 100),
         healthy_z_range = (0.7, 100.0),
         render_mode=None
@@ -284,9 +313,9 @@ def train(context, parameter_path):
         random.seed(random_seed)
         
         total_steps = 0
-        max_total_steps = 20000
+        max_total_steps = 10000
 
-        epsilon = 0.5 - 0.4 * (course + 1) / num_courses
+        epsilon = 0.5 - 0.3 * (course + 1) / num_courses
 
         num_trials = 0
         stamp = time.time()
@@ -376,6 +405,25 @@ def train(context, parameter_path):
         if course % 50 == 0 or course == num_courses:
             Context.save(context, parameter_path)
 
+            for i, (goal, goal_text) in enumerate(context.goals):
+                # goal = context.best_goals[i]
+                result_path = os.path.join(parameter_path, "results", goal_text)
+
+                observation, info = env.reset()
+
+                # logging.info(f"Parameter set {context.name}; average behavior steps: {total_steps/num_trials}")
+                logging.info(f"Parameter set {context.name}; goal: {goal_text}")
+                            
+                render_path = os.path.join(result_path, "render")
+                os.makedirs(render_path, exist_ok=True)
+
+                def generation_action(observation):
+                    a = model.react(alg.State(observation.data), alg.Expectation(goal))
+                    return np.clip(np.asarray(a.data), -1, 1)
+                
+                generate_visual(render_path, 4, generation_action)
+
+
     env.close()
 
 @contextlib.contextmanager
@@ -414,30 +462,6 @@ if __name__ == "__main__":
         )
         env.action_space.seed(random.randint(0, 1000))
         observation, info = env.reset(seed=random.randint(0, 1000))
-
-        def generate_visual(render_path, num_trials, action_method):
-            observation, info = env.reset()
-            for j in range(num_trials):
-                observation, info = env.reset()
-                output_gif = os.path.join(render_path, f"trial_{j}.gif")
-                imgs = []
-                states = []
-                for _ in range(500):
-                    selected_action = action_method(observation)
-                    if selected_action.size < 3:
-                        logging.warning(f"Invalid action: {selected_action}")
-                        break
-                    observation, reward, terminated, truncated, info = env.step(selected_action)
-                    img = env.render()
-                    imgs.append(img)
-                    states.append(observation)
-                    if terminated or truncated:
-                        break
-                logging.info(f"Trial {j} completed with length {len(imgs)}")
-                states = np.stack(states, axis=0)
-                goal_stat = states_to_goal_statistics(states, keepdims=True)
-                texts = [f"VX: {goal_stat[i, 0]:.2f}\nVY: {goal_stat[i, 1]:.2f}" for i in range(goal_stat.shape[0])]
-                write_gif_with_text(imgs, texts, output_gif, fps=30)
 
         for i, (goal, goal_text) in enumerate(context.goals):
             # goal = context.best_goals[i]
