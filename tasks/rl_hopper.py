@@ -126,7 +126,7 @@ def setup():
 
     cortex_models = [
         cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256, 256], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 512, [512, 512, 512, 512, 512], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -217,7 +217,7 @@ def test(context, parameter_path):
         os.makedirs(render_path, exist_ok=True)
 
         def generation_action(observation):
-            a = model.react(alg.State(observation.data), alg.Expectation(goal))
+            a = model.react(alg.State(observation), alg.Expectation(goal))
             return np.clip(np.asarray(a.data), -1, 1)
         
         generate_visual(env, render_path, 4, generation_action)
@@ -242,7 +242,10 @@ class Experiment_Session:
 
     def __exit__(self, exc_type, exc_value, traceback):
         logging.info('Ending session ...')
-        test(self.context, self.path)
+        if exc_type is not None:
+            logging.error(f"Error: {exc_type}, {traceback}")
+        else:
+            test(self.context, self.path)
         return True
 
 
@@ -259,7 +262,7 @@ if __name__ == "__main__":
 
         context = session.context
         course = context.course
-        num_courses = 500
+        num_courses = 200
 
         if course >= num_courses:
             logging.info("Training already completed")
@@ -317,8 +320,15 @@ if __name__ == "__main__":
             rewards = np.reshape(np.stack(rewards, axis=0), [-1, 1])
             goal_stat = states_to_goal_statistics(states, keepdims=True)
             
-            denom = np.linalg.norm(goal_stat, axis=1, keepdims=True) * np.linalg.norm(target.data)
-            goal_rewards = np.matmul(goal_stat, np.expand_dims(target.data, axis=1)) / denom
+            # sign_goal_stat = np.where(abs(goal_stat) < 1e-6, 0, np.sign(goal_stat))
+            if target[0] >= 1:
+                # forward target
+                goal_rewards = goal_stat[:, 0:1] + 0.5 * goal_stat[:, 1:2]
+            elif target[0] <= -1:
+                # backward target
+                goal_rewards = -goal_stat[:, 0:1] + 0.5 * goal_stat[:, 1:2]
+            else:
+                goal_rewards = -np.abs(goal_stat[:, 0:1]) + 0.5 * goal_stat[:, 1:2]
 
             if not premature_termination:
                 # add a reward for exceeding provided time span
@@ -349,7 +359,7 @@ if __name__ == "__main__":
             # final layer
             path = alg.State_Action_Sequence(states, actions, rewards)
             skip_pointer_sequence = alg.Pointer_Sequence([len(states) - 1])
-            expectation_sequence = alg.Expectation_Sequence(np.reshape(target.data, [1, 2]))
+            expectation_sequence = alg.Expectation_Sequence(np.reshape(target, [1, 2]))
             path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
             goal_stat = np.mean(goal_stat, axis=0, keepdims=True)
@@ -381,34 +391,32 @@ if __name__ == "__main__":
             random.seed(random_seed)
             
             total_steps = 0
-            max_total_steps = 10000
+            max_total_steps = 20000
 
-            # epsilon = 0.5 - 0.3 * (course + 1) / num_courses
-            epsilon = 0.3
+            epsilon = 0.25 - 0.15 * (course + 1) / num_courses
 
             num_trials = 0
             stamp = time.time()
             last_percent_collection = 0
-            while total_steps < max_total_steps:
+            while True:
                 
-                selected_target = alg.Expectation(goal_array[total_trials % len(context.goals), :])
+                selected_target = goal_array[total_trials % len(context.goals), :]
                 
                 random.seed(random_seed)
                 env.action_space.seed(random_seed)
                 observation, info = env.reset(seed=random_seed)
                 random_seed = random.randint(0, 100000)
-                
+
                 states = []
                 actions = []
                 rewards = []
-                premature_termination = False
-                for _ in range(400):
+                for _ in range(2000):
                     if random.random() <= epsilon or course == 0:
                         selected_action = env.action_space.sample()
                         # quantize
                         selected_action = np.round(selected_action)
                     else:
-                        a = model.react(alg.State(observation.data), selected_target)
+                        a = model.react(alg.State(observation), alg.Expectation(selected_target))
                         selected_action = a.data
                         if selected_action.size < 3:
                             logging.warning(f"Invalid action: {selected_action}")
@@ -418,22 +426,20 @@ if __name__ == "__main__":
 
                     next_observation, reward, terminated, truncated, info = env.step(selected_action)
 
-                    # check for nan
-                    if np.isnan(next_observation.data).any() or np.isnan(reward.data).any():
-                        logging.warning("Nan detected in observation")
-                        break
-
                     states.append(observation)
                     actions.append(selected_action)
                     rewards.append(reward)
-                    if terminated or truncated:
-                        premature_termination = True
+                    
+                    observation = next_observation
+                    if terminated:
                         break
-                    else:
-                        observation = next_observation
+                    elif truncated:
+                        # exceed the time limit of the env, reset and continue
+                        _, info = env.reset(seed=random_seed)
+                        random_seed = random.randint(0, 100000)
 
                 # now make hierarchical data
-                path_layer_tuples, last_pivots = prepare_data_tuples(premature_termination, selected_target, states, actions, rewards, num_layers, context.skip_steps)
+                path_layer_tuples, last_pivots = prepare_data_tuples(terminated, selected_target, states, actions, rewards, num_layers, context.skip_steps)
                 statistics = update_statistics(last_pivots, len(states), statistics)
                 
                 trainers = model.observe(path_layer_tuples)
@@ -447,10 +453,13 @@ if __name__ == "__main__":
                     logging.info(f"Env collected: {current_percent_collection:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
                     last_percent_collection = current_percent_collection
 
+                if total_steps >= max_total_steps:
+                    break
+
             logging.info(f"Average steps: {total_steps/num_trials}")
 
             for trainer in trainers:
-                trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=32)
+                trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=64)
                 
             if course == num_courses - 1:
                 loop_train(trainers, 10000)

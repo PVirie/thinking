@@ -100,13 +100,15 @@ def prepare_data(cart_state_sequence, action_sequence, reward_sequence, goal_seq
 
         if use_reward:
             # td learning with reward
-            reward_sequence = jnp.reshape(reward_sequence, (-1))
+            # exp to prevent less than zero reward
+            reward_sequence = jnp.pow(1.1, jnp.reshape(reward_sequence, (-1)))
             tiled_rewards = jnp.tile(jnp.expand_dims(reward_sequence, axis=0), (num_pivots, 1))
             scores = tiled_rewards + scores
     else:
 
         if use_reward:
-            sum_reward = jnp.sum(reward_sequence)
+            # exp to prevent less than zero reward
+            sum_reward = jnp.sum(jnp.pow(1.1, reward_sequence))
             scores = masks * sum_reward
         else:
             # monte carlo update, scores are the discount table
