@@ -117,7 +117,7 @@ def setup():
     random.seed(random_seed)
 
     name = "Curriculum (Skip steps)"
-    skip_steps = 8
+    skip_steps = 16
 
     state_dim = 11
     action_dim = 3
@@ -126,7 +126,8 @@ def setup():
 
     cortex_models = [
         cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 512, [512, 512, 512, 512, 512], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 1024, [1024, 1024], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
+        # cortex.Model(0, return_action=True, use_reward=True, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 512, [1024, 1024], memory_size=16, value_access=True, lr=0.0001, r_seed=random_seed)),
     ]
 
     hippocampus_models = [
@@ -262,7 +263,7 @@ if __name__ == "__main__":
 
         context = session.context
         course = context.course
-        num_courses = 200
+        num_courses = 100
 
         if course >= num_courses:
             logging.info("Training already completed")
@@ -372,7 +373,7 @@ if __name__ == "__main__":
             'Hopper-v5',
             healthy_reward=0, 
             forward_reward_weight=0,
-            ctrl_cost_weight=1e-3,
+            ctrl_cost_weight=0,
             healthy_angle_range=(-math.pi/2, math.pi/2),
             healthy_state_range=(-100, 100),
             healthy_z_range = (0.7, 100.0),
@@ -391,9 +392,9 @@ if __name__ == "__main__":
             random.seed(random_seed)
             
             total_steps = 0
-            max_total_steps = 20000
+            max_total_steps = 10000
 
-            epsilon = 0.25 - 0.15 * (course + 1) / num_courses
+            epsilon = 0.5 - 0.3 * (course + 1) / num_courses
 
             num_trials = 0
             stamp = time.time()
