@@ -16,7 +16,7 @@ class Action(humn.algebraic.Action):
             self.data = device_put(jnp.array(data, jnp.float32))
     
     def zero_length(self):
-        return jnp.linalg.norm(self.data) < 1e-4
+        return False
     
 
 # Pivots

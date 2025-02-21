@@ -9,15 +9,11 @@ import argparse
 import sys
 import math
 import jax
-import jax.numpy
+import jax.numpy as jnp
+import gymnax
+from gymnax.visualize import Visualizer
 
-import gymnasium as gym
-
-# replace np.bool8 with np.bool
-import numpy as np
-np.bool8 = np.bool
-
-from utilities.utilities import *
+from utilities.utilities import empty_directory
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -200,10 +196,28 @@ def setup():
     return Context(parameter_sets=parameter_sets, random_seed=random_seed)
 
 
-def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
-    states = np.stack(states, axis=0)
-    actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
-    rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
+def compute_sum_along_sequence(x, sequence):
+    # input x has shape [sequence, ...]
+    # sequence is a list of lengths
+    # output has shape [len(sequence), ...], use the delta of cumulative sum to compute the sum from the index to before the next index
+    sequence = jnp.array(sequence)
+    sequence = jnp.pad(sequence, (1, 0), 'constant', constant_values=0) + 1
+    zero_element = jnp.zeros([1, *x.shape[1:]])
+    x = jnp.concatenate([zero_element, x, zero_element], axis=0)
+    x = jnp.cumsum(x, axis=0)
+    x = x[sequence[1:] - 1] - x[sequence[:-1] - 1]
+    return x
+
+
+def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps, input_as_stacks=False):
+    if not input_as_stacks:
+        states = jnp.stack(states, axis=0)
+        actions = jnp.stack(actions, axis=0)
+        rewards = jnp.stack(rewards, axis=0)
+
+    actions = jnp.reshape(actions, (-1, 1))
+    rewards = jnp.reshape(rewards, (-1, 1))
+
     path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
     for layer_i in range(num_layers - 1):
         path = alg.State_Action_Sequence(states, actions, rewards)
@@ -218,28 +232,65 @@ def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
 
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
-        states = states[skip_sequence]
-        actions = actions[skip_sequence]
+        states = states[skip_sequence, ...]
+        actions = actions[skip_sequence, ...]
         # reward is the average of the rewards in the skip sequence
         rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
     
     # final layer
     path = alg.State_Action_Sequence(states, actions, rewards)
     skip_pointer_sequence = alg.Pointer_Sequence([len(states) - 1])
-    expectation_sequence = alg.Expectation_Sequence(np.ones((1, 1)))
+    expectation_sequence = alg.Expectation_Sequence(jnp.ones((1, 1)))
 
     path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
     
     return path_layer_tuples
 
 
-def train_model(env, name, model, num_layers, skip_steps, random_seed, previous_model=None):
+def rollout(r_key, env, env_params, jitted_step, model, total_steps):
+    """Rollout a jitted gymnax episode with lax.scan."""
+    # Reset the environment
+    r_key, key_reset = jax.random.split(r_key)
+    obs, state = env.reset(key_reset, env_params)
+
+    stable_state = alg.Expectation([1])
+    def react_func(obs):
+        return model.react(alg.State(obs), stable_state)
+
+    def policy_step(state_input, tmp):
+        """lax.scan compatible step transition in jax env."""
+        obs, state, r_key, valid = state_input
+        r_key, key_epsilon, key_act, key_step = jax.random.split(r_key, 4)
+
+        random_action = env.action_space(env_params).sample(key_act)
+        model_action_obj = react_func(obs)
+        model_action = jnp.reshape(jnp.where(model_action_obj.data > 0.5, 1, 0), ())
+        epsilon = jax.random.uniform(key_epsilon, shape=random_action.shape)
+        selection_action = jnp.where(epsilon < 0.25, random_action, model_action)
+
+        next_obs, next_state, reward, done, _ = jitted_step(key_step, state, selection_action, env_params)
+        next_valid = (valid * (1 - done)).astype(jnp.bool_)
+        carry = [next_obs, next_state, r_key, next_valid]
+        return carry, [obs, selection_action, reward, next_obs, next_valid]
+
+    # Scan over episode step loop
+    _, scan_out = jax.lax.scan(
+        policy_step,
+        [obs, state, r_key, True],
+        (),
+        total_steps
+    )
+    # Return masked sum of rewards accumulated by agent in episode
+    obs, action, reward, next_obs, done = scan_out
+    return obs, action, reward, next_obs, done
+
+
+def train_model(env, env_params, jitted_step, name, model, num_layers, skip_steps, random_seed, previous_model=None):
 
     logging.info(f"Training experiment {name}")
 
     random.seed(random_seed)
-    env.action_space.seed(random_seed)
-    observation, info = env.reset(seed=random_seed)
+    r_key = jax.random.key(random_seed)
     
     stable_state = alg.Expectation([1])
 
@@ -247,30 +298,41 @@ def train_model(env, name, model, num_layers, skip_steps, random_seed, previous_
     num_trials = 2000
     print_steps = max(10, num_trials // 100)
     for i in range(num_trials):
-        observation, info = env.reset(options={"low": -0.075, "high": 0.075})
+        r_key, key_reset = jax.random.split(r_key)
+        observation, state = env.reset(key_reset, env_params)
+
         states = []
         actions = []
         rewards = []
         for _ in range(500):
             if previous_model is None or random.random() < 0.25:
-                selected_action = env.action_space.sample()
+                r_key, key_act = jax.random.split(r_key)
+                selected_action = env.action_space(env_params).sample(key_act)
             else:
-                a = previous_model.react(alg.State(observation.data), stable_state)
-                selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
+                a = previous_model.react(alg.State(observation), stable_state)
+                # selected_action = 1 if jnp.asarray(a.data)[0].item() > 0.5 else 0
+                selected_action = jnp.reshape(jnp.where(a.data > 0.5, 1, 0), ())
 
-            next_observation, reward, terminated, truncated, info = env.step(selected_action)
+            r_key, key_step = jax.random.split(r_key)
+            next_observation, state, reward, done, _ = jitted_step(key_step, state, selected_action, env_params)
             states.append(observation)
             actions.append(selected_action)
             rewards.append(reward)
-            if terminated or truncated:
+            if done:
                 break
             else:
                 observation = next_observation
         total_steps += len(states)
-
-        # now make hierarchical data
-        path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
+        path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps, input_as_stacks=False)
         trainers = model.observe(path_layer_tuples)
+
+        # states, actions, rewards, _, dones = rollout(r_key, env, env_params, jitted_step, model, 200)
+        # states = states[dones, ...]
+        # actions = actions[dones, ...]
+        # rewards = rewards[dones, ...]
+        # total_steps += states.shape[0]
+        # path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps, input_as_stacks=True)
+        # trainers = model.observe(path_layer_tuples)
 
         if i % print_steps == 0 and i > 0:
             # print at every 1 % progress
@@ -286,22 +348,9 @@ def train_model(env, name, model, num_layers, skip_steps, random_seed, previous_
 
 def train(context, parameter_path):
 
-    # def loop_train(trainers, num_epoch=1000):
-    #     print_steps = max(1, num_epoch // 100)
-    #     stamp = time.time()
-    #     for i in range(num_epoch):
-    #         for trainer in trainers:
-    #             trainer.step_update()
-    #         if i % print_steps == 0 and i > 0:
-    #             # print at every 1 % progress
-    #             # compute time to finish in seconds
-    #             logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-    #             logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.get_loss():.4f}' for i, trainer in enumerate(trainers)])}")
-    #     logging.info(f"Total learning time {time.time() - stamp}s")
-
-
     random_seed = context.random_seed
-    env = gym.make("CartPole-v1", render_mode=None)
+    env, env_params = gymnax.make("CartPole-v1")
+    jitted_step = jax.jit(env.step)
 
     if context.training_state == 0:
 
@@ -315,7 +364,7 @@ def train(context, parameter_path):
         skip_steps = 8
         num_layers = len(cortex_models)
 
-        average_random_steps = train_model(env, name, model, num_layers, skip_steps, random_seed)
+        average_random_steps = train_model(env, env_params, jitted_step, name, model, num_layers, skip_steps, random_seed)
 
         previous_model = model
 
@@ -349,10 +398,10 @@ def train(context, parameter_path):
 
     course = context.training_state - 1
 
-    while course < 2:
+    while course < 1:
         logging.info(f"Course {course}")
 
-        train_model(env, name, model, num_layers, skip_steps, random_seed, previous_model)
+        train_model(env, env_params, jitted_step, name, model, num_layers, skip_steps, random_seed, previous_model)
 
         previous_model = model
         course += 1
@@ -362,7 +411,7 @@ def train(context, parameter_path):
         context.training_state = course + 1
         Context.save(context, parameter_path)
 
-    env.close()
+    # env.close()
 
 
 @contextlib.contextmanager
@@ -389,58 +438,74 @@ if __name__ == "__main__":
 
     with experiment_session(experiment_path) as context:
         
-        logging.info(f"Baseline number of random steps: {context.average_random_steps}")
+        r_key = jax.random.key(random.randint(0, 1000))
 
-        env = gym.make("CartPole-v1", render_mode="rgb_array")
-        env.action_space.seed(random.randint(0, 1000))
-        observation, info = env.reset(seed=random.randint(0, 1000))
-
-        def generate_visual(render_path, num_trials, action_method):
-            observation, info = env.reset()
+        env, env_params = gymnax.make("CartPole-v1")
+        jitted_step = jax.jit(env.step)
+        
+        def generate_visual(env, env_params, r_key, render_path, num_trials, action_method):
             for j in range(num_trials):
-                observation, info = env.reset()
+                r_key, key_reset = jax.random.split(r_key)
+                obs, state = env.reset(key_reset, env_params)
                 output_gif = os.path.join(render_path, f"trial_{j}.gif")
-                imgs = []
+
+                state_seq = []
+                reward_seq = []
                 for _ in range(500):
-                    selected_action = action_method(observation)
-                    observation, reward, terminated, truncated, info = env.step(selected_action)
-                    img = env.render()
-                    imgs.append(img)
-                    if terminated or truncated:
+                    state_seq.append(state)
+                    r_key, r_step, r_action = jax.random.split(r_key, 3)
+                    action = action_method(obs, r_action)
+                    next_obs, state, reward, done, info = jitted_step(r_step, state, action, env_params)
+                    reward_seq.append(reward)
+                    if done:
                         break
-                write_gif(imgs, output_gif, fps=30)
+                    else:
+                        obs = next_obs
+
+                cum_rewards = jnp.cumsum(jnp.array(reward_seq))
+                vis = Visualizer(env, env_params, state_seq, cum_rewards)
+                vis.animate(output_gif)
 
 
         logging.info("----------------- Testing random behavior -----------------")
-        observation, info = env.reset()
+        logging.info(f"Baseline number of random steps: {context.average_random_steps}")
+
         result_path = os.path.join(experiment_path, "results", f"random")
         render_path = os.path.join(result_path, "render")
         os.makedirs(render_path, exist_ok=True)
-        generate_visual(render_path, 5, lambda obs: env.action_space.sample())
 
+        def generation_random_action(observation, r_key):
+            return env.action_space(env_params).sample(r_key)
+    
+        generate_visual(env, env_params, r_key, render_path, 5, generation_random_action)
 
+        stable_state = alg.Expectation([1])
+        
         for i, parameter_set in enumerate(context.parameter_sets):
+            logging.info(f"----------------- Testing model behavior {i} -----------------")
             result_path = os.path.join(experiment_path, "results", f"set_{i}")
 
             model = HUMN(**parameter_set)
-            observation, info = env.reset()
-            stable_state = alg.Expectation([1])
 
+            def generation_action(observation, r_key):
+                a = model.react(alg.State(observation), stable_state)
+                selected_action = jnp.reshape(jnp.where(a.data > 0.5, 1, 0), ())
+                return selected_action
+            
             total_steps = 0
             num_trials = 100
-            print_steps = max(1, num_trials // 10)
+            print_steps = max(10, num_trials // 10)
             for j in range(num_trials):
                 if j % print_steps == 0 and j > 0:
-                    # print at every 1 % progress
                     logging.info(f"Environment testing: {(j * 100 / num_trials):.2f}")
-                observation, info = env.reset()
+                r_key, key_reset = jax.random.split(r_key)
+                obs, state = env.reset(key_reset, env_params)
                 for _ in range(500):
-                    # selected_action = env.action_space.sample()
-                    a = model.react(alg.State(observation.data), stable_state)
-                    selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
-                    observation, reward, terminated, truncated, info = env.step(selected_action)
+                    r_key, r_step, r_action = jax.random.split(r_key, 3)
+                    selected_action = generation_action(obs, r_action)
+                    next_obs, state, reward, done, info = jitted_step(r_step, state, selected_action, env_params)
                     total_steps += 1
-                    if terminated or truncated:
+                    if done:
                         break
 
             set_name = parameter_set["name"]
@@ -449,10 +514,6 @@ if __name__ == "__main__":
             render_path = os.path.join(result_path, "render")
             os.makedirs(render_path, exist_ok=True)
 
-            def generation_action(observation):
-                a = model.react(alg.State(observation.data), stable_state)
-                return 1 if np.asarray(a.data)[0].item() > 0.5 else 0
-            
-            generate_visual(render_path, 5, generation_action)
+            generate_visual(env, env_params, r_key, render_path, 5, generation_action)
 
         env.close()
