@@ -125,9 +125,16 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 1024, [1024, 1024], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed)),
-        # cortex.Model(0, return_action=True, use_reward=True, use_monte_carlo=True, step_discount_factor=0.9, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, expectation_dim], context_length, 512, [1024, 1024], memory_size=16, value_access=True, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(
+            0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.9,  
+            model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer_Online()
+        ),
+        cortex.Model(
+            1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.9, 
+            model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer_Online()
+        )
     ]
 
     hippocampus_models = [
@@ -263,7 +270,7 @@ if __name__ == "__main__":
 
         context = session.context
         course = context.course
-        num_courses = 100
+        num_courses = 10
 
         if course >= num_courses:
             logging.info("Training already completed")
@@ -273,18 +280,18 @@ if __name__ == "__main__":
 
         model = HUMN(context.cortex_models, context.hippocampus_models, context.abstraction_models)
         
-        def loop_train(trainers, num_epoch=1000):
-            print_steps = max(10, num_epoch // 100)
-            stamp = time.time()
-            for i in range(num_epoch):
-                for trainer in trainers:
-                    trainer.step_update()
-                if i % print_steps == 0 and i > 0:
-                    # print at every 1 % progress
-                    # compute time to finish in seconds
-                    logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-                    logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
-            logging.info(f"Learning time {time.time() - stamp}s")
+        # def loop_train(trainers, num_epoch=1000):
+        #     print_steps = max(10, num_epoch // 100)
+        #     stamp = time.time()
+        #     for i in range(num_epoch):
+        #         for trainer in trainers:
+        #             trainer.step_update()
+        #         if i % print_steps == 0 and i > 0:
+        #             # print at every 1 % progress
+        #             # compute time to finish in seconds
+        #             logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
+        #             logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.get_loss():.4f}' for i, trainer in enumerate(trainers)])}")
+        #     logging.info(f"Learning time {time.time() - stamp}s")
 
 
         def update_statistics(last_goals, health, stats):
@@ -324,16 +331,12 @@ if __name__ == "__main__":
             # sign_goal_stat = np.where(abs(goal_stat) < 1e-6, 0, np.sign(goal_stat))
             if target[0] >= 1:
                 # forward target
-                goal_rewards = goal_stat[:, 0:1] + 0.5 * goal_stat[:, 1:2]
+                goal_rewards = goal_stat[:, 0:1] * 0.1
             elif target[0] <= -1:
                 # backward target
-                goal_rewards = -goal_stat[:, 0:1] + 0.5 * goal_stat[:, 1:2]
+                goal_rewards = -goal_stat[:, 0:1] * 0.1
             else:
-                goal_rewards = -np.abs(goal_stat[:, 0:1]) + 0.5 * goal_stat[:, 1:2]
-
-            if not premature_termination:
-                # add a reward for exceeding provided time span
-                rewards[-1, 0] += 20
+                goal_rewards = -np.abs(goal_stat[:, 0:1]) + 0.1 * goal_stat[:, 1:2]
 
             # override reward to add control cost
             rewards = goal_rewards + rewards
@@ -348,14 +351,21 @@ if __name__ == "__main__":
                     skip_sequence.append(len(states) - 1)
                 skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
 
+                # # pivot is the local maximum hight and local minimum height indices
+                # heights = states[:, 0]
+                # # smooth heights
+                # heights = np.convolve(heights, np.ones(skip_steps) / skip_steps, mode="same")
+                # skip_sequence = find_local_extreme_locations(heights)
+                # skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
+
                 expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
 
                 path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
 
                 states = states[skip_sequence]
                 actions = actions[skip_sequence]
-                # reward is the average of the rewards in the skip sequence
-                rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
+                # reward is the sum of the rewards in the skip sequence
+                rewards = compute_sum_along_sequence(rewards, skip_sequence) / 100
 
             # final layer
             path = alg.State_Action_Sequence(states, actions, rewards)
@@ -371,9 +381,9 @@ if __name__ == "__main__":
 
         env = gym.make(
             'Hopper-v5',
-            healthy_reward=0, 
+            healthy_reward=1, 
             forward_reward_weight=0,
-            ctrl_cost_weight=0,
+            ctrl_cost_weight=1e-3,
             healthy_angle_range=(-math.pi/2, math.pi/2),
             healthy_state_range=(-100, 100),
             healthy_z_range = (0.7, 100.0),
@@ -392,9 +402,9 @@ if __name__ == "__main__":
             random.seed(random_seed)
             
             total_steps = 0
-            max_total_steps = 10000
+            max_total_steps = 200000
 
-            epsilon = 0.5 - 0.3 * (course + 1) / num_courses
+            epsilon = 0.3 - 0.2 * (course + 1) / num_courses
 
             num_trials = 0
             stamp = time.time()
@@ -453,19 +463,20 @@ if __name__ == "__main__":
                     # print at every 10% progress
                     logging.info(f"Env collected: {current_percent_collection:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
                     last_percent_collection = current_percent_collection
+                    logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.get_loss():.4f}' for i, trainer in enumerate(trainers)])}")
 
                 if total_steps >= max_total_steps:
                     break
 
             logging.info(f"Average steps: {total_steps/num_trials}")
 
-            for trainer in trainers:
-                trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=64)
+            # for trainer in trainers:
+            #     trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=64)
                 
-            if course == num_courses - 1:
-                loop_train(trainers, 10000)
-            else:
-                loop_train(trainers, 1000)
+            # if course == num_courses - 1:
+            #     loop_train(trainers, 10000)
+            # else:
+            #     loop_train(trainers, 1000)
 
             # for trainer in trainers:
             #     trainer.clear_batch()
@@ -481,10 +492,7 @@ if __name__ == "__main__":
             context.random_seed = random_seed
             context.best_goals = statistics["best_match"].tolist()
             
-            if course % 50 == 0:
-                Context.save(context, experiment_path)
-                test(context, experiment_path)
+            Context.save(context, experiment_path)
+            test(context, experiment_path)
 
         env.close()
-
-        Context.save(context, experiment_path)

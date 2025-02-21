@@ -131,6 +131,19 @@ def compute_average_along_sequence(x, sequence):
     return x
 
 
+def find_local_extreme_locations(x):
+    # input x has shape [sequence]
+    # output the indices of local extrema, min and max, suppress consecutive extrema
+    x = np.pad(x, (2, 1), 'constant', constant_values=0)
+    x_diff = x[1:] - x[:-1]
+    x_diff = x_diff[1:] - x_diff[:-1]
+    x_diff = np.sign(x_diff)
+    # suppress same sign
+    x_diff = np.logical_and(x_diff[1:] != x_diff[:-1], x_diff[1:] != 0)
+    locs = np.where(x_diff)[0]
+    return locs
+
+
 def generate_mean_geometric_matrix(length, diminishing_factor=0.9, upper_triangle=True):
     grid_x = np.arange(length)
     grid_y = np.arange(length)
@@ -179,6 +192,7 @@ if __name__ == '__main__':
     logging.info(compute_sum_along_sequence(np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]), [0, 2, 4]))
     logging.info(compute_average_along_sequence(np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]), [0, 2, 4]))
     logging.info(generate_mean_geometric_matrix(5))
+    logging.info(find_local_extreme_locations(np.array([1, 2, 3, 3, 2, 3, 1, 2, 3, 4, 3, 2, 1])))
 
     logging.info(has_nan(np.array([1, 2, 3, np.nan, 4])))
     logging.info(has_nan(np.array([1, 2, 3, 4])))

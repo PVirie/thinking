@@ -132,8 +132,16 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(
+            0, return_action=True, use_reward=False, use_monte_carlo=True, 
+            model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer_Online()
+        ),
+        cortex.Model(
+            1, return_action=False, use_reward=True, use_monte_carlo=True, 
+            model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer_Online()
+        ),
     ]
 
     hippocampus_models = [
@@ -162,8 +170,16 @@ def setup():
     context_length = 1
 
     cortex_models = [
-        cortex.Model(0, return_action=True, use_reward=False, use_monte_carlo=True, num_items_to_keep=1000, model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
-        cortex.Model(1, return_action=False, use_reward=True, use_monte_carlo=True, num_items_to_keep=1000, model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed)),
+        cortex.Model(
+            0, return_action=True, use_reward=False, use_monte_carlo=True, 
+            model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer_Online()
+        ),
+        cortex.Model(
+            1, return_action=False, use_reward=True, use_monte_carlo=True, 
+            model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer_Online()
+        ),
     ]
 
     hippocampus_models = [
@@ -184,56 +200,109 @@ def setup():
     return Context(parameter_sets=parameter_sets, random_seed=random_seed)
 
 
-def train(context, parameter_path):
-
-    def loop_train(trainers, num_epoch=1000):
-        print_steps = max(1, num_epoch // 100)
-        stamp = time.time()
-        for i in range(num_epoch):
-            for trainer in trainers:
-                trainer.step_update()
-            if i % print_steps == 0 and i > 0:
-                # print at every 1 % progress
-                # compute time to finish in seconds
-                logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-                logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.avg_loss:.4f}' for i, trainer in enumerate(trainers)])}")
-        logging.info(f"Total learning time {time.time() - stamp}s")
-
-
-    def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
-        states = np.stack(states, axis=0)
-        actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
-        rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
-        path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
-        for layer_i in range(num_layers - 1):
-            path = alg.State_Action_Sequence(states, actions, rewards)
-
-            skip_sequence = [i for i in range(skip_steps, len(states), skip_steps)]
-            # always add the last index
-            if len(skip_sequence) == 0 or skip_sequence[-1] != len(states) - 1:
-                skip_sequence.append(len(states) - 1)
-            skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
-
-            expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
-
-            path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
-
-            states = states[skip_sequence]
-            actions = actions[skip_sequence]
-            # reward is the average of the rewards in the skip sequence
-            rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
-        
-        # final layer
+def prepare_data_tuples(states, actions, rewards, num_layers, skip_steps):
+    states = np.stack(states, axis=0)
+    actions = np.reshape(np.stack(actions, axis=0), (-1, 1))
+    rewards = np.reshape(np.stack(rewards, axis=0), (-1, 1))
+    path_layer_tuples = [] # List[Tuple[algebraic.State_Action_Sequence, algebraic.Pointer_Sequence, algebraic.Expectation_Sequence]]
+    for layer_i in range(num_layers - 1):
         path = alg.State_Action_Sequence(states, actions, rewards)
-        skip_pointer_sequence = alg.Pointer_Sequence([len(states) - 1])
-        expectation_sequence = alg.Expectation_Sequence(np.ones((1, 1)))
+
+        skip_sequence = [i for i in range(skip_steps, len(states), skip_steps)]
+        # always add the last index
+        if len(skip_sequence) == 0 or skip_sequence[-1] != len(states) - 1:
+            skip_sequence.append(len(states) - 1)
+        skip_pointer_sequence = alg.Pointer_Sequence(skip_sequence)
+
+        expectation_sequence = alg.Expectation_Sequence(states[skip_sequence, :])
 
         path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
-        
-        return path_layer_tuples
+
+        states = states[skip_sequence]
+        actions = actions[skip_sequence]
+        # reward is the average of the rewards in the skip sequence
+        rewards = compute_sum_along_sequence(rewards, skip_sequence) / skip_steps
+    
+    # final layer
+    path = alg.State_Action_Sequence(states, actions, rewards)
+    skip_pointer_sequence = alg.Pointer_Sequence([len(states) - 1])
+    expectation_sequence = alg.Expectation_Sequence(np.ones((1, 1)))
+
+    path_layer_tuples.append((path, skip_pointer_sequence, expectation_sequence))
+    
+    return path_layer_tuples
+
+
+def train_model(env, name, model, num_layers, skip_steps, random_seed, previous_model=None):
+
+    logging.info(f"Training experiment {name}")
+
+    random.seed(random_seed)
+    env.action_space.seed(random_seed)
+    observation, info = env.reset(seed=random_seed)
+    
+    stable_state = alg.Expectation([1])
+
+    total_steps = 0
+    num_trials = 2000
+    print_steps = max(10, num_trials // 100)
+    for i in range(num_trials):
+        observation, info = env.reset(options={"low": -0.075, "high": 0.075})
+        states = []
+        actions = []
+        rewards = []
+        for _ in range(500):
+            if previous_model is None or random.random() < 0.25:
+                selected_action = env.action_space.sample()
+            else:
+                a = previous_model.react(alg.State(observation.data), stable_state)
+                selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
+
+            next_observation, reward, terminated, truncated, info = env.step(selected_action)
+            states.append(observation)
+            actions.append(selected_action)
+            rewards.append(reward)
+            if terminated or truncated:
+                break
+            else:
+                observation = next_observation
+        total_steps += len(states)
+
+        # now make hierarchical data
+        path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
+        trainers = model.observe(path_layer_tuples)
+
+        if i % print_steps == 0 and i > 0:
+            # print at every 1 % progress
+            logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
+            logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.get_loss():.4f}' for i, trainer in enumerate(trainers)])}")
+
+    logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
+
+    average_random_steps = total_steps/num_trials
+    return average_random_steps
+
+
+
+def train(context, parameter_path):
+
+    # def loop_train(trainers, num_epoch=1000):
+    #     print_steps = max(1, num_epoch // 100)
+    #     stamp = time.time()
+    #     for i in range(num_epoch):
+    #         for trainer in trainers:
+    #             trainer.step_update()
+    #         if i % print_steps == 0 and i > 0:
+    #             # print at every 1 % progress
+    #             # compute time to finish in seconds
+    #             logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
+    #             logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.get_loss():.4f}' for i, trainer in enumerate(trainers)])}")
+    #     logging.info(f"Total learning time {time.time() - stamp}s")
+
 
     random_seed = context.random_seed
-    
+    env = gym.make("CartPole-v1", render_mode=None)
+
     if context.training_state == 0:
 
         cortex_models = context.parameter_sets[0]["cortex_models"]
@@ -243,55 +312,15 @@ def train(context, parameter_path):
 
         model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
-        logging.info(f"Training experiment {name}")
-
-        env = gym.make("CartPole-v1", render_mode=None)
-        random.seed(random_seed)
-        env.action_space.seed(random_seed)
-        observation, info = env.reset(seed=random_seed)
-
         skip_steps = 8
         num_layers = len(cortex_models)
-        
-        total_steps = 0
-        num_trials = 2000
-        print_steps = max(1, num_trials // 100)
-        for i in range(num_trials):
-            if i % print_steps == 0 and i > 0:
-                # print at every 1 % progress
-                logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
-            observation, info = env.reset(options={"low": -0.075, "high": 0.075})
-            states = []
-            actions = []
-            rewards = []
-            for _ in range(500):
-                selected_action = env.action_space.sample()
-                next_observation, reward, terminated, truncated, info = env.step(selected_action)
-                states.append(observation)
-                actions.append(selected_action)
-                rewards.append(reward)
-                if terminated or truncated:
-                    break
-                else:
-                    observation = next_observation
-            total_steps += len(states)
 
-            # now make hierarchical data
-            path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
-            trainers = model.observe(path_layer_tuples)
-
-        logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
-        env.close()
-
-        for trainer in trainers:
-            trainer.prepare_batch(16)
-
-        loop_train(trainers, 20000)
+        average_random_steps = train_model(env, name, model, num_layers, skip_steps, random_seed)
 
         previous_model = model
 
-        average_random_steps = total_steps/num_trials
         context.average_random_steps = average_random_steps
+
         random_seed = random.randint(0, 100000)
         context.random_seed = random_seed
         context.training_state = 1
@@ -306,7 +335,6 @@ def train(context, parameter_path):
         previous_model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
 
-
     cortex_models = context.parameter_sets[1]["cortex_models"]
     hippocampus_models = context.parameter_sets[1]["hippocampus_models"]
     abstraction_models = context.parameter_sets[1]["abstraction_models"]
@@ -314,74 +342,28 @@ def train(context, parameter_path):
 
     model = HUMN(cortex_models, hippocampus_models, abstraction_models)
 
-    logging.info(f"Training experiment {name}")
-
-    env = gym.make("CartPole-v1", render_mode=None)
-    random.seed(random_seed)
-    env.action_space.seed(random_seed)
-    observation, info = env.reset(seed=random_seed)
     random_seed = random.randint(0, 100000)
-
-    stable_state = alg.Expectation([1])
-
+    
     skip_steps = 8
     num_layers = len(cortex_models)
+
     course = context.training_state - 1
 
-    while course < 20:
+    while course < 2:
         logging.info(f"Course {course}")
 
-        total_steps = 0
-        num_trials = 1000
-        print_steps = max(10, num_trials // 100)
-        for i in range(num_trials):
-            if i % print_steps == 0 and i > 0:
-                # print at every 1 % progress
-                logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
-            observation, info = env.reset(options={"low": -0.075, "high": 0.075})
-            states = []
-            actions = []
-            rewards = []
-            for _ in range(200):
-                if random.random() < 0.25:
-                    selected_action = env.action_space.sample()
-                else:
-                    a = previous_model.react(alg.State(observation.data), stable_state)
-                    selected_action = 1 if np.asarray(a.data)[0].item() > 0.5 else 0
-
-                next_observation, reward, terminated, truncated, info = env.step(selected_action)
-            
-                states.append(observation)
-                actions.append(selected_action)
-                rewards.append(reward)
-                if terminated or truncated:
-                    break
-                else:
-                    observation = next_observation
-            total_steps += len(states)
-
-            # now make hierarchical data
-            path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps)
-            trainers = model.observe(path_layer_tuples)
-
-        logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
-
-        for trainer in trainers:
-            trainer.prepare_batch(16)
-
-        loop_train(trainers, 1000)
-
-        # for trainer in trainers:
-        #     trainer.clear_batch()
+        train_model(env, name, model, num_layers, skip_steps, random_seed, previous_model)
 
         previous_model = model
         course += 1
 
+        random_seed = random.randint(0, 100000)
         context.random_seed = random_seed
         context.training_state = course + 1
         Context.save(context, parameter_path)
 
     env.close()
+
 
 @contextlib.contextmanager
 def experiment_session(path, force_clear=None):

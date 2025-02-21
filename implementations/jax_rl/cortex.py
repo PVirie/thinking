@@ -117,6 +117,17 @@ def prepare_data(cart_state_sequence, action_sequence, reward_sequence, goal_seq
     return s, x, t, scores, masks
 
 
+@partial(jax.jit, static_argnames=['s_dim', 'x_dim', 't_dim', 'seq_len', 'round_up_len', 'max_learning_sequence'])
+def split_data(s, x, t, scores, masks, s_dim, x_dim, t_dim, seq_len, round_up_len, max_learning_sequence):
+    s = jnp.pad(s, ((0, 0), (round_up_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
+    x = jnp.pad(x, ((0, 0), (round_up_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
+    t = jnp.pad(t, ((0, 0), (round_up_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
+    scores = jnp.pad(scores, ((0, 0), (round_up_len - seq_len, 0)), mode="constant", constant_values=0.0)
+    masks = jnp.pad(masks, ((0, 0), (round_up_len - seq_len, 0)), mode="constant", constant_values=0.0)
+
+    return jnp.reshape(s, (-1, max_learning_sequence, s_dim)), jnp.reshape(x, (-1, max_learning_sequence, x_dim)), jnp.reshape(t, (-1, max_learning_sequence, t_dim)), jnp.reshape(scores, (-1, max_learning_sequence)), jnp.reshape(masks, (-1, max_learning_sequence))
+
+
 # arr is array of floating point
 # arr is sorted in descending order
 def binary_search(arr, target):
@@ -135,9 +146,7 @@ def binary_search(arr, target):
 
 
 class Trainer(trainer.Trainer):
-    def __init__(self, model, total_keeping=1000, loss_alpha=0.05):
-        self.model = model
-
+    def __init__(self, total_keeping=1000, loss_alpha=0.05):
         self.total_keeping = total_keeping
         self.total_rewards = []
 
@@ -151,7 +160,19 @@ class Trainer(trainer.Trainer):
         self.epoch_batch = []
 
         self.loss_alpha = loss_alpha
-        self.avg_loss = 0.0
+        self.avg_loss = jnp.zeros(1)
+
+
+    def serialize(self):
+        return {
+            "_class_name": "Trainer",
+            "total_keeping": self.total_keeping,
+            "loss_alpha": self.loss
+        }
+
+
+    def set_model(self, model):
+        self.model = model
 
 
     def __find_insert_index(self, total_reward):
@@ -245,19 +266,13 @@ class Trainer(trainer.Trainer):
             seq_len = self.s[i].shape[1]
             # split into max learning sequence size
             round_up_len = math.ceil(seq_len / max_learning_sequence) * max_learning_sequence
-
-            s = jnp.pad(self.s[i], ((0, 0), (round_up_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
-            x = jnp.pad(self.x[i], ((0, 0), (round_up_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
-            t = jnp.pad(self.t[i], ((0, 0), (round_up_len - seq_len, 0), (0, 0)), mode="constant", constant_values=0.0)
-            scores = jnp.pad(self.scores[i], ((0, 0), (round_up_len - seq_len, 0)), mode="constant", constant_values=0.0)
-            masks = jnp.pad(self.masks[i], ((0, 0), (round_up_len - seq_len, 0)), mode="constant", constant_values=0.0)
-
+            s, x, t, scores, masks = split_data(s, x, t, scores, masks, s.shape[2], x.shape[2], t.shape[2], seq_len, round_up_len, max_learning_sequence)
             current_size += batch_len * int(round_up_len / max_learning_sequence)
-            current_s.append(jnp.reshape(s, (-1, max_learning_sequence, s.shape[2])))
-            current_x.append(jnp.reshape(x, (-1, max_learning_sequence, x.shape[2])))
-            current_t.append(jnp.reshape(t, (-1, max_learning_sequence, t.shape[2])))
-            current_scores.append(jnp.reshape(scores, (-1, max_learning_sequence)))
-            current_masks.append(jnp.reshape(masks, (-1, max_learning_sequence)))
+            current_s.append(s)
+            current_x.append(x)
+            current_t.append(t)
+            current_scores.append(scores)
+            current_masks.append(masks)
 
             if current_size > max_mini_batch_size:
                 S = jnp.concatenate(current_s, axis=0)
@@ -317,12 +332,86 @@ class Trainer(trainer.Trainer):
         self.step += 1
         loss = self.model.fit_sequence(minibatch[0], minibatch[1], minibatch[2], minibatch[3], minibatch[4])
         self.avg_loss = (self.avg_loss * (1-self.loss_alpha) + loss * self.loss_alpha)
-        return self.avg_loss
+        return self
+
+
+    def get_loss(self):
+        # convert to cpu
+        return self.avg_loss.item()
+    
+
+class Trainer_Online(trainer.Trainer):
+
+    def __init__(self, loss_alpha=0.05, max_mini_batch_size=16, max_learning_sequence=16): 
+        self.max_mini_batch_size = max_mini_batch_size
+        self.max_learning_sequence = max_learning_sequence
+        self.loss_alpha = loss_alpha
+        self.avg_loss = jnp.zeros(1)
+
+
+    def serialize(self):
+        return {
+            "_class_name": "Trainer_Online",
+            "loss_alpha": self.loss_alpha,
+            "max_mini_batch_size": self.max_mini_batch_size,
+            "max_learning_sequence": self.max_learning_sequence
+        }
+
+
+    def set_model(self, model):
+        self.model = model
+
+
+    def step_update(self, step_discount_factor, use_action, use_reward, use_monte_carlo, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
+
+        if len(path_encoding_sequence) == 0:
+            return self
+
+        cart_state_sequence = path_encoding_sequence.get_states()
+        action_sequence = path_encoding_sequence.get_actions()
+        reward_sequence = path_encoding_sequence.get_rewards()
+        goal_sequence = pivots.get()
+
+        s, x, t, scores, masks = prepare_data(
+            cart_state_sequence,
+            action_sequence,
+            reward_sequence,
+            goal_sequence,
+            pivot_indices.data,
+            len(pivots),
+            len(path_encoding_sequence),
+            step_discount_factor,
+            self.model.infer,
+            use_action,
+            use_reward,
+            use_monte_carlo
+        )
+
+        seq_len = s.shape[1]
+        round_up_len = math.ceil(seq_len / self.max_learning_sequence) * self.max_learning_sequence
+        s, x, t, scores, masks = split_data(s, x, t, scores, masks, s.shape[2], x.shape[2], t.shape[2], seq_len, round_up_len, self.max_learning_sequence)
+        
+        for i in range(0, s.shape[0], self.max_mini_batch_size):
+            loss = self.model.fit_sequence(
+                s[i: i + self.max_mini_batch_size, ...],
+                x[i: i + self.max_mini_batch_size, ...],
+                t[i: i + self.max_mini_batch_size, ...],
+                scores[i: i + self.max_mini_batch_size, ...],
+                masks[i: i + self.max_mini_batch_size, ...]
+            )
+            self.avg_loss = (self.avg_loss * (1-self.loss_alpha) + loss * self.loss_alpha)
+
+        return self
+    
+
+    def get_loss(self):
+        # convert to cpu
+        return self.avg_loss.item()
 
 
 class Model(cortex_model.Model):
     
-    def __init__(self, layer: int, return_action: bool, model: core.base.Model, step_discount_factor=0.9, use_reward=False, use_monte_carlo=True, num_items_to_keep=None):
+    def __init__(self, layer: int, return_action: bool, model: core.base.Model, trainer: trainer.Trainer, step_discount_factor=0.9, use_reward=False, use_monte_carlo=True):
         # if you wish to share the model, pass the index into learning and inference functions to differentiate between layers
         self.layer = layer
         self.return_action = return_action
@@ -333,7 +422,8 @@ class Model(cortex_model.Model):
         self.model = model
         self.printer = None
 
-        self.trainer = Trainer(self.model, total_keeping=num_items_to_keep)
+        self.trainer = trainer
+        self.trainer.set_model(self.model)
 
 
     def set_printer(self, printer):
@@ -349,14 +439,25 @@ class Model(cortex_model.Model):
         with open(os.path.join(path, "metadata.json"), "r") as f:
             metadata = json.load(f)
         model = core.load(metadata["model"])
+        if metadata["trainer"]["_class_name"] == "Trainer":
+            trainer = Trainer(
+                total_keeping=metadata["trainer"]["total_keeping"],
+                loss_alpha=metadata["trainer"]["loss_alpha"]
+            )
+        else:
+            trainer = Trainer_Online(
+                loss_alpha=metadata["trainer"]["loss_alpha"],
+                max_mini_batch_size=metadata["trainer"]["max_mini_batch_size"],
+                max_learning_sequence=metadata["trainer"]["max_learning_sequence"]
+            )
         return Model(
             layer=metadata["layer"], 
             return_action=metadata["return_action"], 
-            model=model, 
+            model=model,
+            trainer=trainer,
             step_discount_factor=metadata["step_discount_factor"], 
             use_reward=metadata["use_reward"], 
-            use_monte_carlo=metadata["use_monte_carlo"],
-            num_items_to_keep=metadata.get("num_items_to_keep", None)
+            use_monte_carlo=metadata["use_monte_carlo"]
         )
                                                               
 
@@ -367,17 +468,17 @@ class Model(cortex_model.Model):
             json.dump({
                 "layer": self.layer,
                 "return_action": self.return_action,
+                "model": core.save(self.model),
+                "trainer": self.trainer.serialize(),
                 "step_discount_factor": self.step_discount_factor,
                 "use_reward": self.use_reward,
                 "use_monte_carlo": self.use_monte_carlo,
-                "num_items_to_keep": self.trainer.total_keeping,
-                "model": core.save(self.model)
             }, f)
 
 
     def incrementally_learn(self, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence) -> Trainer:
         # learn to predict the next state and its probability from the current state given goal
-        return self.trainer.accumulate_batch(self.step_discount_factor, self.return_action, self.use_reward, self.use_monte_carlo, path_encoding_sequence, pivot_indices, pivots)
+        return self.trainer.step_update(self.step_discount_factor, self.return_action, self.use_reward, self.use_monte_carlo, path_encoding_sequence, pivot_indices, pivots)
 
 
     def infer_sub_action(self, from_encoding_sequence: State, expect_action: Action) -> Action:

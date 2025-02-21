@@ -4,4 +4,6 @@ debugpy
 # RL
 gymnasium[classic-control]
 gymnasium[mujoco]
+# mujoco-mjx
+# gymnax
 Pillow
