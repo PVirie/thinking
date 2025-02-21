@@ -2,7 +2,7 @@ pydantic
 numpy
 debugpy
 # RL
-# gymnasium[classic-control]
+gymnasium[classic-control]
 gymnasium[mujoco]
 # mujoco-mjx
 gymnax
