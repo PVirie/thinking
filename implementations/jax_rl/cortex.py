@@ -167,7 +167,7 @@ class Trainer(trainer.Trainer):
         return {
             "_class_name": "Trainer",
             "total_keeping": self.total_keeping,
-            "loss_alpha": self.loss
+            "loss_alpha": self.loss_alpha
         }
 
 
@@ -266,7 +266,7 @@ class Trainer(trainer.Trainer):
             seq_len = self.s[i].shape[1]
             # split into max learning sequence size
             round_up_len = math.ceil(seq_len / max_learning_sequence) * max_learning_sequence
-            s, x, t, scores, masks = split_data(s, x, t, scores, masks, s.shape[2], x.shape[2], t.shape[2], seq_len, round_up_len, max_learning_sequence)
+            s, x, t, scores, masks = split_data(self.s[i], self.x[i], self.t[i], self.scores[i], self.masks[i], self.s[i].shape[2], self.x[i].shape[2], self.t[i].shape[2], seq_len, round_up_len, max_learning_sequence)
             current_size += batch_len * int(round_up_len / max_learning_sequence)
             current_s.append(s)
             current_x.append(x)
@@ -362,7 +362,7 @@ class Trainer_Online(trainer.Trainer):
         self.model = model
 
 
-    def step_update(self, step_discount_factor, use_action, use_reward, use_monte_carlo, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
+    def accumulate_batch(self, step_discount_factor, use_action, use_reward, use_monte_carlo, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence):
 
         if len(path_encoding_sequence) == 0:
             return self
@@ -478,7 +478,7 @@ class Model(cortex_model.Model):
 
     def incrementally_learn(self, path_encoding_sequence: State_Action_Sequence, pivot_indices: Pointer_Sequence, pivots: Expectation_Sequence) -> Trainer:
         # learn to predict the next state and its probability from the current state given goal
-        return self.trainer.step_update(self.step_discount_factor, self.return_action, self.use_reward, self.use_monte_carlo, path_encoding_sequence, pivot_indices, pivots)
+        return self.trainer.accumulate_batch(self.step_discount_factor, self.return_action, self.use_reward, self.use_monte_carlo, path_encoding_sequence, pivot_indices, pivots)
 
 
     def infer_sub_action(self, from_encoding_sequence: State, expect_action: Action) -> Action:

@@ -135,12 +135,12 @@ def setup():
         cortex.Model(
             0, return_action=True, use_reward=False, use_monte_carlo=True, 
             model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed),
-            trainer=cortex.Trainer_Online()
+            trainer=cortex.Trainer(total_keeping=200)
         ),
         cortex.Model(
             1, return_action=False, use_reward=True, use_monte_carlo=True, 
-            model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed),
-            trainer=cortex.Trainer_Online()
+            model=transformer.Model([state_dim, state_dim, reward_dim], context_length, 64, [64, 64], memory_size=16, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer(total_keeping=200)
         ),
     ]
 
@@ -173,12 +173,12 @@ def setup():
         cortex.Model(
             0, return_action=True, use_reward=False, use_monte_carlo=True, 
             model=transformer.Model([state_dim, action_dim, state_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed),
-            trainer=cortex.Trainer_Online()
+            trainer=cortex.Trainer(total_keeping=200)
         ),
         cortex.Model(
             1, return_action=False, use_reward=True, use_monte_carlo=True, 
-            model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 64, [64, 64], memory_size=4, lr=0.0001, r_seed=random_seed),
-            trainer=cortex.Trainer_Online()
+            model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 64, [64, 64], memory_size=16, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer(total_keeping=200)
         ),
     ]
 
@@ -270,7 +270,7 @@ def rollout(r_key, env, env_params, jitted_step, model, total_steps):
         model_action_obj = react_func(obs)
         model_action = jnp.reshape(jnp.where(model_action_obj.data > 0.5, 1, 0), ())
         epsilon = jax.random.uniform(key_epsilon, shape=random_action.shape)
-        selection_action = jnp.where(epsilon < 0.2, random_action, model_action)
+        selection_action = jnp.where(epsilon < 0.25, random_action, model_action)
 
         next_obs, next_state, reward, done, _ = jitted_step(key_step, state, selection_action, env_params)
         next_valid = (valid * (1 - done)).astype(jnp.bool_)
@@ -300,7 +300,7 @@ def train_model(env, env_params, jitted_step, name, model, num_layers, skip_step
 
     total_steps = 0
     num_trials = 2000
-    print_steps = max(10, num_trials // 100)
+    print_steps = max(10, num_trials // 10)
     for i in range(num_trials):
         r_key, key_reset = jax.random.split(r_key)
         observation, state = env.reset(key_reset, env_params)
@@ -308,8 +308,8 @@ def train_model(env, env_params, jitted_step, name, model, num_layers, skip_step
         states = []
         actions = []
         rewards = []
-        for _ in range(500):
-            if previous_model is None or random.random() < 0.2:
+        for _ in range(200):
+            if previous_model is None or random.random() < 0.25:
                 r_key, key_act = jax.random.split(r_key)
                 selected_action = env.action_space(env_params).sample(key_act)
             else:
@@ -339,10 +339,17 @@ def train_model(env, env_params, jitted_step, name, model, num_layers, skip_step
         # path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps, input_as_stacks=True)
         # trainers = model.observe(path_layer_tuples)
 
-        if i % print_steps == 0 and i > 0:
-            # print at every 1 % progress
+        if (i - 1) % print_steps == 0:
             logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
-            logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.get_loss():.4f}' for i, trainer in enumerate(trainers)])}")
+
+    for trainer in trainers:
+        trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=32)
+
+    for i in range(1000):
+        for trainer in trainers:
+            trainer.step_update()
+        if (i - 1) % print_steps == 0:
+            logging.info(f"Layer loss: {'| '.join([f'{j}, {trainer.get_loss():.4f}' for j, trainer in enumerate(trainers)])}")
 
     logging.log(logging.INFO, f"Average steps: {total_steps/num_trials}")
 

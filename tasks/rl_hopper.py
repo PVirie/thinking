@@ -127,13 +127,13 @@ def setup():
     cortex_models = [
         cortex.Model(
             0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.9,  
-            model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=8, value_access=True, lr=0.0001, r_seed=random_seed),
-            trainer=cortex.Trainer_Online()
+            model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=4, value_access=True, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer(total_keeping=200)
         ),
         cortex.Model(
             1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.9, 
-            model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 256, [256, 256], memory_size=32, value_access=True, lr=0.0001, r_seed=random_seed),
-            trainer=cortex.Trainer_Online()
+            model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 512, [512, 512], memory_size=16, value_access=True, lr=0.0001, r_seed=random_seed),
+            trainer=cortex.Trainer(total_keeping=200)
         )
     ]
 
@@ -280,18 +280,18 @@ if __name__ == "__main__":
 
         model = HUMN(context.cortex_models, context.hippocampus_models, context.abstraction_models)
         
-        # def loop_train(trainers, num_epoch=1000):
-        #     print_steps = max(10, num_epoch // 100)
-        #     stamp = time.time()
-        #     for i in range(num_epoch):
-        #         for trainer in trainers:
-        #             trainer.step_update()
-        #         if i % print_steps == 0 and i > 0:
-        #             # print at every 1 % progress
-        #             # compute time to finish in seconds
-        #             logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
-        #             logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.get_loss():.4f}' for i, trainer in enumerate(trainers)])}")
-        #     logging.info(f"Learning time {time.time() - stamp}s")
+        def loop_train(trainers, num_epoch=1000):
+            print_steps = max(10, num_epoch // 100)
+            stamp = time.time()
+            for i in range(num_epoch):
+                for trainer in trainers:
+                    trainer.step_update()
+                if (i - 1) % print_steps == 0:
+                    # print at every 1 % progress
+                    # compute time to finish in seconds
+                    logging.info(f"Training progress: {(i * 100 / num_epoch):.2f}, time to finish: {((time.time() - stamp) * (num_epoch - i) / i):.2f}s")
+                    logging.info(f"Layer loss: {'| '.join([f'{j}, {trainer.get_loss():.4f}' for j, trainer in enumerate(trainers)])}")
+            logging.info(f"Learning time {time.time() - stamp}s")
 
 
         def update_statistics(last_goals, health, stats):
@@ -463,20 +463,16 @@ if __name__ == "__main__":
                     # print at every 10% progress
                     logging.info(f"Env collected: {current_percent_collection:.2f}% (est finish time: {((time.time() - stamp) * (max_total_steps - total_steps) / total_steps):.2f}s)")
                     last_percent_collection = current_percent_collection
-                    logging.info(f"Layer loss: {'| '.join([f'{i}, {trainer.get_loss():.4f}' for i, trainer in enumerate(trainers)])}")
 
                 if total_steps >= max_total_steps:
                     break
 
             logging.info(f"Average steps: {total_steps/num_trials}")
 
-            # for trainer in trainers:
-            #     trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=64)
+            for trainer in trainers:
+                trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=64)
                 
-            # if course == num_courses - 1:
-            #     loop_train(trainers, 10000)
-            # else:
-            #     loop_train(trainers, 1000)
+            loop_train(trainers, 1000)
 
             # for trainer in trainers:
             #     trainer.clear_batch()
