@@ -270,7 +270,7 @@ def rollout(r_key, env, env_params, jitted_step, model, total_steps):
         model_action_obj = react_func(obs)
         model_action = jnp.reshape(jnp.where(model_action_obj.data > 0.5, 1, 0), ())
         epsilon = jax.random.uniform(key_epsilon, shape=random_action.shape)
-        selection_action = jnp.where(epsilon < 0.25, random_action, model_action)
+        selection_action = jnp.where(epsilon < 0.2, random_action, model_action)
 
         next_obs, next_state, reward, done, _ = jitted_step(key_step, state, selection_action, env_params)
         next_valid = (valid * (1 - done)).astype(jnp.bool_)
@@ -309,7 +309,7 @@ def train_model(env, env_params, jitted_step, name, model, num_layers, skip_step
         actions = []
         rewards = []
         for _ in range(500):
-            if previous_model is None or random.random() < 0.25:
+            if previous_model is None or random.random() < 0.2:
                 r_key, key_act = jax.random.split(r_key)
                 selected_action = env.action_space(env_params).sample(key_act)
             else:
@@ -330,6 +330,7 @@ def train_model(env, env_params, jitted_step, name, model, num_layers, skip_step
         path_layer_tuples = prepare_data_tuples(states, actions, rewards, num_layers, skip_steps, input_as_stacks=False)
         trainers = model.observe(path_layer_tuples)
 
+        # ROLL OUT IS SLOWER THAN LOOPING
         # states, actions, rewards, _, dones = rollout(r_key, env, env_params, jitted_step, model, 200)
         # states = states[dones, ...]
         # actions = actions[dones, ...]
@@ -402,7 +403,7 @@ def train(context, parameter_path):
 
     course = context.training_state - 1
 
-    while course < 1:
+    while course < 2:
         logging.info(f"Course {course}")
 
         train_model(env, env_params, jitted_step, name, model, num_layers, skip_steps, random_seed, previous_model)

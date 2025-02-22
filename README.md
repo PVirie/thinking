@@ -108,3 +108,4 @@ If you want to purely install the python code, you can follow the steps in the d
 -   [x] Interruptible training
 -   [x] Torch GPU
 -   [ ] Use flax nnx
+-   [ ] Use mucojo-jax to speed up
