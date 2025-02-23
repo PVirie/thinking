@@ -177,7 +177,7 @@ class Value_Score_Module(nn.Module):
             dot_scores = jnp.reshape(dot_scores, (-1, self.slots))
             max_indices = jnp.argmax(dot_scores, axis=1, keepdims=True)    
         else:
-            # score has range [0, 1], quantize to int slots
+            # score has range [0, 1], quantize to int slots, must be handled from out side
             scores = jnp.reshape(scores, (-1, 1))
             max_indices = jnp.round(scores * (self.slots - 1)).astype(jnp.int32)
             max_indices = jnp.clip(max_indices, min=0, max=self.slots - 1)
@@ -280,8 +280,11 @@ def loss_fn(params, model_fn, s, x, t, scores, masks, dropout_train_key):
     sum_mask = jnp.maximum(sum_mask, 1)
     error_S = jnp.sum(masks * (scores - scores_)**2) / sum_mask
     error_V = jnp.sum(masks * jnp.mean((x - v_)**2, axis=-1)) / sum_mask
-    # suppress other slot score to 0
-    error_C = jnp.mean(Ss ** 2)
+    
+    # suppress other slot score to mean of overall
+    # loss = objective_loss + normalizer = value_loss + score_loss + log sum exp (all score)
+    # d loss/ d param = d value_loss/ d param + d score_loss/ d param + sum (prop . d score / d param)
+    error_C = jnp.mean(jax.nn.logsumexp(Ss, axis=1))
 
     return error_V + error_S + error_C * 0.1
 

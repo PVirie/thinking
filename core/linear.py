@@ -86,7 +86,7 @@ def compute_error(Q, V, S, M, params, r_key, next_state_dims, memory_size, batch
         dot_scores = jnp.linalg.matmul(Vs, Vl) / denom
         max_indices = jnp.argmax(dot_scores, axis=1)
     else:
-        # score has range [0, 1], quantize to int slots
+        # score has range [0, 1], quantize to int slots, must be handled from out side
         scores = jnp.reshape(S, (-1, 1))
         max_indices = jnp.round(scores * (memory_size - 1)).astype(jnp.int32)
         max_indices = jnp.minimum(max_indices, memory_size - 1)
@@ -98,8 +98,9 @@ def compute_error(Q, V, S, M, params, r_key, next_state_dims, memory_size, batch
     error_S = M * (S - S_)**2
     error_V = M * (V - V_)**2
 
-    # suppress other slot score to 0
-    error_C = jnp.mean(Ss ** 2)
+    # suppress other slot score to mean of overall
+    error_C = jnp.mean(jax.nn.logsumexp(Ss, axis=1))
+
     return jnp.mean(error_V) + jnp.mean(error_S) + error_C * 0.1
 
 

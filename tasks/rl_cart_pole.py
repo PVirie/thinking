@@ -340,7 +340,7 @@ def train_model(env, env_params, jitted_step, name, model, num_layers, skip_step
         # trainers = model.observe(path_layer_tuples)
 
         if (i - 1) % print_steps == 0:
-            logging.info(f"Environment collection: {(i * 100 / num_trials):.2f}")
+            logging.info(f"Environment collection: {((i - 1) * 100 / num_trials):.2f}%")
 
     for trainer in trainers:
         trainer.prepare_batch(max_mini_batch_size=32, max_learning_sequence=32)
