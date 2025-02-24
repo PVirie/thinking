@@ -128,12 +128,12 @@ def setup():
         cortex.Model(
             0, return_action=True, use_reward=False, use_monte_carlo=True, step_discount_factor=0.9,  
             model=transformer.Model([state_dim, action_dim, state_dim], context_length, 128, [256, 256], memory_size=4, value_access=True, lr=0.0001, r_seed=random_seed),
-            trainer=cortex.Trainer(total_keeping=200)
+            trainer=cortex.Trainer(total_keeping=1000)
         ),
         cortex.Model(
             1, return_action=False, use_reward=True, use_monte_carlo=False, step_discount_factor=0.9, 
             model=transformer.Model([state_dim, state_dim, expectation_dim], context_length, 512, [512, 512], memory_size=16, value_access=True, lr=0.0001, r_seed=random_seed),
-            trainer=cortex.Trainer(total_keeping=200)
+            trainer=cortex.Trainer(total_keeping=1000)
         )
     ]
 
@@ -331,12 +331,12 @@ if __name__ == "__main__":
             # sign_goal_stat = np.where(abs(goal_stat) < 1e-6, 0, np.sign(goal_stat))
             if target[0] >= 1:
                 # forward target
-                goal_rewards = goal_stat[:, 0:1] * 0.1
+                goal_rewards = goal_stat[:, 0:1] + 0.5 * goal_stat[:, 1:2]
             elif target[0] <= -1:
                 # backward target
-                goal_rewards = -goal_stat[:, 0:1] * 0.1
+                goal_rewards = -goal_stat[:, 0:1] + 0.5 * goal_stat[:, 1:2]
             else:
-                goal_rewards = -np.abs(goal_stat[:, 0:1]) + 0.1 * goal_stat[:, 1:2]
+                goal_rewards = -np.abs(goal_stat[:, 0:1]) + 0.5 * goal_stat[:, 1:2]
 
             # override reward to add control cost
             rewards = goal_rewards + rewards
@@ -381,7 +381,7 @@ if __name__ == "__main__":
 
         env = gym.make(
             'Hopper-v5',
-            healthy_reward=1, 
+            healthy_reward=0, 
             forward_reward_weight=0,
             ctrl_cost_weight=1e-3,
             healthy_angle_range=(-math.pi/2, math.pi/2),

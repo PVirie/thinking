@@ -287,7 +287,7 @@ def train(context, parameter_path):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.001, r_seed=random_seed), max_steps = graph_shape)
+            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.0001, r_seed=random_seed), max_steps = graph_shape)
             for i in range(num_layers)
         ]
 
@@ -327,7 +327,7 @@ def train(context, parameter_path):
 
         # For table experiment, hidden_size is the crucial parameter.
         cortex_models = [
-            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.001, r_seed=random_seed), max_steps = graph_shape)
+            cortex.Model(i, transformer.Model(graph_shape, 1, 128, [128], memory_size=graph_shape, value_access=False, lr=0.0001, r_seed=random_seed), max_steps = graph_shape)
             for i in range(num_layers)
         ]
 

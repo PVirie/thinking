@@ -101,7 +101,7 @@ def compute_error(Q, V, S, M, params, r_key, next_state_dims, memory_size, batch
     # suppress other slot score to mean of overall
     error_C = jnp.mean(jax.nn.logsumexp(Ss, axis=1))
 
-    return jnp.mean(error_V) + jnp.mean(error_S) + error_C * 0.1
+    return jnp.mean(error_V) + jnp.mean(error_S) + error_C * 0.01
 
 
 value_grad_function = jax.jit(jax.value_and_grad(compute_error, argnums=(4)), static_argnames=['next_state_dims', 'memory_size', 'batch_size', 'value_access'])

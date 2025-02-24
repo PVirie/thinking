@@ -286,7 +286,7 @@ def loss_fn(params, model_fn, s, x, t, scores, masks, dropout_train_key):
     # d loss/ d param = d value_loss/ d param + d score_loss/ d param + sum (prop . d score / d param)
     error_C = jnp.mean(jax.nn.logsumexp(Ss, axis=1))
 
-    return error_V + error_S + error_C * 0.1
+    return error_V + error_S + error_C * 0.01
 
 
 jitted_loss = jax.jit(jax.value_and_grad(loss_fn, argnums=(0)), static_argnames=['model_fn'])
